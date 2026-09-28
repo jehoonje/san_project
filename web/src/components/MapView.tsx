@@ -19,12 +19,11 @@ export function MapView({ coords, initialCenter }: MapViewProps) {
   const markerRef = useRef<maplibregl.Marker | null>(null);
   const hasRealLocationRef = useRef(false);
   const latestCoordRef = useRef<[number, number] | null>(null);
-  const isFollowingRef = useRef(true); // 카메라가 사용자 위치를 따라갈지 여부
+  const isFollowingRef = useRef(true);
 
   const [hasLocation, setHasLocation] = useState(false);
   const [isFollowing, setIsFollowing] = useState(true);
 
-  // 지도 최초 1회 초기화
   useEffect(() => {
     if (!containerRef.current) return;
 
@@ -37,12 +36,10 @@ export function MapView({ coords, initialCenter }: MapViewProps) {
       zoom: 15,
     });
 
-    // 회전만 비활성화. 드래그(팬)와 줌은 모두 허용 -> 자유롭게 탐색 가능
     map.dragRotate.disable();
     map.touchZoomRotate.disableRotation();
     map.keyboard.disable();
 
-    // 사용자가 직접 지도를 움직이면(드래그/휠 줌 등) 자동 추적을 해제
     const stopFollowing = () => {
       if (isFollowingRef.current) {
         isFollowingRef.current = false;
@@ -51,8 +48,6 @@ export function MapView({ coords, initialCenter }: MapViewProps) {
     };
     map.on("dragstart", stopFollowing);
     map.on("zoomstart", (e) => {
-      // 우리가 코드로 실행한 easeTo/jumpTo는 e.originalEvent가 없음.
-      // 사용자의 실제 터치/휠 제스처일 때만 추적 해제.
       if (e.originalEvent) stopFollowing();
     });
 
@@ -102,18 +97,20 @@ export function MapView({ coords, initialCenter }: MapViewProps) {
     const map = mapRef.current;
     if (!map || !map.getSource(ROUTE_SOURCE_ID)) return;
 
-    const latest = coords[coords.length - 1];
-    if (!latest) return;
-
-    latestCoordRef.current = latest;
-    markerRef.current?.setLngLat(latest);
-
     const source = map.getSource(ROUTE_SOURCE_ID) as maplibregl.GeoJSONSource;
+
+    // 경로선은 coords 그대로 반영 (빈 배열이면 선도 사라짐 - 종료 후 정상 동작)
     source.setData({
       type: "Feature",
       properties: {},
       geometry: { type: "LineString", coordinates: coords },
     });
+
+    const latest = coords[coords.length - 1];
+    if (!latest) return; // 좌표가 없으면(종료 직후) 마커/카메라는 마지막 위치 그대로 유지
+
+    latestCoordRef.current = latest;
+    markerRef.current?.setLngLat(latest);
 
     if (!hasRealLocationRef.current) {
       map.jumpTo({ center: latest, zoom: 17 });
@@ -124,14 +121,7 @@ export function MapView({ coords, initialCenter }: MapViewProps) {
     }
   }, [coords]);
 
-  useEffect(() => {
-    if (coords.length === 0) {
-      hasRealLocationRef.current = false;
-      setHasLocation(false);
-    }
-  }, [coords.length]);
-
-  // 재센터 버튼: 추적 모드로 복귀하며 현재 위치로 카메라 이동
+  // 재센터 버튼: 추적 모드로 복귀하며 마지막 위치로 카메라 이동
   function handleRecenter() {
     const map = mapRef.current;
     const latest = latestCoordRef.current;
