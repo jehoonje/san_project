@@ -36,13 +36,22 @@ export default function Index() {
   }
 
 
+  function sendInitialLocation(point: RecordedPoint) {
+    // 웹 쪽 리스너가 늦게 붙는 경우를 대비해 즉시 1회 + 지연 후 1회 더 전송
+    // (같은 좌표를 두 번 보내도 지도 갱신에는 문제 없음)
+    sendToWeb({ type: "LOCATION_UPDATE", coords: [[point.lng, point.lat]] });
+    setTimeout(() => {
+      sendToWeb({ type: "LOCATION_UPDATE", coords: [[point.lng, point.lat]] });
+    }, 800);
+  }
+
+
   // 앱 진입 시(추적 시작 전) 현재 위치를 1회 조회해 지도에 표시
   async function showInitialLocation() {
     const { status: permissionStatus } =
       await Location.requestForegroundPermissionsAsync();
 
     if (permissionStatus !== "granted") {
-      // 권한이 없으면 조용히 스킵 (추적 시작 시 다시 물어봄)
       return;
     }
 
@@ -61,12 +70,8 @@ export default function Index() {
       console.log("[APP] 초기 위치 조회:", point);
 
       if (isWebReadyRef.current) {
-        sendToWeb({
-          type: "LOCATION_UPDATE",
-          coords: [[point.lng, point.lat]],
-        });
+        sendInitialLocation(point);
       } else {
-        // 웹뷰 로딩이 아직 안 끝났으면 로딩 완료 후 보내도록 보관
         pendingInitialLocationRef.current = point;
       }
     } catch (err) {
@@ -83,14 +88,14 @@ export default function Index() {
   function handleWebViewLoadEnd() {
     isWebReadyRef.current = true;
 
-    if (pendingInitialLocationRef.current) {
-      const point = pendingInitialLocationRef.current;
-      sendToWeb({
-        type: "LOCATION_UPDATE",
-        coords: [[point.lng, point.lat]],
-      });
-      pendingInitialLocationRef.current = null;
-    }
+    // onLoadEnd는 문서 로드 완료 시점일 뿐, 웹페이지의 React 리스너가
+    // 이미 등록되어 있다는 보장은 없으므로 약간의 지연을 주고 전송한다.
+    setTimeout(() => {
+      if (pendingInitialLocationRef.current) {
+        sendInitialLocation(pendingInitialLocationRef.current);
+        pendingInitialLocationRef.current = null;
+      }
+    }, 500);
   }
 
 

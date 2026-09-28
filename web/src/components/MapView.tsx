@@ -18,9 +18,12 @@ export function MapView({ coords, initialCenter }: MapViewProps) {
   const mapRef = useRef<maplibregl.Map | null>(null);
   const markerRef = useRef<maplibregl.Marker | null>(null);
   const hasRealLocationRef = useRef(false);
-  const [hasLocation, setHasLocation] = useState(false); // 실제 위치 도착 여부
+  const latestCoordRef = useRef<[number, number] | null>(null);
+  const isFollowingRef = useRef(true);
 
-  // 지도 최초 1회 초기화
+  const [hasLocation, setHasLocation] = useState(false);
+  const [isFollowing, setIsFollowing] = useState(true);
+
   useEffect(() => {
     if (!containerRef.current) return;
 
@@ -33,10 +36,20 @@ export function MapView({ coords, initialCenter }: MapViewProps) {
       zoom: 15,
     });
 
-    map.dragPan.disable();
     map.dragRotate.disable();
     map.touchZoomRotate.disableRotation();
     map.keyboard.disable();
+
+    const stopFollowing = () => {
+      if (isFollowingRef.current) {
+        isFollowingRef.current = false;
+        setIsFollowing(false);
+      }
+    };
+    map.on("dragstart", stopFollowing);
+    map.on("zoomstart", (e) => {
+      if (e.originalEvent) stopFollowing();
+    });
 
     map.on("load", () => {
       map.resize();
@@ -79,38 +92,45 @@ export function MapView({ coords, initialCenter }: MapViewProps) {
     return () => map.remove();
   }, [initialCenter]);
 
-  // 좌표가 갱신될 때마다 마커/경로선/카메라 갱신
+  // 좌표가 갱신될 때마다 마커/경로선 갱신, 추적 중일 때만 카메라 이동
   useEffect(() => {
     const map = mapRef.current;
     if (!map || !map.getSource(ROUTE_SOURCE_ID)) return;
 
-    const latest = coords[coords.length - 1];
-    if (!latest) return;
-
-    markerRef.current?.setLngLat(latest);
-
     const source = map.getSource(ROUTE_SOURCE_ID) as maplibregl.GeoJSONSource;
+
+    // 경로선은 coords 그대로 반영 (빈 배열이면 선도 사라짐 - 종료 후 정상 동작)
     source.setData({
       type: "Feature",
       properties: {},
       geometry: { type: "LineString", coordinates: coords },
     });
 
+    const latest = coords[coords.length - 1];
+    if (!latest) return; // 좌표가 없으면(종료 직후) 마커/카메라는 마지막 위치 그대로 유지
+
+    latestCoordRef.current = latest;
+    markerRef.current?.setLngLat(latest);
+
     if (!hasRealLocationRef.current) {
       map.jumpTo({ center: latest, zoom: 17 });
       hasRealLocationRef.current = true;
-      setHasLocation(true); // 실제 위치 도착 -> 로딩 오버레이 제거
-    } else {
+      setHasLocation(true);
+    } else if (isFollowingRef.current) {
       map.easeTo({ center: latest, duration: 500 });
     }
   }, [coords]);
 
-  useEffect(() => {
-    if (coords.length === 0) {
-      hasRealLocationRef.current = false;
-      setHasLocation(false);
-    }
-  }, [coords.length]);
+  // 재센터 버튼: 추적 모드로 복귀하며 마지막 위치로 카메라 이동
+  function handleRecenter() {
+    const map = mapRef.current;
+    const latest = latestCoordRef.current;
+    if (!map || !latest) return;
+
+    isFollowingRef.current = true;
+    setIsFollowing(true);
+    map.easeTo({ center: latest, zoom: 17, duration: 500 });
+  }
 
   return (
     <div style={{ position: "absolute", top: 0, left: 0, right: 0, bottom: 0 }}>
@@ -118,6 +138,32 @@ export function MapView({ coords, initialCenter }: MapViewProps) {
         ref={containerRef}
         style={{ position: "absolute", top: 0, left: 0, right: 0, bottom: 0 }}
       />
+
+      {!isFollowing && hasLocation && (
+        <button
+          onClick={handleRecenter}
+          aria-label="현재 위치로 이동"
+          style={{
+            position: "absolute",
+            right: 16,
+            bottom: 120,
+            zIndex: 15,
+            width: 48,
+            height: 48,
+            borderRadius: "50%",
+            border: "none",
+            background: "#fff",
+            boxShadow: "0 2px 8px rgba(0,0,0,0.25)",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            fontSize: 22,
+          }}
+        >
+          {"\u{1F4CD}"}
+        </button>
+      )}
+
       {!hasLocation && (
         <div
           style={{
