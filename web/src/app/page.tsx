@@ -38,6 +38,7 @@ function sendToApp(message: Record<string, unknown>) {
 export default function Home() {
   const mapContainer = useRef<HTMLDivElement>(null);
   const mapRef = useRef<maplibregl.Map | null>(null);
+  const hasRealLocationRef = useRef(false);
   const [status, setStatus] = useState<TrackingStatus>("idle");
   const [lastMessage, setLastMessage] = useState<string>("아직 메시지 없음");
 
@@ -118,10 +119,23 @@ export default function Home() {
               coordinates: data.coords,
             },
           });
+
+          const latest = data.coords[data.coords.length - 1];
+          if (latest) {
+            if (!hasRealLocationRef.current) {
+              map.jumpTo({ center: latest, zoom: 17 });
+              hasRealLocationRef.current = true;
+            } else {
+              map.easeTo({ center: latest, duration: 500 });
+            }
+          }
         }
 
         if (data.type === "STATUS_ACK") {
           setStatus(data.status);
+          if (data.status === "idle") {
+            hasRealLocationRef.current = false;
+          }
         }
       } catch (err) {
         console.error("메시지 파싱 실패:", err, event.data);
