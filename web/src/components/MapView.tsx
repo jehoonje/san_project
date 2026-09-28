@@ -1,7 +1,7 @@
 // web/src/components/MapView.tsx
 "use client";
 
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import * as maplibregl from "maplibre-gl";
 import "maplibre-gl/dist/maplibre-gl.css";
 
@@ -18,6 +18,7 @@ export function MapView({ coords, initialCenter }: MapViewProps) {
   const mapRef = useRef<maplibregl.Map | null>(null);
   const markerRef = useRef<maplibregl.Marker | null>(null);
   const hasRealLocationRef = useRef(false);
+  const [hasLocation, setHasLocation] = useState(false); // 실제 위치 도착 여부
 
   // 지도 최초 1회 초기화
   useEffect(() => {
@@ -32,7 +33,6 @@ export function MapView({ coords, initialCenter }: MapViewProps) {
       zoom: 15,
     });
 
-    // 드래그(팬)와 회전 비활성화. 스크롤/핀치 줌은 기본값 유지 -> 확대·축소는 계속 가능
     map.dragPan.disable();
     map.dragRotate.disable();
     map.touchZoomRotate.disableRotation();
@@ -58,7 +58,6 @@ export function MapView({ coords, initialCenter }: MapViewProps) {
         paint: { "line-color": "#ff5a36", "line-width": 6 },
       });
 
-      // 현재 위치를 나타내는 마커 (좌표가 1개만 있어도 항상 표시됨)
       const el = document.createElement("div");
       el.style.width = "18px";
       el.style.height = "18px";
@@ -88,10 +87,8 @@ export function MapView({ coords, initialCenter }: MapViewProps) {
     const latest = coords[coords.length - 1];
     if (!latest) return;
 
-    // 현재 위치 마커는 좌표 개수와 무관하게 항상 최신 위치로 이동
     markerRef.current?.setLngLat(latest);
 
-    // 경로선은 좌표가 2개 이상 쌓였을 때부터 의미가 생김 (추적 중)
     const source = map.getSource(ROUTE_SOURCE_ID) as maplibregl.GeoJSONSource;
     source.setData({
       type: "Feature",
@@ -99,26 +96,66 @@ export function MapView({ coords, initialCenter }: MapViewProps) {
       geometry: { type: "LineString", coordinates: coords },
     });
 
-    // 최초 실좌표 수신 시 즉시 이동(jumpTo), 이후엔 부드럽게 이동(easeTo)
     if (!hasRealLocationRef.current) {
       map.jumpTo({ center: latest, zoom: 17 });
       hasRealLocationRef.current = true;
+      setHasLocation(true); // 실제 위치 도착 -> 로딩 오버레이 제거
     } else {
       map.easeTo({ center: latest, duration: 500 });
     }
   }, [coords]);
 
-  // 추적 종료 등으로 좌표가 초기화되면 다음 위치 수신 시 다시 jumpTo 하도록 리셋
   useEffect(() => {
     if (coords.length === 0) {
       hasRealLocationRef.current = false;
+      setHasLocation(false);
     }
   }, [coords.length]);
 
   return (
-    <div
-      ref={containerRef}
-      style={{ position: "absolute", top: 0, left: 0, right: 0, bottom: 0 }}
-    />
+    <div style={{ position: "absolute", top: 0, left: 0, right: 0, bottom: 0 }}>
+      <div
+        ref={containerRef}
+        style={{ position: "absolute", top: 0, left: 0, right: 0, bottom: 0 }}
+      />
+      {!hasLocation && (
+        <div
+          style={{
+            position: "absolute",
+            top: 0,
+            left: 0,
+            right: 0,
+            bottom: 0,
+            zIndex: 20,
+            display: "flex",
+            flexDirection: "column",
+            alignItems: "center",
+            justifyContent: "center",
+            gap: 12,
+            background: "#fff",
+          }}
+        >
+          <div
+            style={{
+              width: 36,
+              height: 36,
+              borderRadius: "50%",
+              border: "4px solid #eee",
+              borderTopColor: "#ff5a36",
+              animation: "spin 0.8s linear infinite",
+            }}
+          />
+          <p style={{ fontSize: 14, color: "#666" }}>
+            현재 위치를 확인하는 중...
+          </p>
+          <style>{`
+            @keyframes spin {
+              from { transform: rotate(0deg); }
+              to { transform: rotate(360deg); }
+            }
+          `}</style>
+        </div>
+      )}
+    </div>
   );
 }
