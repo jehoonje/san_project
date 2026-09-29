@@ -38,20 +38,17 @@ export default function Home() {
   const [isSaving, setIsSaving] = useState(false);
   const startedAtRef = useRef<string | null>(null);
 
-  // handleStop이 실행되는 시점에 항상 "최신" coords를 참조하도록 ref로 동기화.
-  // state(coords)는 클로저에 캡처되므로, STOP 처리 직전에 도착한 마지막
-  // LOCATION_UPDATE가 리렌더에 반영되기 전이라면 handleStop 내부의 coords가
-  // 실제보다 적은 값(심지어 빈 배열)일 수 있음. -> 저장 누락의 가장 흔한 원인.
+  // handleStop 실행 시점에 항상 최신 좌표를 참조하기 위한 ref.
+  // state(coords)만 쓰면 STOP 직전 마지막 LOCATION_UPDATE가 리렌더에
+  // 반영되기 전에 handleStop이 실행될 경우 좌표가 누락될 수 있음.
   const coordsRef = useRef<[number, number][]>([]);
 
   const handleNativeMessage = useCallback((data: AppToWebMessage) => {
     if (data.type === "LOCATION_UPDATE") {
-      console.log("[WEB] LOCATION_UPDATE 수신, 좌표 개수:", data.coords.length);
       coordsRef.current = data.coords;
       setCoords(data.coords);
     }
     if (data.type === "STATUS_ACK") {
-      console.log("[WEB] STATUS_ACK 수신:", data.status);
       setStatus(data.status);
     }
   }, []);
@@ -73,27 +70,15 @@ export default function Home() {
 
   // 종료 시: 좌표를 Supabase에 저장한 뒤 초기화
   async function handleStop() {
-    // state가 아닌 ref에서 "그 순간 최신값"을 읽는다.
     const finalCoords = coordsRef.current;
     const startedAt = startedAtRef.current;
     const endedAt = new Date().toISOString();
-
-    console.log("[WEB] handleStop 시작", {
-      finalCoordsLength: finalCoords.length,
-      stateCoordsLength: coords.length,
-      startedAt,
-    });
 
     sendToApp({ type: "STOP_TRACKING" });
     setStatus("idle");
 
     // 좌표가 2개 미만이면 의미있는 경로가 아니므로 저장하지 않음
     if (finalCoords.length < 2 || !startedAt) {
-      console.warn("[WEB] 저장 스킵됨. 원인:", {
-        coordsTooShort: finalCoords.length < 2,
-        noStartedAt: !startedAt,
-        finalCoordsLength: finalCoords.length,
-      });
       setCoords([]);
       coordsRef.current = [];
       startedAtRef.current = null;
@@ -107,42 +92,27 @@ export default function Home() {
         (new Date(endedAt).getTime() - new Date(startedAt).getTime()) / 1000
       );
 
-      console.log("[WEB] Supabase insert 시도:", {
-        distanceMeters,
-        durationSeconds,
-        points: finalCoords.length,
+      const { error } = await supabase.from("routes").insert({
+        user_id: null, // 회원가입 기능 추가 전까지는 null로 저장
+        title: `${new Date(startedAt).toLocaleString("ko-KR")} 산책`,
+        coordinates: finalCoords,
+        distance_meters: distanceMeters,
+        duration_seconds: durationSeconds,
+        started_at: startedAt,
+        ended_at: endedAt,
       });
 
-      const { data, error } = await supabase
-        .from("routes")
-        .insert({
-          user_id: null, // 회원가입 기능 추가 전까지는 null로 저장
-          title: `${new Date(startedAt).toLocaleString("ko-KR")} 산책`,
-          coordinates: finalCoords,
-          distance_meters: distanceMeters,
-          duration_seconds: durationSeconds,
-          started_at: startedAt,
-          ended_at: endedAt,
-        })
-        .select();
-
       if (error) {
-        // 진단이 끝나기 전까지는 alert로 즉시 원인을 노출한다.
-        console.error("[WEB] 루트 저장 실패:", error);
-        alert(
-          `저장 실패\ncode: ${error.code}\nmessage: ${error.message}\ndetails: ${error.details ?? "-"}\nhint: ${error.hint ?? "-"}`
-        );
+        console.error("루트 저장 실패:", error);
       } else {
-        console.log("[WEB] 루트 저장 완료:", {
+        console.log("루트 저장 완료:", {
           distanceMeters,
           durationSeconds,
           points: finalCoords.length,
-          insertedRow: data,
         });
       }
     } catch (err) {
-      console.error("[WEB] 루트 저장 중 예외 발생:", err);
-      alert(`저장 중 예외 발생: ${String(err)}`);
+      console.error("루트 저장 중 예외 발생:", err);
     } finally {
       setIsSaving(false);
       setCoords([]);
