@@ -103,9 +103,14 @@ export function RouteViewer({ route, open }: RouteViewerProps) {
         open ? "scale-100 opacity-100" : "scale-[0.98] opacity-0"
       }`}
     >
-      <div ref={containerRef} className="absolute inset-0" />
+      {/* maplibre-gl.css의 .maplibregl-map { position: relative }가
+          Tailwind 클래스를 이기므로 위치/크기는 인라인 스타일로 지정 */}
+      <div
+        ref={containerRef}
+        style={{ position: "absolute", top: 0, left: 0, right: 0, bottom: 0 }}
+      />
 
-      <div className="pointer-events-none absolute inset-x-4 bottom-4 rounded-2xl bg-white/95 px-4 py-3 shadow-lg">
+      <div className="pointer-events-none absolute inset-x-4 bottom-4 z-10 rounded-2xl bg-white/95 px-4 py-3 shadow-lg">
         <p className="truncate text-base font-semibold text-neutral-900">
           {route.title}
         </p>
