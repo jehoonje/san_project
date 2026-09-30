@@ -1,14 +1,31 @@
 // web/src/app/page.tsx
 "use client";
 
-import { useCallback, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
+import { useRouter } from "next/navigation";
 import { MapView } from "@/components/MapView";
 import { TrackingControls } from "@/components/TrackingControls";
+import { TopBar } from "@/components/TopBar";
+import { SideDrawer } from "@/components/SideDrawer";
+import { BottomNav, type Tab } from "@/components/BottomNav";
+import { RouteGrid } from "@/components/RouteGrid";
+import { RouteViewer } from "@/components/RouteViewer";
+import { RouteTitleModal } from "@/components/RouteTitleModal";
 import { useNativeBridge } from "@/hooks/useNativeBridge";
+import { useSession } from "@/hooks/useSession";
 import { supabase } from "@/lib/supabaseClient";
+import { postToNative } from "@/lib/nativeBridge";
 import type { AppToWebMessage, TrackingStatus } from "@/types/tracking";
+import type { SavedRoute } from "@/types/route";
 
 const INITIAL_CENTER: [number, number] = [126.978, 37.5665];
+const VIEWER_ANIM_MS = 300;
+
+type PendingRoute = {
+  coords: [number, number][];
+  startedAt: string;
+  endedAt: string;
+};
 
 // 두 좌표 사이 거리(m) 계산 - Haversine 공식
 function haversineMeters(a: [number, number], b: [number, number]) {
@@ -33,30 +50,54 @@ function calcTotalDistance(coords: [number, number][]) {
 }
 
 export default function Home() {
+  const router = useRouter();
+  const { session, loading: sessionLoading } = useSession();
+  const userId = session?.user.id ?? null;
+
   const [status, setStatus] = useState<TrackingStatus>("idle");
   const [coords, setCoords] = useState<[number, number][]>([]);
   const [isSaving, setIsSaving] = useState(false);
-  const startedAtRef = useRef<string | null>(null);
+  const [pendingRoute, setPendingRoute] = useState<PendingRoute | null>(null);
+  const [saveError, setSaveError] = useState<string | null>(null);
 
-  // handleStop이 실행되는 시점에 항상 "최신" coords를 참조하도록 ref로 동기화.
-  // state(coords)는 클로저에 캡처되므로, STOP 처리 직전에 도착한 마지막
-  // LOCATION_UPDATE가 리렌더에 반영되기 전이라면 handleStop 내부의 coords가
-  // 실제보다 적은 값(심지어 빈 배열)일 수 있음. -> 저장 누락의 가장 흔한 원인.
+  const [tab, setTab] = useState<Tab>("record");
+  const [drawerOpen, setDrawerOpen] = useState(false);
+  const [selectedRoute, setSelectedRoute] = useState<SavedRoute | null>(null);
+  const [viewerOpen, setViewerOpen] = useState(false);
+
+  const startedAtRef = useRef<string | null>(null);
+  const closeTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  // handleStop 실행 시점에 항상 최신 좌표를 참조하기 위한 ref
   const coordsRef = useRef<[number, number][]>([]);
 
   const handleNativeMessage = useCallback((data: AppToWebMessage) => {
     if (data.type === "LOCATION_UPDATE") {
-      console.log("[WEB] LOCATION_UPDATE 수신, 좌표 개수:", data.coords.length);
       coordsRef.current = data.coords;
       setCoords(data.coords);
     }
     if (data.type === "STATUS_ACK") {
-      console.log("[WEB] STATUS_ACK 수신:", data.status);
       setStatus(data.status);
     }
   }, []);
 
   const { sendToApp, lastMessage } = useNativeBridge(handleNativeMessage);
+
+  // 로그인 안 된 상태면 로그인 화면으로
+  useEffect(() => {
+    if (!sessionLoading && !session) router.replace("/login");
+  }, [sessionLoading, session, router]);
+
+  // 메인(지도) 화면이 열렸음을 앱에 알림 → 앱이 현재 위치를 다시 전달
+  useEffect(() => {
+    if (userId) postToNative({ type: "WEB_READY" });
+  }, [userId]);
+
+  function resetRecording() {
+    setCoords([]);
+    coordsRef.current = [];
+    startedAtRef.current = null;
+  }
 
   function handleStart() {
     startedAtRef.current = new Date().toISOString();
@@ -71,104 +112,190 @@ export default function Home() {
     setStatus("paused");
   }
 
-  // 종료 시: 좌표를 Supabase에 저장한 뒤 초기화
-  async function handleStop() {
-    // state가 아닌 ref에서 "그 순간 최신값"을 읽는다.
-    const finalCoords = coordsRef.current;
+  // 종료 시: 저장할 만한 경로면 제목 입력 팝업을 띄움 (저장은 확인 후)
+  function handleStop() {
+    const finalCoords = [...coordsRef.current];
     const startedAt = startedAtRef.current;
     const endedAt = new Date().toISOString();
-
-    console.log("[WEB] handleStop 시작", {
-      finalCoordsLength: finalCoords.length,
-      stateCoordsLength: coords.length,
-      startedAt,
-    });
 
     sendToApp({ type: "STOP_TRACKING" });
     setStatus("idle");
 
     // 좌표가 2개 미만이면 의미있는 경로가 아니므로 저장하지 않음
     if (finalCoords.length < 2 || !startedAt) {
-      console.warn("[WEB] 저장 스킵됨. 원인:", {
-        coordsTooShort: finalCoords.length < 2,
-        noStartedAt: !startedAt,
-        finalCoordsLength: finalCoords.length,
-      });
-      setCoords([]);
-      coordsRef.current = [];
-      startedAtRef.current = null;
+      resetRecording();
       return;
     }
 
+    setSaveError(null);
+    setPendingRoute({ coords: finalCoords, startedAt, endedAt });
+  }
+
+  // 팝업 확인: 입력한 제목으로 Supabase에 저장
+  async function handleConfirmTitle(title: string) {
+    if (!pendingRoute || !userId) return;
+    const { coords: finalCoords, startedAt, endedAt } = pendingRoute;
+
     setIsSaving(true);
+    setSaveError(null);
     try {
       const distanceMeters = calcTotalDistance(finalCoords);
       const durationSeconds = Math.round(
         (new Date(endedAt).getTime() - new Date(startedAt).getTime()) / 1000
       );
 
-      console.log("[WEB] Supabase insert 시도:", {
+      const { error } = await supabase.from("routes").insert({
+        user_id: userId,
+        title,
+        coordinates: finalCoords,
+        distance_meters: distanceMeters,
+        duration_seconds: durationSeconds,
+        started_at: startedAt,
+        ended_at: endedAt,
+      });
+
+      if (error) {
+        console.error("루트 저장 실패:", error);
+        setSaveError("저장에 실패했습니다. 다시 시도해 주세요.");
+        return; // 팝업 유지 → 재시도 가능
+      }
+
+      console.log("루트 저장 완료:", {
+        title,
         distanceMeters,
         durationSeconds,
         points: finalCoords.length,
       });
-
-      const { data, error } = await supabase
-        .from("routes")
-        .insert({
-          user_id: null, // 회원가입 기능 추가 전까지는 null로 저장
-          title: `${new Date(startedAt).toLocaleString("ko-KR")} 산책`,
-          coordinates: finalCoords,
-          distance_meters: distanceMeters,
-          duration_seconds: durationSeconds,
-          started_at: startedAt,
-          ended_at: endedAt,
-        })
-        .select();
-
-      if (error) {
-        // 진단이 끝나기 전까지는 alert로 즉시 원인을 노출한다.
-        console.error("[WEB] 루트 저장 실패:", error);
-        alert(
-          `저장 실패\ncode: ${error.code}\nmessage: ${error.message}\ndetails: ${error.details ?? "-"}\nhint: ${error.hint ?? "-"}`
-        );
-      } else {
-        console.log("[WEB] 루트 저장 완료:", {
-          distanceMeters,
-          durationSeconds,
-          points: finalCoords.length,
-          insertedRow: data,
-        });
-      }
+      setPendingRoute(null);
+      resetRecording();
     } catch (err) {
-      console.error("[WEB] 루트 저장 중 예외 발생:", err);
-      alert(`저장 중 예외 발생: ${String(err)}`);
+      console.error("루트 저장 중 예외 발생:", err);
+      setSaveError("저장 중 오류가 발생했습니다.");
     } finally {
       setIsSaving(false);
-      setCoords([]);
-      coordsRef.current = [];
-      startedAtRef.current = null;
     }
   }
 
+  // 팝업 취소: 저장하지 않고 기록 폐기
+  function handleCancelTitle() {
+    if (isSaving) return;
+    setPendingRoute(null);
+    setSaveError(null);
+    resetRecording();
+  }
+
+  async function handleLogout() {
+    setDrawerOpen(false);
+    await supabase.auth.signOut();
+    router.replace("/login");
+  }
+
+  function clearCloseTimer() {
+    if (closeTimerRef.current) {
+      clearTimeout(closeTimerRef.current);
+      closeTimerRef.current = null;
+    }
+  }
+
+  function handleTabChange(next: Tab) {
+    if (next === tab) return;
+    clearCloseTimer();
+    setSelectedRoute(null);
+    setViewerOpen(false);
+    setTab(next);
+  }
+
+  function handleSelectRoute(route: SavedRoute) {
+    clearCloseTimer();
+    setSelectedRoute(route);
+    setViewerOpen(false);
+    // 마운트 직후 다음 프레임에 open → 페이드/스케일 인
+    requestAnimationFrame(() => {
+      requestAnimationFrame(() => setViewerOpen(true));
+    });
+  }
+
+  function handleBack() {
+    setViewerOpen(false);
+    clearCloseTimer();
+    closeTimerRef.current = setTimeout(() => {
+      setSelectedRoute(null);
+      closeTimerRef.current = null;
+    }, VIEWER_ANIM_MS);
+  }
+
+  const isBack = tab === "myroute" && selectedRoute !== null && viewerOpen;
+
+  const topTitle =
+    tab === "record"
+      ? "Record"
+      : selectedRoute
+        ? selectedRoute.title
+        : "My Route";
+
+  // 세션 확인 전/미로그인 상태에서는 지도를 마운트하지 않음
+  if (sessionLoading || !session) {
+    return <main className="fixed inset-0 bg-white" />;
+  }
+
   return (
-    <main
-      style={{
-        position: "fixed",
-        top: 0,
-        left: 0,
-        width: "100vw",
-        height: "100vh",
-      }}
-    >
-      <MapView coords={coords} initialCenter={INITIAL_CENTER} />
-      <TrackingControls
-        status={isSaving ? "paused" : status}
-        lastMessage={isSaving ? "루트 저장 중..." : lastMessage}
-        onStart={handleStart}
-        onPause={handlePause}
-        onStop={handleStop}
+    <main className="fixed inset-0 flex flex-col bg-white">
+      <TopBar
+        title={topTitle}
+        isBack={isBack}
+        onMenu={() => setDrawerOpen(true)}
+        onBack={handleBack}
       />
+
+      <div className="relative flex-1 overflow-hidden">
+        {/* Record: 탭 전환 시에도 언마운트하지 않고 숨김 처리 (지도/추적 상태 유지) */}
+        <div
+          className={`absolute inset-0 isolate ${
+            tab === "record" ? "" : "invisible pointer-events-none"
+          }`}
+        >
+          <MapView coords={coords} initialCenter={INITIAL_CENTER} />
+          <TrackingControls
+            status={isSaving ? "paused" : status}
+            lastMessage={isSaving ? "루트 저장 중..." : lastMessage}
+            onStart={handleStart}
+            onPause={handlePause}
+            onStop={handleStop}
+          />
+        </div>
+
+        {tab === "myroute" && (
+          <div className="absolute inset-0 z-30 bg-white">
+            <RouteGrid onSelect={handleSelectRoute} />
+            {selectedRoute && (
+              <RouteViewer
+                key={selectedRoute.id}
+                route={selectedRoute}
+                open={viewerOpen}
+              />
+            )}
+          </div>
+        )}
+      </div>
+
+      <BottomNav tab={tab} onChange={handleTabChange} />
+
+      <SideDrawer
+        open={drawerOpen}
+        email={session.user.email ?? null}
+        onClose={() => setDrawerOpen(false)}
+        onLogout={handleLogout}
+      />
+
+      {pendingRoute && (
+        <RouteTitleModal
+          defaultTitle={`${new Date(pendingRoute.startedAt).toLocaleString("ko-KR")} 산책`}
+          isSaving={isSaving}
+          errorMessage={saveError}
+          onConfirm={handleConfirmTitle}
+          onCancel={handleCancelTitle}
+        />
+      )}
     </main>
   );
 }
