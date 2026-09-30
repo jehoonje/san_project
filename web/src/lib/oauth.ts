@@ -10,11 +10,15 @@ export async function signInWithProvider(
 ): Promise<string | null> {
   const nativeRedirect = getNativeRedirectUri();
 
-  // 앱(WebView) 안: 로그인 URL만 만들어 앱에 넘기고, 앱이 시스템 브라우저로 연다
+  // 앱(WebView) 안: 웹의 https 중계 페이지로 돌아오게 하고, 중계 페이지가 앱 주소로 넘긴다
   if (nativeRedirect) {
+    const bridgeUrl = `${window.location.origin}/auth/bridge?to=${encodeURIComponent(
+      nativeRedirect
+    )}`;
+
     const { data, error } = await supabase.auth.signInWithOAuth({
       provider,
-      options: { redirectTo: nativeRedirect, skipBrowserRedirect: true },
+      options: { redirectTo: bridgeUrl, skipBrowserRedirect: true },
     });
     if (error || !data?.url) {
       return error?.message ?? "로그인 주소를 만들지 못했습니다.";
