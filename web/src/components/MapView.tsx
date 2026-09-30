@@ -1,7 +1,7 @@
 // web/src/components/MapView.tsx
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import * as maplibregl from "maplibre-gl";
 import "maplibre-gl/dist/maplibre-gl.css";
 
@@ -19,10 +19,43 @@ export function MapView({ coords, initialCenter }: MapViewProps) {
   const markerRef = useRef<maplibregl.Marker | null>(null);
   const hasRealLocationRef = useRef(false);
   const latestCoordRef = useRef<[number, number] | null>(null);
+  const latestCoordsRef = useRef<[number, number][]>(coords);
   const isFollowingRef = useRef(true);
 
   const [hasLocation, setHasLocation] = useState(false);
   const [isFollowing, setIsFollowing] = useState(true);
+
+  // 경로선/마커/카메라 갱신 (지도 준비 후에만 호출)
+  const applyCoords = useCallback(
+    (map: maplibregl.Map, nextCoords: [number, number][]) => {
+      const source = map.getSource(ROUTE_SOURCE_ID) as
+        | maplibregl.GeoJSONSource
+        | undefined;
+      if (!source) return;
+
+      // 경로선은 coords 그대로 반영 (빈 배열이면 선도 사라짐 - 종료 후 정상 동작)
+      source.setData({
+        type: "Feature",
+        properties: {},
+        geometry: { type: "LineString", coordinates: nextCoords },
+      });
+
+      const latest = nextCoords[nextCoords.length - 1];
+      if (!latest) return; // 좌표가 없으면(종료 직후) 마커/카메라는 마지막 위치 그대로 유지
+
+      latestCoordRef.current = latest;
+      markerRef.current?.setLngLat(latest);
+
+      if (!hasRealLocationRef.current) {
+        map.jumpTo({ center: latest, zoom: 17 });
+        hasRealLocationRef.current = true;
+        setHasLocation(true);
+      } else if (isFollowingRef.current) {
+        map.easeTo({ center: latest, duration: 500 });
+      }
+    },
+    []
+  );
 
   useEffect(() => {
     if (!containerRef.current) return;
@@ -82,6 +115,9 @@ export function MapView({ coords, initialCenter }: MapViewProps) {
       markerRef.current = new maplibregl.Marker({ element: el })
         .setLngLat(initialCenter)
         .addTo(map);
+
+      // 지도가 준비되기 전에 도착해 있던 좌표를 여기서 반영
+      applyCoords(map, latestCoordsRef.current);
     });
 
     map.on("error", (e) => {
@@ -90,36 +126,17 @@ export function MapView({ coords, initialCenter }: MapViewProps) {
 
     mapRef.current = map;
     return () => map.remove();
-  }, [initialCenter]);
+  }, [initialCenter, applyCoords]);
 
-  // 좌표가 갱신될 때마다 마커/경로선 갱신, 추적 중일 때만 카메라 이동
+  // 좌표가 갱신될 때마다 최신값을 기억하고, 지도가 준비돼 있으면 바로 반영
   useEffect(() => {
+    latestCoordsRef.current = coords;
+
     const map = mapRef.current;
     if (!map || !map.getSource(ROUTE_SOURCE_ID)) return;
 
-    const source = map.getSource(ROUTE_SOURCE_ID) as maplibregl.GeoJSONSource;
-
-    // 경로선은 coords 그대로 반영 (빈 배열이면 선도 사라짐 - 종료 후 정상 동작)
-    source.setData({
-      type: "Feature",
-      properties: {},
-      geometry: { type: "LineString", coordinates: coords },
-    });
-
-    const latest = coords[coords.length - 1];
-    if (!latest) return; // 좌표가 없으면(종료 직후) 마커/카메라는 마지막 위치 그대로 유지
-
-    latestCoordRef.current = latest;
-    markerRef.current?.setLngLat(latest);
-
-    if (!hasRealLocationRef.current) {
-      map.jumpTo({ center: latest, zoom: 17 });
-      hasRealLocationRef.current = true;
-      setHasLocation(true);
-    } else if (isFollowingRef.current) {
-      map.easeTo({ center: latest, duration: 500 });
-    }
-  }, [coords]);
+    applyCoords(map, coords);
+  }, [coords, applyCoords]);
 
   // 재센터 버튼: 추적 모드로 복귀하며 마지막 위치로 카메라 이동
   function handleRecenter() {
