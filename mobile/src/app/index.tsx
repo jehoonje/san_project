@@ -8,7 +8,7 @@ import * as Linking from "expo-linking";
 
 WebBrowser.maybeCompleteAuthSession();
 
-const WEB_URL = "https://san-project-ovnnpsyaw-jehoonjes-projects.vercel.app/";
+const WEB_URL = "https://san-project-phi.vercel.app/splash";
 
 type TrackingStatus = "idle" | "recording" | "paused";
 
@@ -111,6 +111,44 @@ export default function Index() {
     }
   }
 
+  // 장소 저장용: 현재 위치를 1회 조회해 요청 ID와 함께 웹에 응답 (기록/일시정지 상태와 무관)
+  async function handlePlaceLocationRequest(requestId: string) {
+    try {
+      const { status: permissionStatus } =
+        await Location.requestForegroundPermissionsAsync();
+
+      if (permissionStatus !== "granted") {
+        sendToWeb({
+          type: "PLACE_LOCATION_ERROR",
+          requestId,
+          message: "위치 권한이 필요합니다.",
+        });
+        return;
+      }
+
+      const current = await Location.getCurrentPositionAsync({
+        accuracy: Location.Accuracy.High,
+      });
+
+      console.log("[APP] 장소 저장용 위치 조회:", current.coords);
+
+      sendToWeb({
+        type: "PLACE_LOCATION",
+        requestId,
+        lat: current.coords.latitude,
+        lng: current.coords.longitude,
+        accuracy: current.coords.accuracy,
+      });
+    } catch (err) {
+      console.warn("[APP] 장소 저장용 위치 조회 실패:", err);
+      sendToWeb({
+        type: "PLACE_LOCATION_ERROR",
+        requestId,
+        message: "현재 위치를 가져오지 못했습니다.",
+      });
+    }
+  }
+
   // 소셜 로그인: 시스템 브라우저(ASWebAuthenticationSession)로 열고 결과 URL을 웹에 전달
   async function startOAuth(url: string) {
     try {
@@ -141,6 +179,11 @@ export default function Index() {
 
     setStatus("recording");
     sendToWeb({ type: "STATUS_ACK", status: "recording" });
+
+    // 이미 기록 중이면 구독을 중복으로 만들지 않음
+    if (locationSubscriptionRef.current) {
+      return;
+    }
 
     locationSubscriptionRef.current = await Location.watchPositionAsync(
       {
@@ -213,6 +256,13 @@ export default function Index() {
 
       if (data.type === "WEB_READY") {
         handleWebReady();
+      }
+
+      if (
+        data.type === "PLACE_LOCATION_REQUEST" &&
+        typeof data.requestId === "string"
+      ) {
+        handlePlaceLocationRequest(data.requestId);
       }
 
       if (data.type === "OAUTH_START" && typeof data.url === "string") {
