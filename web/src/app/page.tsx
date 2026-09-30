@@ -1,7 +1,8 @@
 // web/src/app/page.tsx
 "use client";
 
-import { useCallback, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
+import { useRouter } from "next/navigation";
 import { MapView } from "@/components/MapView";
 import { TrackingControls } from "@/components/TrackingControls";
 import { TopBar } from "@/components/TopBar";
@@ -11,7 +12,9 @@ import { RouteGrid } from "@/components/RouteGrid";
 import { RouteViewer } from "@/components/RouteViewer";
 import { RouteTitleModal } from "@/components/RouteTitleModal";
 import { useNativeBridge } from "@/hooks/useNativeBridge";
+import { useSession } from "@/hooks/useSession";
 import { supabase } from "@/lib/supabaseClient";
+import { postToNative } from "@/lib/nativeBridge";
 import type { AppToWebMessage, TrackingStatus } from "@/types/tracking";
 import type { SavedRoute } from "@/types/route";
 
@@ -47,6 +50,10 @@ function calcTotalDistance(coords: [number, number][]) {
 }
 
 export default function Home() {
+  const router = useRouter();
+  const { session, loading: sessionLoading } = useSession();
+  const userId = session?.user.id ?? null;
+
   const [status, setStatus] = useState<TrackingStatus>("idle");
   const [coords, setCoords] = useState<[number, number][]>([]);
   const [isSaving, setIsSaving] = useState(false);
@@ -75,6 +82,16 @@ export default function Home() {
   }, []);
 
   const { sendToApp, lastMessage } = useNativeBridge(handleNativeMessage);
+
+  // 로그인 안 된 상태면 로그인 화면으로
+  useEffect(() => {
+    if (!sessionLoading && !session) router.replace("/login");
+  }, [sessionLoading, session, router]);
+
+  // 메인(지도) 화면이 열렸음을 앱에 알림 → 앱이 현재 위치를 다시 전달
+  useEffect(() => {
+    if (userId) postToNative({ type: "WEB_READY" });
+  }, [userId]);
 
   function resetRecording() {
     setCoords([]);
@@ -116,7 +133,7 @@ export default function Home() {
 
   // 팝업 확인: 입력한 제목으로 Supabase에 저장
   async function handleConfirmTitle(title: string) {
-    if (!pendingRoute) return;
+    if (!pendingRoute || !userId) return;
     const { coords: finalCoords, startedAt, endedAt } = pendingRoute;
 
     setIsSaving(true);
@@ -128,7 +145,7 @@ export default function Home() {
       );
 
       const { error } = await supabase.from("routes").insert({
-        user_id: null, // 회원가입 기능 추가 전까지는 null로 저장
+        user_id: userId,
         title,
         coordinates: finalCoords,
         distance_meters: distanceMeters,
@@ -165,6 +182,12 @@ export default function Home() {
     setPendingRoute(null);
     setSaveError(null);
     resetRecording();
+  }
+
+  async function handleLogout() {
+    setDrawerOpen(false);
+    await supabase.auth.signOut();
+    router.replace("/login");
   }
 
   function clearCloseTimer() {
@@ -210,6 +233,11 @@ export default function Home() {
         ? selectedRoute.title
         : "My Route";
 
+  // 세션 확인 전/미로그인 상태에서는 지도를 마운트하지 않음
+  if (sessionLoading || !session) {
+    return <main className="fixed inset-0 bg-white" />;
+  }
+
   return (
     <main className="fixed inset-0 flex flex-col bg-white">
       <TopBar
@@ -252,7 +280,12 @@ export default function Home() {
 
       <BottomNav tab={tab} onChange={handleTabChange} />
 
-      <SideDrawer open={drawerOpen} onClose={() => setDrawerOpen(false)} />
+      <SideDrawer
+        open={drawerOpen}
+        email={session.user.email ?? null}
+        onClose={() => setDrawerOpen(false)}
+        onLogout={handleLogout}
+      />
 
       {pendingRoute && (
         <RouteTitleModal
