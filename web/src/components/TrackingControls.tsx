@@ -9,6 +9,9 @@ type TrackingControlsProps = {
   onStart: () => void;
   onPause: () => void;
   onStop: () => void;
+  showSavePlace: boolean;
+  placeCount: number;
+  onSavePlace: () => void;
 };
 
 export function TrackingControls({
@@ -17,6 +20,9 @@ export function TrackingControls({
   onStart,
   onPause,
   onStop,
+  showSavePlace,
+  placeCount,
+  onSavePlace,
 }: TrackingControlsProps) {
   return (
     <>
@@ -40,6 +46,28 @@ export function TrackingControls({
           상태: {status} · 최근 메시지: {lastMessage}
         </p>
       </div>
+
+      {showSavePlace && (
+        <button
+          onClick={onSavePlace}
+          style={{
+            position: "absolute",
+            left: 16,
+            bottom: 92,
+            zIndex: 10,
+            padding: "12px 16px",
+            borderRadius: 999,
+            border: "none",
+            background: "#fff",
+            color: "#111",
+            fontWeight: 600,
+            fontSize: 14,
+            boxShadow: "0 2px 8px rgba(0,0,0,0.25)",
+          }}
+        >
+          {"\u{1F4CD}"} 장소 저장{placeCount > 0 ? ` (${placeCount})` : ""}
+        </button>
+      )}
 
       <div
         style={{
