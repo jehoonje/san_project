@@ -385,7 +385,7 @@ export default function Home() {
         rightAction={rightAction}
       />
 
-      <div className="relative flex-1 overflow-hidden">
+      <div className="relative min-h-0 flex-1 overflow-hidden">
         <div
           className={`absolute inset-0 isolate ${
             tab === "record" ? "" : "invisible pointer-events-none"
@@ -409,7 +409,7 @@ export default function Home() {
         </div>
 
         {tab === "myroute" && (
-          <div className="absolute inset-0 z-30 bg-white">
+          <div className="absolute inset-0 z-30 min-h-0 overflow-hidden bg-white">
             {!analysisOpen && <RouteGrid onSelect={handleSelectRoute} />}
 
             {analysisOpen && (
