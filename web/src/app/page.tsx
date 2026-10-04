@@ -1,8 +1,8 @@
-// web/src/app/page.tsx
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
+import { AnalysisReport } from "@/components/AnalysisReport";
 import { MapView } from "@/components/MapView";
 import { TrackingControls } from "@/components/TrackingControls";
 import { TopBar } from "@/components/TopBar";
@@ -18,17 +18,12 @@ import {
 import { useNativeBridge } from "@/hooks/useNativeBridge";
 import { usePlaceLocation } from "@/hooks/usePlaceLocation";
 import { useSession } from "@/hooks/useSession";
+import { makePlaceKey } from "@/lib/placeKey";
 import { supabase } from "@/lib/supabaseClient";
 import { postToNative } from "@/lib/nativeBridge";
-import type {
-  AppToWebMessage,
-  TrackingStatus,
-} from "@/types/tracking";
+import type { AppToWebMessage, TrackingStatus } from "@/types/tracking";
 import type { SavedRoute } from "@/types/route";
-import type {
-  PlaceCategory,
-  PlaceDraft,
-} from "@/types/place";
+import type { PlaceCategory, PlaceDraft } from "@/types/place";
 
 const INITIAL_CENTER: [number, number] = [126.978, 37.5665];
 const VIEWER_ANIM_MS = 300;
@@ -40,32 +35,27 @@ type PendingRoute = {
   endedAt: string;
 };
 
-function haversineMeters(
-  a: [number, number],
-  b: [number, number],
-) {
+function haversineMeters(a: [number, number], b: [number, number]) {
   const R = 6371000;
   const [lng1, lat1] = a;
   const [lng2, lat2] = b;
-  const toRad = (deg: number) => (deg * Math.PI) / 180;
+  const toRad = (degree: number) => (degree * Math.PI) / 180;
   const dLat = toRad(lat2 - lat1);
   const dLng = toRad(lng2 - lng1);
-  const s =
+  const value =
     Math.sin(dLat / 2) ** 2 +
     Math.cos(toRad(lat1)) *
       Math.cos(toRad(lat2)) *
       Math.sin(dLng / 2) ** 2;
 
-  return 2 * R * Math.asin(Math.sqrt(s));
+  return 2 * R * Math.asin(Math.sqrt(value));
 }
 
 function calcTotalDistance(coords: [number, number][]) {
   let total = 0;
-
-  for (let i = 1; i < coords.length; i++) {
-    total += haversineMeters(coords[i - 1], coords[i]);
+  for (let index = 1; index < coords.length; index += 1) {
+    total += haversineMeters(coords[index - 1], coords[index]);
   }
-
   return Math.round(total);
 }
 
@@ -78,58 +68,40 @@ export default function Home() {
   const [coords, setCoords] = useState<[number, number][]>([]);
   const [places, setPlaces] = useState<PlaceDraft[]>([]);
   const [isSaving, setIsSaving] = useState(false);
-  const [pendingRoute, setPendingRoute] =
-    useState<PendingRoute | null>(null);
+  const [pendingRoute, setPendingRoute] = useState<PendingRoute | null>(null);
   const [saveError, setSaveError] = useState<string | null>(null);
-
-  const [placeSheet, setPlaceSheet] =
-    useState<PlaceSheetState | null>(null);
+  const [placeSheet, setPlaceSheet] = useState<PlaceSheetState | null>(null);
   const [toast, setToast] = useState<string | null>(null);
-
   const [tab, setTab] = useState<Tab>("record");
   const [drawerOpen, setDrawerOpen] = useState(false);
-  const [selectedRoute, setSelectedRoute] =
-    useState<SavedRoute | null>(null);
+  const [selectedRoute, setSelectedRoute] = useState<SavedRoute | null>(null);
   const [viewerOpen, setViewerOpen] = useState(false);
+  const [analysisOpen, setAnalysisOpen] = useState(false);
 
   const startedAtRef = useRef<string | null>(null);
-  const closeTimerRef =
-    useRef<ReturnType<typeof setTimeout> | null>(null);
-  const toastTimerRef =
-    useRef<ReturnType<typeof setTimeout> | null>(null);
+  const closeTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const toastTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const placeTokenRef = useRef(0);
-
   const coordsRef = useRef<[number, number][]>([]);
   const placesRef = useRef<PlaceDraft[]>([]);
 
-  const handleNativeMessage = useCallback(
-    (data: AppToWebMessage) => {
-      if (data.type === "LOCATION_UPDATE") {
-        coordsRef.current = data.coords;
-        setCoords(data.coords);
-      }
+  const handleNativeMessage = useCallback((data: AppToWebMessage) => {
+    if (data.type === "LOCATION_UPDATE") {
+      coordsRef.current = data.coords;
+      setCoords(data.coords);
+    }
+    if (data.type === "STATUS_ACK") setStatus(data.status);
+  }, []);
 
-      if (data.type === "STATUS_ACK") {
-        setStatus(data.status);
-      }
-    },
-    [],
-  );
-
-  const { sendToApp, lastMessage } =
-    useNativeBridge(handleNativeMessage);
+  const { sendToApp, lastMessage } = useNativeBridge(handleNativeMessage);
   const { requestLocation } = usePlaceLocation();
 
   useEffect(() => {
-    if (!sessionLoading && !session) {
-      router.replace("/login");
-    }
+    if (!sessionLoading && !session) router.replace("/login");
   }, [sessionLoading, session, router]);
 
   useEffect(() => {
-    if (userId) {
-      postToNative({ type: "WEB_READY" });
-    }
+    if (userId) postToNative({ type: "WEB_READY" });
   }, [userId]);
 
   function resetRecording() {
@@ -141,10 +113,7 @@ export default function Home() {
   }
 
   function showToast(message: string) {
-    if (toastTimerRef.current) {
-      clearTimeout(toastTimerRef.current);
-    }
-
+    if (toastTimerRef.current) clearTimeout(toastTimerRef.current);
     setToast(message);
     toastTimerRef.current = setTimeout(() => {
       setToast(null);
@@ -153,9 +122,7 @@ export default function Home() {
   }
 
   function handleStart() {
-    const isResume =
-      status === "paused" && startedAtRef.current !== null;
-
+    const isResume = status === "paused" && startedAtRef.current !== null;
     if (!isResume) {
       startedAtRef.current = new Date().toISOString();
       coordsRef.current = [];
@@ -163,7 +130,6 @@ export default function Home() {
       placesRef.current = [];
       setPlaces([]);
     }
-
     sendToApp({ type: "START_TRACKING" });
     setStatus("recording");
   }
@@ -212,65 +178,49 @@ export default function Home() {
     try {
       const distanceMeters = calcTotalDistance(finalCoords);
       const durationSeconds = Math.round(
-        (new Date(endedAt).getTime() -
-          new Date(startedAt).getTime()) /
-          1000,
+        (new Date(endedAt).getTime() - new Date(startedAt).getTime()) / 1000,
       );
 
       const enrichedPlaces = await Promise.all(
         finalPlaces.map(async (place) => {
           try {
-            const res = await fetch(
+            const response = await fetch(
               `/api/region-dong?lat=${place.lat}&lng=${place.lng}`,
             );
-            const json = res.ok ? await res.json() : null;
+            const json = response.ok ? await response.json() : null;
             return { ...place, regionDong: json?.regionDong ?? null };
           } catch {
             return place;
           }
         }),
       );
-      
 
-      const { error } = await supabase.rpc(
-        "save_route_with_places",
-        {
-          p_title: title,
-          p_coordinates: finalCoords,
-          p_distance_meters: distanceMeters,
-          p_duration_seconds: durationSeconds,
-          p_started_at: startedAt,
-          p_ended_at: endedAt,
-          p_places: enrichedPlaces.map((place) => ({
-            name: place.name,
-            category: place.category,
-            lat: place.lat,
-            lng: place.lng,
-            accuracy_meters: place.accuracyMeters,
-            dwell_minutes: place.dwellMinutes,
-            source: place.source,
-            saved_at: place.savedAt,
-            place_id: place.placeId,
-            region_dong: place.regionDong,
-          })),
-        },
-      );
+      const { error } = await supabase.rpc("save_route_with_places", {
+        p_title: title,
+        p_coordinates: finalCoords,
+        p_distance_meters: distanceMeters,
+        p_duration_seconds: durationSeconds,
+        p_started_at: startedAt,
+        p_ended_at: endedAt,
+        p_places: enrichedPlaces.map((place) => ({
+          name: place.name,
+          category: place.category,
+          lat: place.lat,
+          lng: place.lng,
+          accuracy_meters: place.accuracyMeters,
+          dwell_minutes: place.dwellMinutes,
+          source: place.source,
+          saved_at: place.savedAt,
+          place_id: place.placeId,
+          region_dong: place.regionDong,
+        })),
+      });
 
       if (error) {
         console.error("루트 저장 실패:", error);
-        setSaveError(
-          "저장에 실패했습니다. 다시 시도해 주세요.",
-        );
+        setSaveError("저장에 실패했습니다. 다시 시도해 주세요.");
         return;
       }
-
-      console.log("루트 저장 완료:", {
-        title,
-        distanceMeters,
-        durationSeconds,
-        points: finalCoords.length,
-        places: finalPlaces.length,
-      });
 
       setPendingRoute(null);
       resetRecording();
@@ -284,7 +234,6 @@ export default function Home() {
 
   function handleCancelTitle() {
     if (isSaving) return;
-
     setPendingRoute(null);
     setSaveError(null);
     resetRecording();
@@ -293,7 +242,6 @@ export default function Home() {
   async function handleOpenPlaceSheet() {
     const token = ++placeTokenRef.current;
     setPlaceSheet({ status: "locating" });
-
     const result = await requestLocation();
     if (token !== placeTokenRef.current) return;
 
@@ -305,15 +253,12 @@ export default function Home() {
             lng: result.lng,
             accuracy: result.accuracy,
           }
-        : {
-            status: "error",
-            message: result.message,
-          },
+        : { status: "error", message: result.message },
     );
   }
 
   function handleClosePlaceSheet() {
-    placeTokenRef.current++;
+    placeTokenRef.current += 1;
     setPlaceSheet(null);
   }
 
@@ -323,7 +268,14 @@ export default function Home() {
     providerId: string | null,
   ) {
     if (!placeSheet || placeSheet.status !== "ready") return;
-  
+
+    const placeId = makePlaceKey({
+      providerId,
+      name,
+      lat: placeSheet.lat,
+      lng: placeSheet.lng,
+    });
+
     const draft: PlaceDraft = {
       name,
       category,
@@ -333,16 +285,14 @@ export default function Home() {
       savedAt: new Date().toISOString(),
       source: "manual",
       dwellMinutes: null,
-      placeId: providerId,
+      placeId,
       regionDong: null,
     };
 
     placesRef.current = [...placesRef.current, draft];
     setPlaces(placesRef.current);
     setPlaceSheet(null);
-    showToast(
-      `장소를 저장했어요 (${placesRef.current.length}개)`,
-    );
+    showToast(`장소를 저장했어요 (${placesRef.current.length}개)`);
   }
 
   async function handleLogout() {
@@ -360,27 +310,38 @@ export default function Home() {
 
   function handleTabChange(next: Tab) {
     if (next === tab) return;
-
     clearCloseTimer();
     setSelectedRoute(null);
     setViewerOpen(false);
+    setAnalysisOpen(false);
     setTab(next);
   }
 
   function handleSelectRoute(route: SavedRoute) {
     clearCloseTimer();
+    setAnalysisOpen(false);
     setSelectedRoute(route);
     setViewerOpen(false);
-
     requestAnimationFrame(() => {
       requestAnimationFrame(() => setViewerOpen(true));
     });
   }
 
+  function handleOpenAnalysis() {
+    clearCloseTimer();
+    setSelectedRoute(null);
+    setViewerOpen(false);
+    setAnalysisOpen(true);
+  }
+
   function handleBack() {
+    if (analysisOpen) {
+      setAnalysisOpen(false);
+      return;
+    }
+
     setViewerOpen(false);
     clearCloseTimer();
-
     closeTimerRef.current = setTimeout(() => {
       setSelectedRoute(null);
       closeTimerRef.current = null;
@@ -389,15 +350,21 @@ export default function Home() {
 
   const isBack =
     tab === "myroute" &&
-    selectedRoute !== null &&
-    viewerOpen;
+    (analysisOpen || (selectedRoute !== null && viewerOpen));
 
   const topTitle =
     tab === "record"
       ? "Record"
-      : selectedRoute
-        ? selectedRoute.title
-        : "My Route";
+      : analysisOpen
+        ? "My Analysis"
+        : selectedRoute
+          ? selectedRoute.title
+          : "My Route";
+
+  const rightAction =
+    tab === "myroute" && !analysisOpen && !selectedRoute
+      ? { label: "장소 분석 리포트", onClick: handleOpenAnalysis }
+      : null;
 
   const canSavePlace =
     (status === "recording" || status === "paused") &&
@@ -415,14 +382,13 @@ export default function Home() {
         isBack={isBack}
         onMenu={() => setDrawerOpen(true)}
         onBack={handleBack}
+        rightAction={rightAction}
       />
 
       <div className="relative flex-1 overflow-hidden">
         <div
           className={`absolute inset-0 isolate ${
-            tab === "record"
-              ? ""
-              : "invisible pointer-events-none"
+            tab === "record" ? "" : "invisible pointer-events-none"
           }`}
         >
           <MapView
@@ -430,12 +396,9 @@ export default function Home() {
             places={places}
             initialCenter={INITIAL_CENTER}
           />
-
           <TrackingControls
             status={isSaving ? "paused" : status}
-            lastMessage={
-              isSaving ? "루트 저장 중..." : lastMessage
-            }
+            lastMessage={isSaving ? "루트 저장 중..." : lastMessage}
             onStart={handleStart}
             onPause={handlePause}
             onStop={handleStop}
@@ -447,9 +410,13 @@ export default function Home() {
 
         {tab === "myroute" && (
           <div className="absolute inset-0 z-30 bg-white">
-            <RouteGrid onSelect={handleSelectRoute} />
+            {!analysisOpen && <RouteGrid onSelect={handleSelectRoute} />}
 
-            {selectedRoute && (
+            {analysisOpen && (
+              <AnalysisReport accessToken={session.access_token} />
+            )}
+
+            {selectedRoute && !analysisOpen && (
               <RouteViewer
                 key={selectedRoute.id}
                 route={selectedRoute}
@@ -488,9 +455,9 @@ export default function Home() {
 
       {pendingRoute && (
         <RouteTitleModal
-          defaultTitle={`${new Date(
-            pendingRoute.startedAt,
-          ).toLocaleString("ko-KR")} 산책`}
+          defaultTitle={`${new Date(pendingRoute.startedAt).toLocaleString(
+            "ko-KR",
+          )} 산책`}
           description={
             pendingRoute.places.length > 0
               ? `장소 ${pendingRoute.places.length}개가 함께 저장됩니다. 루트의 이름을 입력해 주세요.`
