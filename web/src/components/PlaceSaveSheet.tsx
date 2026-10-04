@@ -16,7 +16,11 @@ export type PlaceSheetState =
 type PlaceSaveSheetProps = {
   state: PlaceSheetState;
   onRetry: () => void;
-  onSave: (name: string, category: PlaceCategory) => void;
+  onSave: (
+    name: string,
+    category: PlaceCategory,
+    providerId: string | null,
+  ) => void;
   onCancel: () => void;
 };
 
@@ -48,7 +52,7 @@ export function PlaceSaveSheet({
   function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     if (!canSave || category === null) return;
-    onSave(trimmed, category);
+    onSave(trimmed, category, selectedId);
   }
 
   function handlePickCandidate(place: NearbyPlaceCandidate) {
