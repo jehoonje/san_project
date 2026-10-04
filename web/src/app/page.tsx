@@ -217,6 +217,21 @@ export default function Home() {
           1000,
       );
 
+      const enrichedPlaces = await Promise.all(
+        finalPlaces.map(async (place) => {
+          try {
+            const res = await fetch(
+              `/api/region-dong?lat=${place.lat}&lng=${place.lng}`,
+            );
+            const json = res.ok ? await res.json() : null;
+            return { ...place, regionDong: json?.regionDong ?? null };
+          } catch {
+            return place;
+          }
+        }),
+      );
+      
+
       const { error } = await supabase.rpc(
         "save_route_with_places",
         {
@@ -226,7 +241,7 @@ export default function Home() {
           p_duration_seconds: durationSeconds,
           p_started_at: startedAt,
           p_ended_at: endedAt,
-          p_places: finalPlaces.map((place) => ({
+          p_places: enrichedPlaces.map((place) => ({
             name: place.name,
             category: place.category,
             lat: place.lat,
@@ -235,6 +250,8 @@ export default function Home() {
             dwell_minutes: place.dwellMinutes,
             source: place.source,
             saved_at: place.savedAt,
+            place_id: place.placeId,
+            region_dong: place.regionDong,
           })),
         },
       );
@@ -303,9 +320,10 @@ export default function Home() {
   function handleSavePlace(
     name: string,
     category: PlaceCategory,
+    providerId: string | null,
   ) {
     if (!placeSheet || placeSheet.status !== "ready") return;
-
+  
     const draft: PlaceDraft = {
       name,
       category,
@@ -315,6 +333,8 @@ export default function Home() {
       savedAt: new Date().toISOString(),
       source: "manual",
       dwellMinutes: null,
+      placeId: providerId,
+      regionDong: null,
     };
 
     placesRef.current = [...placesRef.current, draft];

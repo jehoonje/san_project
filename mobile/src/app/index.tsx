@@ -11,7 +11,7 @@ WebBrowser.maybeCompleteAuthSession();
 
 // 프리뷰 테스트가 끝나면 운영 주소로 되돌린 뒤 커밋하세요.
 const WEB_URL =
-  "https://san-project-1vtq1vfgi-jehoonjes-projects.vercel.app/";
+  "https://san-project-dm9a5ingc-jehoonjes-projects.vercel.app/";
 
 type TrackingStatus = "idle" | "recording" | "paused";
 

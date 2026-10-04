@@ -29,6 +29,8 @@ export type PlaceDraft = PlaceMapItem & {
   savedAt: string;
   source: PlaceSource;
   dwellMinutes: number | null;
+  placeId: string | null;
+  regionDong: string | null;
 };
 
 // route_places 테이블에서 조회한 장소
@@ -39,4 +41,6 @@ export type SavedPlace = PlaceMapItem & {
   source: PlaceSource;
   saved_at: string;
   created_at: string;
+  place_id?: string | null;
+  region_dong?: string | null;
 };
