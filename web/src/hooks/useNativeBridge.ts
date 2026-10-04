@@ -24,13 +24,31 @@ export function useNativeBridge(
 
   useEffect(() => {
     function handleMessage(event: MessageEvent) {
-      try {
-        const data: AppToWebMessage = JSON.parse(event.data);
-        setLastMessage(JSON.stringify(data));
-        onMessage(data);
-      } catch (err) {
-        console.error("메시지 파싱 실패:", err, event.data);
+      if (typeof event.data !== "string") {
+        return;
       }
+    
+      let parsed: unknown;
+    
+      try {
+        parsed = JSON.parse(event.data);
+      } catch {
+        return;
+      }
+    
+      if (
+        !parsed ||
+        typeof parsed !== "object" ||
+        !("type" in parsed) ||
+        typeof parsed.type !== "string"
+      ) {
+        return;
+      }
+    
+      const data = parsed as AppToWebMessage;
+    
+      setLastMessage(JSON.stringify(data));
+      onMessage(data);
     }
 
     document.addEventListener("message", handleMessage as EventListener);
