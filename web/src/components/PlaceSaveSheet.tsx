@@ -3,6 +3,10 @@
 
 import { useState } from "react";
 import { PLACE_CATEGORIES, type PlaceCategory } from "@/types/place";
+import {
+  useNearbyPlaces,
+  type NearbyPlaceCandidate,
+} from "@/hooks/useNearbyPlaces";
 
 export type PlaceSheetState =
   | { status: "locating" }
@@ -16,6 +20,12 @@ type PlaceSaveSheetProps = {
   onCancel: () => void;
 };
 
+function emojiOf(category: PlaceCategory) {
+  return (
+    PLACE_CATEGORIES.find((c) => c.key === category)?.emoji ?? "📍"
+  );
+}
+
 export function PlaceSaveSheet({
   state,
   onRetry,
@@ -24,6 +34,12 @@ export function PlaceSaveSheet({
 }: PlaceSaveSheetProps) {
   const [name, setName] = useState("");
   const [category, setCategory] = useState<PlaceCategory | null>(null);
+  const [selectedId, setSelectedId] = useState<string | null>(null);
+
+  const nearby = useNearbyPlaces(
+    state.status === "ready" ? state.lat : null,
+    state.status === "ready" ? state.lng : null,
+  );
 
   const trimmed = name.trim();
   const canSave =
@@ -33,6 +49,17 @@ export function PlaceSaveSheet({
     e.preventDefault();
     if (!canSave || category === null) return;
     onSave(trimmed, category);
+  }
+
+  function handlePickCandidate(place: NearbyPlaceCandidate) {
+    setName(place.name.slice(0, 60));
+    setCategory(place.category);
+    setSelectedId(place.providerId);
+  }
+
+  function handleNameChange(value: string) {
+    setName(value);
+    setSelectedId(null);
   }
 
   return (
@@ -46,7 +73,7 @@ export function PlaceSaveSheet({
 
       <form
         onSubmit={handleSubmit}
-        className="w-full max-w-sm rounded-2xl bg-white p-5 shadow-xl"
+        className="flex max-h-[80vh] w-full max-w-sm flex-col rounded-2xl bg-white p-5 shadow-xl"
         style={{ animation: "sheetIn 0.25s ease-out both" }}
       >
         <h2 className="text-base font-semibold text-neutral-900">장소 저장</h2>
@@ -89,33 +116,99 @@ export function PlaceSaveSheet({
           )}
         </div>
 
-        <input
-          value={name}
-          onChange={(e) => setName(e.target.value)}
-          maxLength={60}
-          placeholder="장소 이름"
-          className="mt-3 w-full rounded-xl border border-neutral-200 px-4 py-3 text-[16px] text-neutral-900 outline-none focus:border-[#ff5a36]"
-        />
+        <div className="min-h-0 flex-1 overflow-y-auto">
+          {state.status === "ready" && nearby.status === "loading" && (
+            <p className="mt-3 flex items-center gap-2 text-xs text-neutral-400">
+              <span className="inline-block h-3 w-3 animate-spin rounded-full border-2 border-neutral-300 border-t-[#ff5a36]" />
+              주변 장소를 찾는 중... 바로 입력해도 돼요
+            </p>
+          )}
 
-        <div className="mt-3 grid grid-cols-4 gap-2">
-          {PLACE_CATEGORIES.map((c) => {
-            const selected = category === c.key;
-            return (
-              <button
-                key={c.key}
-                type="button"
-                onClick={() => setCategory(c.key)}
-                className={`flex flex-col items-center gap-0.5 rounded-xl border py-2 text-xs font-medium transition active:scale-95 ${
-                  selected
-                    ? "border-[#ff5a36] bg-[#fff1ed] text-[#ff5a36]"
-                    : "border-neutral-200 bg-white text-neutral-600"
-                }`}
-              >
-                <span className="text-lg leading-none">{c.emoji}</span>
-                {c.label}
-              </button>
-            );
-          })}
+          {nearby.status === "done" && nearby.places.length > 0 && (
+            <div className="mt-3">
+              <p className="mb-1.5 text-xs font-medium text-neutral-500">
+                주변 장소 (200m 이내)
+              </p>
+              <ul className="max-h-48 divide-y divide-neutral-100 overflow-y-auto rounded-xl border border-neutral-200">
+                {nearby.places.map((place) => {
+                  const selected = selectedId === place.providerId;
+                  return (
+                    <li key={place.providerId}>
+                      <button
+                        type="button"
+                        onClick={() => handlePickCandidate(place)}
+                        className={`flex w-full items-center gap-3 px-3 py-2.5 text-left transition active:bg-neutral-100 ${
+                          selected ? "bg-[#fff1ed]" : "bg-white"
+                        }`}
+                      >
+                        <span className="text-lg leading-none">
+                          {emojiOf(place.category)}
+                        </span>
+                        <span className="min-w-0 flex-1">
+                          <span
+                            className={`block truncate text-sm font-medium ${
+                              selected
+                                ? "text-[#ff5a36]"
+                                : "text-neutral-900"
+                            }`}
+                          >
+                            {place.name}
+                          </span>
+                          <span className="block truncate text-xs text-neutral-400">
+                            {place.categoryName.split(" > ").slice(-1)[0]}
+                          </span>
+                        </span>
+                        <span className="shrink-0 text-xs text-neutral-400">
+                          {place.distanceMeters}m
+                        </span>
+                      </button>
+                    </li>
+                  );
+                })}
+              </ul>
+            </div>
+          )}
+
+          {nearby.status === "done" && nearby.places.length === 0 && (
+            <p className="mt-3 text-xs text-neutral-400">
+              200m 안에 추천할 장소가 없어요. 직접 입력해 주세요.
+            </p>
+          )}
+
+          {nearby.status === "error" && (
+            <p className="mt-3 text-xs text-neutral-400">
+              주변 장소를 불러오지 못했어요. 직접 입력해 주세요.
+            </p>
+          )}
+
+          <input
+            value={name}
+            onChange={(e) => handleNameChange(e.target.value)}
+            maxLength={60}
+            placeholder="장소 이름"
+            className="mt-3 w-full rounded-xl border border-neutral-200 px-4 py-3 text-[16px] text-neutral-900 outline-none focus:border-[#ff5a36]"
+          />
+
+          <div className="mt-3 grid grid-cols-4 gap-2">
+            {PLACE_CATEGORIES.map((c) => {
+              const selected = category === c.key;
+              return (
+                <button
+                  key={c.key}
+                  type="button"
+                  onClick={() => setCategory(c.key)}
+                  className={`flex flex-col items-center gap-0.5 rounded-xl border py-2 text-xs font-medium transition active:scale-95 ${
+                    selected
+                      ? "border-[#ff5a36] bg-[#fff1ed] text-[#ff5a36]"
+                      : "border-neutral-200 bg-white text-neutral-600"
+                  }`}
+                >
+                  <span className="text-lg leading-none">{c.emoji}</span>
+                  {c.label}
+                </button>
+              );
+            })}
+          </div>
         </div>
 
         <div className="mt-5 flex gap-2">
