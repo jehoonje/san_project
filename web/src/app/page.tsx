@@ -44,9 +44,7 @@ function haversineMeters(a: [number, number], b: [number, number]) {
   const dLng = toRad(lng2 - lng1);
   const value =
     Math.sin(dLat / 2) ** 2 +
-    Math.cos(toRad(lat1)) *
-      Math.cos(toRad(lat2)) *
-      Math.sin(dLng / 2) ** 2;
+    Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) * Math.sin(dLng / 2) ** 2;
 
   return 2 * R * Math.asin(Math.sqrt(value));
 }
@@ -93,7 +91,7 @@ export default function Home() {
     if (data.type === "STATUS_ACK") setStatus(data.status);
   }, []);
 
-  const { sendToApp, lastMessage } = useNativeBridge(handleNativeMessage);
+  const { sendToApp } = useNativeBridge(handleNativeMessage);
   const { requestLocation } = usePlaceLocation();
 
   useEffect(() => {
@@ -376,7 +374,7 @@ export default function Home() {
   }
 
   return (
-    <main className="fixed inset-0 flex flex-col bg-white">
+    <main className="fixed inset-0 flex h-[100dvh] min-h-0 w-screen flex-col overflow-hidden bg-white">
       <TopBar
         title={topTitle}
         isBack={isBack}
@@ -387,18 +385,18 @@ export default function Home() {
 
       <div className="relative min-h-0 flex-1 overflow-hidden">
         <div
-          className={`absolute inset-0 isolate ${
-            tab === "record" ? "" : "invisible pointer-events-none"
+          className={`absolute inset-0 h-full min-h-0 w-full overflow-hidden ${
+            tab === "record" ? "visible" : "invisible pointer-events-none"
           }`}
         >
           <MapView
             coords={coords}
             places={places}
             initialCenter={INITIAL_CENTER}
+            active={tab === "record"}
           />
           <TrackingControls
             status={isSaving ? "paused" : status}
-            lastMessage={isSaving ? "루트 저장 중..." : lastMessage}
             onStart={handleStart}
             onPause={handlePause}
             onStop={handleStop}
@@ -409,7 +407,7 @@ export default function Home() {
         </div>
 
         {tab === "myroute" && (
-          <div className="absolute inset-0 z-30 min-h-0 overflow-hidden bg-white">
+          <div className="absolute inset-0 z-30 h-full min-h-0 w-full overflow-hidden bg-white">
             {!analysisOpen && <RouteGrid onSelect={handleSelectRoute} />}
 
             {analysisOpen && (

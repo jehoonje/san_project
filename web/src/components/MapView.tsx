@@ -18,6 +18,7 @@ type MapViewProps = {
   coords: [number, number][];
   places: PlaceMapItem[];
   initialCenter: [number, number];
+  active?: boolean;
 };
 
 const ROUTE_SOURCE_ID = "live-route";
@@ -25,7 +26,8 @@ const ROUTE_LAYER_ID = "live-route-line";
 const PLACE_PREFIX = "live";
 
 function createLocationMarkerElement() {
-  const container = document.createElement("div");
+  const container =
+    document.createElement("div");
 
   container.style.position = "relative";
   container.style.width = "24px";
@@ -34,15 +36,19 @@ function createLocationMarkerElement() {
   container.style.alignItems = "center";
   container.style.justifyContent = "center";
 
-  const pulse = document.createElement("div");
+  const pulse =
+    document.createElement("div");
 
   pulse.style.position = "absolute";
   pulse.style.inset = "0";
   pulse.style.borderRadius = "50%";
-  pulse.style.background = "rgba(37, 99, 235, 0.2)";
-  pulse.style.animation = "locationPulse 2s ease-out infinite";
+  pulse.style.background =
+    "rgba(37, 99, 235, 0.2)";
+  pulse.style.animation =
+    "locationPulse 2s ease-out infinite";
 
-  const dot = document.createElement("div");
+  const dot =
+    document.createElement("div");
 
   dot.style.position = "relative";
   dot.style.width = "16px";
@@ -74,6 +80,7 @@ function LocationIcon() {
         r="3.5"
         fill="currentColor"
       />
+
       <circle
         cx="12"
         cy="12"
@@ -81,6 +88,7 @@ function LocationIcon() {
         stroke="currentColor"
         strokeWidth="2"
       />
+
       <path
         d="M12 2v2.2M12 19.8V22M2 12h2.2M19.8 12H22"
         stroke="currentColor"
@@ -95,22 +103,37 @@ export function MapView({
   coords,
   places,
   initialCenter,
+  active = true,
 }: MapViewProps) {
-  const containerRef = useRef<HTMLDivElement>(null);
-  const mapRef = useRef<maplibregl.Map | null>(null);
-  const markerRef = useRef<maplibregl.Marker | null>(null);
+  const containerRef =
+    useRef<HTMLDivElement>(null);
 
-  const hasRealLocationRef = useRef(false);
+  const mapRef =
+    useRef<maplibregl.Map | null>(null);
+
+  const markerRef =
+    useRef<maplibregl.Marker | null>(null);
+
+  const hasRealLocationRef =
+    useRef(false);
+
   const latestCoordRef =
     useRef<[number, number] | null>(null);
+
   const latestCoordsRef =
     useRef<[number, number][]>(coords);
+
   const latestPlacesRef =
     useRef<PlaceMapItem[]>(places);
-  const isFollowingRef = useRef(true);
 
-  const [hasLocation, setHasLocation] = useState(false);
-  const [isFollowing, setIsFollowing] = useState(true);
+  const isFollowingRef =
+    useRef(true);
+
+  const [hasLocation, setHasLocation] =
+    useState(false);
+
+  const [isFollowing, setIsFollowing] =
+    useState(true);
 
   const applyCoords = useCallback(
     (
@@ -119,7 +142,9 @@ export function MapView({
     ) => {
       const source = map.getSource(
         ROUTE_SOURCE_ID,
-      ) as maplibregl.GeoJSONSource | undefined;
+      ) as
+        | maplibregl.GeoJSONSource
+        | undefined;
 
       if (!source) return;
 
@@ -129,7 +154,9 @@ export function MapView({
         geometry: {
           type: "LineString",
           coordinates:
-            nextCoords.length >= 2 ? nextCoords : [],
+            nextCoords.length >= 2
+              ? nextCoords
+              : [],
         },
       });
 
@@ -141,17 +168,21 @@ export function MapView({
       latestCoordRef.current = latest;
 
       if (!markerRef.current) {
-        markerRef.current = new maplibregl.Marker({
-          element: createLocationMarkerElement(),
-          anchor: "center",
-        })
-          .setLngLat(latest)
-          .addTo(map);
+        markerRef.current =
+          new maplibregl.Marker({
+            element:
+              createLocationMarkerElement(),
+            anchor: "center",
+          })
+            .setLngLat(latest)
+            .addTo(map);
       } else {
         markerRef.current.setLngLat(latest);
       }
 
-      if (!hasRealLocationRef.current) {
+      if (
+        !hasRealLocationRef.current
+      ) {
         map.jumpTo({
           center: latest,
           zoom: 17,
@@ -177,8 +208,45 @@ export function MapView({
     [],
   );
 
+  /*
+   * Record 탭이 다시 표시될 때 MapLibre가
+   * 실제 컨테이너 크기를 다시 계산합니다.
+   */
   useEffect(() => {
-    const container = containerRef.current;
+    const map = mapRef.current;
+
+    if (!active || !map) return;
+
+    let secondFrame = 0;
+
+    const firstFrame =
+      requestAnimationFrame(() => {
+        secondFrame =
+          requestAnimationFrame(() => {
+            map.resize();
+          });
+      });
+
+    const timer = setTimeout(() => {
+      map.resize();
+    }, 320);
+
+    return () => {
+      cancelAnimationFrame(firstFrame);
+
+      if (secondFrame) {
+        cancelAnimationFrame(
+          secondFrame,
+        );
+      }
+
+      clearTimeout(timer);
+    };
+  }, [active]);
+
+  useEffect(() => {
+    const container =
+      containerRef.current;
 
     if (!container) return;
 
@@ -193,7 +261,19 @@ export function MapView({
       center: initialCenter,
       zoom: 15,
       attributionControl: false,
+      trackResize: true,
+
+      /*
+       * 지도 자체의 사용성은 그대로 유지합니다.
+       * 핀치 줌과 드래그는 MapLibre 지도에만 적용됩니다.
+       */
+      dragPan: true,
+      scrollZoom: true,
+      touchZoomRotate: true,
+      doubleClickZoom: true,
     });
+
+    mapRef.current = map;
 
     map.addControl(
       new maplibregl.AttributionControl({
@@ -207,34 +287,70 @@ export function MapView({
     map.keyboard.disable();
 
     const stopFollowing = () => {
-      if (!isFollowingRef.current) return;
+      if (!isFollowingRef.current) {
+        return;
+      }
 
       isFollowingRef.current = false;
       setIsFollowing(false);
     };
 
-    map.on("dragstart", stopFollowing);
+    map.on(
+      "dragstart",
+      stopFollowing,
+    );
 
-    map.on("zoomstart", (event) => {
-      if (event.originalEvent) {
-        stopFollowing();
-      }
-    });
+    map.on(
+      "zoomstart",
+      (event) => {
+        if (event.originalEvent) {
+          stopFollowing();
+        }
+      },
+    );
+
+    /*
+     * WebView 크기, 회전, 탭 전환 등으로
+     * 컨테이너 크기가 바뀌면 지도를 재계산합니다.
+     */
+    const resizeObserver =
+      new ResizeObserver(() => {
+        map.resize();
+      });
+
+    resizeObserver.observe(container);
+
+    const handleViewportResize = () => {
+      map.resize();
+    };
+
+    window.addEventListener(
+      "resize",
+      handleViewportResize,
+    );
+
+    window.visualViewport?.addEventListener(
+      "resize",
+      handleViewportResize,
+    );
 
     map.on("load", () => {
       map.resize();
 
-      map.addSource(ROUTE_SOURCE_ID, {
-        type: "geojson",
-        data: {
-          type: "Feature",
-          properties: {},
-          geometry: {
-            type: "LineString",
-            coordinates: [],
+      map.addSource(
+        ROUTE_SOURCE_ID,
+        {
+          type: "geojson",
+          data: {
+            type: "Feature",
+            properties: {},
+            geometry: {
+              type: "LineString",
+              coordinates: [],
+            },
           },
         },
-      });
+      );
 
       map.addLayer({
         id: ROUTE_LAYER_ID,
@@ -267,17 +383,44 @@ export function MapView({
         PLACE_PREFIX,
         latestPlacesRef.current,
       );
+
+      requestAnimationFrame(() => {
+        map.resize();
+      });
+    });
+
+    map.on("idle", () => {
+      if (
+        container.clientWidth > 0 &&
+        container.clientHeight > 0
+      ) {
+        map.resize();
+      }
     });
 
     map.on("error", (event) => {
-      console.error("MAP ERROR:", event.error);
+      console.error(
+        "MAP ERROR:",
+        event.error,
+      );
     });
 
-    mapRef.current = map;
-
     return () => {
+      resizeObserver.disconnect();
+
+      window.removeEventListener(
+        "resize",
+        handleViewportResize,
+      );
+
+      window.visualViewport?.removeEventListener(
+        "resize",
+        handleViewportResize,
+      );
+
       markerRef.current = null;
       mapRef.current = null;
+
       map.remove();
     };
   }, [initialCenter, applyCoords]);
@@ -313,12 +456,15 @@ export function MapView({
 
   function handleRecenter() {
     const map = mapRef.current;
-    const latest = latestCoordRef.current;
+    const latest =
+      latestCoordRef.current;
 
     if (!map || !latest) return;
 
     isFollowingRef.current = true;
     setIsFollowing(true);
+
+    map.resize();
 
     map.easeTo({
       center: latest,
@@ -329,12 +475,25 @@ export function MapView({
   }
 
   return (
-    <div className="absolute inset-0 overflow-hidden bg-neutral-100">
+    <div
+      className="absolute inset-0 h-full min-h-0 w-full overflow-hidden bg-neutral-100"
+      style={{
+        position: "absolute",
+        top: 0,
+        right: 0,
+        bottom: 0,
+        left: 0,
+        width: "100%",
+        height: "100%",
+        minHeight: 0,
+      }}
+    >
       <style>{`
         @keyframes mapLoadingSpin {
           from {
             transform: rotate(0deg);
           }
+
           to {
             transform: rotate(360deg);
           }
@@ -345,10 +504,12 @@ export function MapView({
             transform: scale(0.65);
             opacity: 0.9;
           }
+
           70% {
             transform: scale(1.55);
             opacity: 0;
           }
+
           100% {
             transform: scale(1.55);
             opacity: 0;
@@ -358,24 +519,36 @@ export function MapView({
 
       <div
         ref={containerRef}
-        className="absolute inset-0"
+        className="absolute inset-0 h-full min-h-0 w-full"
+        style={{
+          position: "absolute",
+          top: 0,
+          right: 0,
+          bottom: 0,
+          left: 0,
+          width: "100%",
+          height: "100%",
+          minHeight: 0,
+          touchAction: "none",
+        }}
       />
 
-      {!isFollowing && hasLocation && (
-        <button
-          type="button"
-          onClick={handleRecenter}
-          aria-label="현재 위치로 이동"
-          title="현재 위치로 이동"
-          className="absolute right-4 z-[15] flex h-12 w-12 items-center justify-center rounded-full border border-neutral-200 bg-white text-blue-600 shadow-lg transition duration-150 active:scale-95 active:bg-neutral-50"
-          style={{
-            bottom:
-              "calc(7.5rem + env(safe-area-inset-bottom))",
-          }}
-        >
-          <LocationIcon />
-        </button>
-      )}
+      {!isFollowing &&
+        hasLocation && (
+          <button
+            type="button"
+            onClick={handleRecenter}
+            aria-label="현재 위치로 이동"
+            title="현재 위치로 이동"
+            className="absolute right-4 z-[15] flex h-12 w-12 touch-manipulation items-center justify-center rounded-full border border-neutral-200 bg-white text-blue-600 shadow-lg transition duration-150 active:scale-95 active:bg-neutral-50"
+            style={{
+              bottom:
+                "calc(7.5rem + env(safe-area-inset-bottom))",
+            }}
+          >
+            <LocationIcon />
+          </button>
+        )}
 
       {!hasLocation && (
         <div className="pointer-events-none absolute inset-0 z-20 flex items-center justify-center bg-white">

@@ -24,3 +24,51 @@ body {
   color: var(--foreground);
   font-family: Arial, Helvetica, sans-serif;
 }
+
+html,
+body {
+  width: 100%;
+  height: 100%;
+  min-height: 100%;
+  margin: 0;
+  overflow: hidden;
+  overscroll-behavior: none;
+  background: #ffffff;
+}
+
+body {
+  position: fixed;
+  inset: 0;
+  touch-action: manipulation;
+  -webkit-text-size-adjust: 100%;
+  -webkit-overflow-scrolling: auto;
+}
+
+#__next {
+  width: 100%;
+  height: 100%;
+}
+
+.maplibregl-map {
+  width: 100%;
+  height: 100%;
+}
+
+/*
+ * 지도 내부에서는 MapLibre의 드래그와 핀치 줌을 허용합니다.
+ * body의 페이지 확대 방지 설정과 분리합니다.
+ */
+.maplibregl-canvas-container,
+.maplibregl-canvas {
+  touch-action: none;
+}
+
+/* iOS에서 지도와 버튼을 길게 눌렀을 때 선택 UI 방지 */
+.maplibregl-map,
+.maplibregl-map * {
+  -webkit-tap-highlight-color: transparent;
+}
+
+button {
+  -webkit-touch-callout: none;
+}
