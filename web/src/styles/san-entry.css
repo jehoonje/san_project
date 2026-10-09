@@ -1,0 +1,951 @@
+/* SAN entry — borderless liquid glass on a dusk gradient with grain. */
+
+.san-entry {
+  --glass: rgba(255, 255, 255, 0.11);
+  --glass-hi: rgba(255, 255, 255, 0.2);
+  --glass-lo: rgba(255, 255, 255, 0.04);
+  --field: rgba(255, 255, 255, 0.1);
+  --field-focus: rgba(255, 255, 255, 0.18);
+  --soft: rgba(255, 255, 255, 0.09);
+  --soft-hover: rgba(255, 255, 255, 0.16);
+  --shadow:
+    0 44px 110px rgba(8, 4, 16, 0.46),
+    0 12px 40px rgba(8, 4, 16, 0.3);
+  --menu-color: rgba(255, 255, 255, 0.95);
+  --glow-a: rgba(255, 255, 255, 0.6);
+  --glow-b: rgba(214, 192, 255, 0.38);
+
+  position: fixed;
+  inset: 0;
+  isolation: isolate;
+  width: 100%;
+  height: 100dvh;
+  overflow: hidden;
+  color: var(--san-text);
+  background: linear-gradient(180deg, var(--a) 0%, var(--b) 46%, var(--c) 100%);
+}
+
+[data-theme="light"] .san-entry {
+  --glass: rgba(255, 255, 255, 0.5);
+  --glass-hi: rgba(255, 255, 255, 0.7);
+  --glass-lo: rgba(255, 255, 255, 0.32);
+  --field: rgba(255, 255, 255, 0.55);
+  --field-focus: rgba(255, 255, 255, 0.85);
+  --soft: rgba(255, 255, 255, 0.45);
+  --soft-hover: rgba(255, 255, 255, 0.72);
+  --shadow:
+    0 44px 110px rgba(96, 66, 84, 0.22),
+    0 12px 40px rgba(96, 66, 84, 0.14);
+  --menu-color: #2a2132;
+  --glow-a: rgba(255, 255, 255, 0.95);
+  --glow-b: rgba(255, 186, 166, 0.6);
+
+  background: linear-gradient(
+    180deg,
+    color-mix(in oklab, var(--a) 32%, #ffffff) 0%,
+    color-mix(in oklab, var(--b) 38%, #fbf3ee) 54%,
+    color-mix(in oklab, var(--b) 20%, #efe5de) 100%
+  );
+}
+
+.san-entry::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: 80;
+  pointer-events: none;
+  opacity: 0.16;
+  mix-blend-mode: overlay;
+  background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='220' height='220'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='.9' numOctaves='2' stitchTiles='stitch'/><feColorMatrix values='0 0 0 0 1 0 0 0 0 1 0 0 0 0 1 0 0 0 .55 0'/></filter><rect width='100%' height='100%' filter='url(%23n)'/></svg>");
+}
+
+[data-theme="light"] .san-entry::after {
+  opacity: 0.1;
+}
+
+.san-gradient-0 { --a: #4d6f86; --b: #9a7aa6; --c: #0d0b10; }
+.san-gradient-1 { --a: #5a5f8c; --b: #b57f9b; --c: #0c0a10; }
+.san-gradient-2 { --a: #3f6c73; --b: #8f8aa8; --c: #0a0c10; }
+.san-gradient-3 { --a: #6b5a86; --b: #c28b8f; --c: #100b0e; }
+.san-gradient-4 { --a: #46607f; --b: #a9809a; --c: #0b0b0f; }
+.san-gradient-5 { --a: #7a5d7e; --b: #d09a8a; --c: #100c0d; }
+
+.san-ambient {
+  position: absolute;
+  inset: -18%;
+  z-index: -1;
+  filter: blur(90px);
+  opacity: 0.55;
+  pointer-events: none;
+  animation: sanDrift 20s ease-in-out infinite alternate;
+}
+
+.san-ambient span {
+  position: absolute;
+  border-radius: 999px;
+}
+
+.san-ambient span:nth-child(1) {
+  top: 6%;
+  left: 24%;
+  width: 54%;
+  height: 40%;
+  background: color-mix(in oklab, var(--a) 70%, #fff);
+  opacity: 0.4;
+}
+
+.san-ambient span:nth-child(2) {
+  top: 38%;
+  right: 2%;
+  width: 46%;
+  height: 34%;
+  background: color-mix(in oklab, var(--b) 80%, #fff);
+  opacity: 0.38;
+}
+
+.san-ambient span:nth-child(3) {
+  top: 30%;
+  left: -6%;
+  width: 40%;
+  height: 30%;
+  background: color-mix(in oklab, var(--b) 60%, var(--a));
+  opacity: 0.3;
+}
+
+@keyframes sanDrift {
+  from { transform: translate3d(-2%, -1%, 0) scale(1); }
+  to   { transform: translate3d(3%, 2%, 0) scale(1.06); }
+}
+
+/* Menu */
+
+.san-menu {
+  position: absolute;
+  top: max(140px, calc(env(safe-area-inset-top) + 232px));
+  left: max(28px, calc(env(safe-area-inset-left) + 24px));
+  z-index: 10;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 2px;
+}
+
+.san-menu-item {
+  min-height: 58px;
+  padding: 2px 18px 2px 0;
+  border: 0;
+  color: var(--menu-color);
+  background: transparent;
+  text-align: left;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.san-menu-item.is-soft {
+  opacity: 0.6;
+}
+
+.san-menu-text {
+  display: inline-flex;
+  align-items: center;
+  font-size: clamp(34px, 9.5vw, 50px);
+  font-weight: 300;
+  line-height: 1.5;
+  letter-spacing: 0.16em;
+  text-shadow: 0 0 14px var(--glow-a), 0 0 38px var(--glow-b);
+}
+
+.san-menu-char {
+  display: inline-block;
+}
+
+/* Whip-pan modal */
+
+.san-scrim {
+  position: absolute;
+  inset: 0;
+  z-index: 20;
+  background: rgba(8, 4, 16, 0.28);
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
+}
+
+[data-theme="light"] .san-scrim {
+  background: rgba(255, 245, 240, 0.22);
+}
+
+.san-whip {
+  position: absolute;
+  inset: 0;
+  z-index: 30;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding:
+    max(24px, calc(env(safe-area-inset-top) + 16px))
+    16px
+    max(24px, calc(env(safe-area-inset-bottom) + 16px));
+  pointer-events: none;
+  will-change: transform, filter;
+}
+
+.san-card {
+  position: relative;
+  width: min(100%, 430px);
+  max-height: 100%;
+  overflow-x: hidden;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+
+  padding: 66px clamp(22px, 6vw, 32px) 28px;
+  border: 1px solid var(--glass-edge);
+  border-radius: 28px;
+
+  color: var(--glass-ink);
+  background:
+    linear-gradient(
+      145deg,
+      rgba(255, 255, 255, 0.1),
+      rgba(255, 255, 255, 0.02)
+    ),
+    var(--glass-tint);
+
+  -webkit-backdrop-filter: blur(22px) saturate(115%);
+  backdrop-filter: blur(22px) saturate(115%);
+
+  box-shadow:
+    0 24px 64px rgba(0, 0, 0, 0.25),
+    inset 0 1px 0 var(--glass-highlight),
+    inset 0 -1px 0 rgba(255, 255, 255, 0.05);
+
+  pointer-events: auto;
+  scrollbar-width: none;
+}
+
+.san-card::-webkit-scrollbar {
+  display: none;
+}
+
+.san-sweep {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+  background: linear-gradient(
+    100deg,
+    transparent 30%,
+    rgba(255, 255, 255, 0.34) 50%,
+    transparent 70%
+  );
+  mix-blend-mode: soft-light;
+}
+
+.san-card > *:not(.san-sweep) {
+  position: relative;
+  z-index: 1;
+}
+
+.san-icon-button,
+.san-signup-back {
+  display: inline-flex;
+  align-items: center;
+  border: 0;
+  color: var(--san-text);
+  background: transparent;
+  cursor: pointer;
+  transition: background 180ms ease, opacity 180ms ease;
+}
+
+.san-card-back {
+  position: absolute !important;
+  top: 14px;
+  left: 14px;
+  width: 44px;
+  height: 44px;
+  justify-content: center;
+  border-radius: 999px;
+}
+
+.san-icon-button:active,
+.san-signup-back:active {
+  background: var(--soft-hover);
+}
+
+.san-icon-button:disabled,
+.san-signup-back:disabled {
+  opacity: 0.4;
+  cursor: default;
+}
+
+/* Minimal: 제목, 설명, 소제목 숨김 */
+
+.san-heading {
+  display: none;
+}
+
+/* Fields and buttons (no borders) */
+
+.san-field {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+/* Minimal: 입력칸 위 라벨 숨김 (placeholder만 사용) */
+.san-field > span {
+  display: none;
+}
+
+.san-field input {
+  width: 100%;
+  height: 54px;
+  padding: 0 18px;
+  border: 0;
+  border-radius: 18px;
+  outline: none;
+  color: var(--san-text);
+  background: var(--field);
+  caret-color: var(--san-accent);
+  transition: background 200ms ease, box-shadow 200ms ease;
+}
+
+.san-field input::placeholder {
+  color: var(--san-text-faint);
+}
+
+.san-field input:focus {
+  background: var(--field-focus);
+  box-shadow: 0 0 0 4px color-mix(in oklab, var(--san-accent) 20%, transparent);
+}
+
+.san-field input:disabled {
+  opacity: 0.55;
+}
+
+.san-reveal {
+  overflow: hidden;
+}
+
+.san-reveal-inner {
+  padding-top: 16px;
+}
+
+.san-primary,
+.san-secondary,
+.san-social-button {
+  display: flex;
+  width: 100%;
+  min-height: 54px;
+  align-items: center;
+  justify-content: center;
+  border: 0;
+  border-radius: 18px;
+  font-size: 15px;
+  font-weight: 660;
+  cursor: pointer;
+  transition: transform 180ms ease, opacity 180ms ease, background 180ms ease;
+}
+
+.san-primary {
+  margin-top: 14px;
+  color: var(--san-accent-text);
+  background: var(--san-accent);
+  box-shadow: 0 14px 32px color-mix(in oklab, var(--san-accent) 34%, transparent);
+}
+
+.san-primary-spaced {
+  margin-top: 18px;
+}
+
+.san-secondary {
+  margin-top: 11px;
+  color: var(--san-text);
+  background: var(--soft);
+}
+
+.san-primary:active,
+.san-secondary:active,
+.san-social-button:active {
+  transform: scale(0.975);
+}
+
+.san-primary:disabled,
+.san-secondary:disabled,
+.san-social-button:disabled {
+  opacity: 0.48;
+  cursor: default;
+  transform: none;
+}
+
+.san-error {
+  margin: 14px 2px 0;
+  color: var(--san-error);
+  font-size: 13px;
+  font-weight: 520;
+  line-height: 1.45;
+}
+
+.san-divider {
+  display: grid;
+  grid-template-columns: 1fr auto 1fr;
+  align-items: center;
+  gap: 12px;
+  margin: 24px 0 17px;
+}
+
+.san-divider span {
+  height: 1px;
+  background: var(--soft-hover);
+}
+
+.san-divider small {
+  color: var(--san-text-faint);
+  font-size: 12px;
+}
+
+.san-social-list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.san-social-button {
+  position: relative;
+}
+
+.san-social-google {
+  color: #27292d;
+  background: #ffffff;
+}
+
+.san-social-kakao {
+  color: #191919;
+  background: #fee500;
+}
+
+.san-social-icon {
+  position: absolute;
+  left: 18px;
+  display: grid;
+  width: 24px;
+  height: 24px;
+  place-items: center;
+}
+
+.san-google-mark {
+  color: #4285f4;
+  font-family: Arial, sans-serif;
+  font-size: 19px;
+  font-weight: 700;
+}
+
+/* Signup */
+
+.san-signup-back {
+  min-height: 44px;
+  margin: -16px 0 12px -12px;
+  padding: 0 12px 0 8px;
+  border-radius: 999px;
+  color: var(--san-text-muted);
+}
+
+.san-progress {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 6px;
+  margin-bottom: 30px;
+}
+
+.san-progress span {
+  height: 3px;
+  border-radius: 999px;
+  background: var(--soft-hover);
+  transition: background 320ms ease;
+}
+
+.san-progress span.is-on {
+  background: var(--san-accent);
+}
+
+.san-done {
+  text-align: center;
+}
+
+.san-done-mark {
+  display: grid;
+  width: 78px;
+  height: 78px;
+  place-items: center;
+  margin: 8px auto 24px;
+  border-radius: 42% 58% 54% 46% / 47% 42% 58% 53%;
+  color: var(--san-accent);
+  background: color-mix(in oklab, var(--san-accent) 14%, var(--soft));
+}
+
+.san-done-mark svg {
+  width: 42px;
+  height: 42px;
+}
+
+/* Settings */
+
+.san-theme-list {
+  display: flex;
+  flex-direction: column;
+  gap: 11px;
+}
+
+.san-theme-option {
+  display: grid;
+  min-height: 76px;
+  grid-template-columns: 44px 1fr 20px;
+  align-items: center;
+  gap: 13px;
+  padding: 12px 18px;
+  border: 0;
+  border-radius: 22px;
+  color: var(--san-text);
+  background: var(--soft);
+  text-align: left;
+  cursor: pointer;
+  transition: background 200ms ease, transform 180ms ease;
+}
+
+.san-theme-option:active {
+  transform: scale(0.98);
+}
+
+.san-theme-option.is-active {
+  background: color-mix(in oklab, var(--san-accent) 16%, var(--soft));
+}
+
+.san-theme-icon {
+  display: grid;
+  width: 42px;
+  height: 42px;
+  place-items: center;
+  border-radius: 999px;
+  background: var(--soft-hover);
+}
+
+.san-theme-copy {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.san-theme-copy strong {
+  font-size: 15px;
+  font-weight: 670;
+}
+
+.san-theme-copy small {
+  color: var(--san-text-muted);
+  font-size: 12px;
+}
+
+.san-theme-dot {
+  width: 18px;
+  height: 18px;
+  border-radius: 999px;
+  background: var(--soft-hover);
+  transition: background 200ms ease, box-shadow 200ms ease;
+}
+
+.san-theme-option.is-active .san-theme-dot {
+  background: var(--san-accent);
+  box-shadow: 0 0 14px color-mix(in oklab, var(--san-accent) 60%, transparent);
+}
+
+/* Footer, notice, loading */
+
+.san-footer {
+  position: absolute;
+  right: 24px;
+  bottom: max(24px, calc(env(safe-area-inset-bottom) + 16px));
+  left: 24px;
+  z-index: 8;
+  color: var(--san-text-muted);
+  font-size: 12px;
+  text-align: center;
+  pointer-events: none;
+}
+
+.san-notice {
+  position: absolute;
+  bottom: max(56px, calc(env(safe-area-inset-bottom) + 44px));
+  left: 50%;
+  z-index: 60;
+  width: max-content;
+  max-width: calc(100% - 40px);
+  padding: 12px 18px;
+  border-radius: 999px;
+  color: var(--san-text);
+  background: var(--glass);
+  box-shadow: var(--shadow);
+  backdrop-filter: blur(24px);
+  -webkit-backdrop-filter: blur(24px);
+  font-size: 13px;
+  font-weight: 560;
+  translate: -50% 0;
+}
+
+.san-auth-loading {
+  position: fixed;
+  inset: 0;
+  display: grid;
+  height: 100dvh;
+  place-items: center;
+  background: var(--san-background);
+}
+
+.san-auth-loading-mark {
+  display: flex;
+  gap: 6px;
+}
+
+.san-auth-loading-mark span {
+  width: 6px;
+  height: 6px;
+  border-radius: 999px;
+  background: var(--san-text);
+  animation: sanDot 1s ease-in-out infinite;
+}
+
+.san-auth-loading-mark span:nth-child(2) { animation-delay: 120ms; }
+.san-auth-loading-mark span:nth-child(3) { animation-delay: 240ms; }
+
+@keyframes sanDot {
+  0%, 100% { opacity: 0.25; transform: translateY(0); }
+  50% { opacity: 1; transform: translateY(-5px); }
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .san-secondary:hover:not(:disabled),
+  .san-theme-option:hover { background: var(--soft-hover); }
+  .san-social-button:hover:not(:disabled) { filter: brightness(0.97); }
+  .san-icon-button:hover,
+  .san-signup-back:hover { background: var(--soft-hover); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .san-ambient { animation: none; }
+}
+
+/* 입력칸 (TSX의 .san-input) + 캐럿 숨김 */
+.san-input {
+  display: block;
+  width: 100%;
+  height: 54px;
+  padding: 0 18px;
+  border: 0;
+  border-radius: 18px;
+  outline: none;
+  color: var(--san-text);
+  background: var(--field);
+  caret-color: transparent;
+  font-size: 16px;
+  transition: background 200ms ease, box-shadow 200ms ease;
+}
+
+.san-input::placeholder {
+  color: var(--san-text-faint);
+}
+
+.san-input:focus {
+  background: var(--field-focus);
+  box-shadow: 0 0 0 4px color-mix(in oklab, var(--san-accent) 20%, transparent);
+}
+
+.san-input:disabled {
+  opacity: 0.55;
+}
+
+/* 가입 버튼 아래 텍스트 버튼 */
+.san-text-button {
+  display: block;
+  width: 100%;
+  min-height: 48px;
+  margin-top: 6px;
+  border: 0;
+  color: var(--san-text-muted);
+  background: transparent;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: opacity 180ms ease;
+}
+
+.san-text-button:disabled {
+  opacity: 0.4;
+  cursor: default;
+}
+
+/* 설정 항목 이름 */
+.san-theme-name {
+  font-size: 15px;
+  font-weight: 670;
+}
+
+/* 가입 완료 문구 */
+.san-done-text {
+  margin: 0 0 8px;
+  font-size: 16px;
+  font-weight: 600;
+}
+
+/* 구분선 (단일 span) */
+.san-divider {
+  display: block;
+  margin: 20px 0 16px;
+}
+
+.san-divider span {
+  display: block;
+  height: 1px;
+}
+
+/* 입력칸: 어두운 유리 + 얇은 하이라이트 테두리 */
+.san-input {
+  background: rgba(255, 255, 255, 0.1);
+  color: #ffffff;
+  box-shadow:
+    inset 0 0 0 1px rgba(255, 255, 255, 0.18),
+    inset 0 1px 0 rgba(255, 255, 255, 0.22);
+  caret-color: #ffffff;
+  font-weight: 500;
+}
+
+.san-input::placeholder {
+  color: rgba(255, 255, 255, 0.72);
+  font-weight: 450;
+}
+
+.san-input:focus {
+  background: rgba(255, 255, 255, 0.16);
+  box-shadow:
+    inset 0 0 0 1px rgba(255, 255, 255, 0.4),
+    0 0 0 4px rgba(255, 255, 255, 0.1);
+}
+
+/* 계정 만들기: 유리 버튼 */
+.san-text-button {
+  min-height: 52px;
+  margin-top: 12px;
+  border-radius: 18px;
+  color: #ffffff;
+  background: rgba(255, 255, 255, 0.12);
+  box-shadow:
+    inset 0 0 0 1px rgba(255, 255, 255, 0.2),
+    inset 0 1px 0 rgba(255, 255, 255, 0.24);
+  font-size: 15px;
+  font-weight: 600;
+  transition: background 180ms ease, transform 180ms ease;
+}
+
+.san-text-button:active {
+  transform: scale(0.975);
+  background: rgba(255, 255, 255, 0.2);
+}
+
+/* 구분선 */
+.san-divider span {
+  background: rgba(255, 255, 255, 0.2);
+}
+
+/* 라이트 모드 */
+[data-theme="light"] .san-input {
+  background: rgba(255, 255, 255, 0.55);
+  color: #2a2132;
+  caret-color: #2a2132;
+  box-shadow:
+    inset 0 0 0 1px rgba(42, 33, 50, 0.14),
+    inset 0 1px 0 rgba(255, 255, 255, 0.9);
+}
+
+[data-theme="light"] .san-input::placeholder {
+  color: rgba(42, 33, 50, 0.6);
+}
+
+[data-theme="light"] .san-input:focus {
+  background: rgba(255, 255, 255, 0.85);
+  box-shadow:
+    inset 0 0 0 1px rgba(42, 33, 50, 0.3),
+    0 0 0 4px rgba(42, 33, 50, 0.08);
+}
+
+[data-theme="light"] .san-text-button {
+  color: #2a2132;
+  background: rgba(255, 255, 255, 0.55);
+  box-shadow:
+    inset 0 0 0 1px rgba(42, 33, 50, 0.14),
+    inset 0 1px 0 rgba(255, 255, 255, 0.9);
+}
+
+[data-theme="light"] .san-divider span {
+  background: rgba(42, 33, 50, 0.16);
+}
+
+/* 빛 모션 제거 */
+.san-sweep {
+  display: none;
+}
+
+/* 포인트 색: 주황 → 라임 리퀴드 (진행 막대, 선택 점도 함께 바뀜) */
+.san-entry {
+  --san-accent: #d9f26b;
+  --san-accent-hover: #e6f98c;
+  --san-accent-text: #14170c;
+}
+
+[data-theme="light"] .san-entry {
+  --san-accent: #6f8f12;
+  --san-accent-hover: #5f7c0d;
+  --san-accent-text: #ffffff;
+}
+
+/* 창: 어두운 리퀴드 글래스 */
+.san-card {
+  background:
+    linear-gradient(155deg, rgba(255, 255, 255, 0.09), rgba(255, 255, 255, 0) 38%),
+    radial-gradient(120% 90% at 100% 100%, rgba(120, 150, 90, 0.1), transparent 60%),
+    rgba(20, 23, 20, 0.78);
+  box-shadow:
+    inset 0 0 0 1px rgba(255, 255, 255, 0.1),
+    inset 0 1px 0 rgba(255, 255, 255, 0.16),
+    0 40px 100px rgba(0, 0, 0, 0.5),
+    0 10px 30px rgba(0, 0, 0, 0.35);
+  backdrop-filter: blur(36px) saturate(120%);
+  -webkit-backdrop-filter: blur(36px) saturate(120%);
+}
+
+[data-theme="light"] .san-card {
+  background:
+    linear-gradient(155deg, rgba(255, 255, 255, 0.75), rgba(255, 255, 255, 0.35) 55%),
+    rgba(255, 255, 255, 0.5);
+  box-shadow:
+    inset 0 0 0 1px rgba(255, 255, 255, 0.7),
+    0 40px 100px rgba(96, 66, 84, 0.22),
+    0 10px 30px rgba(96, 66, 84, 0.14);
+}
+
+/* 주요 버튼: 은은하게 빛나는 라임 리퀴드 */
+.san-primary {
+  color: var(--san-accent-text);
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.38), rgba(255, 255, 255, 0) 55%),
+    var(--san-accent);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.55),
+    inset 0 -8px 16px rgba(80, 100, 20, 0.18),
+    0 10px 28px rgba(217, 242, 107, 0.18);
+}
+
+[data-theme="light"] .san-primary {
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.4),
+    inset 0 -8px 16px rgba(30, 50, 0, 0.2),
+    0 10px 24px rgba(111, 143, 18, 0.25);
+}
+
+/* 입력칸·보조 버튼을 어두운 창에 맞춤 */
+.san-input {
+  background: rgba(255, 255, 255, 0.07);
+}
+
+.san-input:focus {
+  background: rgba(255, 255, 255, 0.12);
+  box-shadow:
+    inset 0 0 0 1px rgba(217, 242, 107, 0.55),
+    0 0 0 4px rgba(217, 242, 107, 0.1);
+}
+
+[data-theme="light"] .san-input {
+  background: rgba(255, 255, 255, 0.6);
+}
+
+[data-theme="light"] .san-input:focus {
+  background: rgba(255, 255, 255, 0.9);
+  box-shadow:
+    inset 0 0 0 1px rgba(111, 143, 18, 0.6),
+    0 0 0 4px rgba(111, 143, 18, 0.12);
+}
+
+.san-text-button {
+  background: rgba(255, 255, 255, 0.07);
+}
+
+/* 창: 테두리 없는 반투명 어두운 유리 */
+.san-card {
+  background:
+    linear-gradient(155deg, rgba(255, 255, 255, 0.06), rgba(255, 255, 255, 0) 45%),
+    rgba(18, 21, 18, 0.42);
+  box-shadow: 0 40px 100px rgba(0, 0, 0, 0.35);
+  backdrop-filter: blur(40px) saturate(130%);
+  -webkit-backdrop-filter: blur(40px) saturate(130%);
+}
+
+[data-theme="light"] .san-card {
+  background:
+    linear-gradient(155deg, rgba(255, 255, 255, 0.4), rgba(255, 255, 255, 0.1) 55%),
+    rgba(255, 255, 255, 0.28);
+  box-shadow: 0 40px 100px rgba(96, 66, 84, 0.16);
+}
+
+/* 입력칸: 테두리 제거, 반투명 */
+.san-input,
+[data-theme="light"] .san-input {
+  box-shadow: none;
+}
+
+.san-input {
+  background: rgba(255, 255, 255, 0.09);
+}
+
+.san-input:focus {
+  background: rgba(255, 255, 255, 0.15);
+  box-shadow: none;
+}
+
+[data-theme="light"] .san-input {
+  background: rgba(255, 255, 255, 0.4);
+}
+
+[data-theme="light"] .san-input:focus {
+  background: rgba(255, 255, 255, 0.65);
+  box-shadow: none;
+}
+
+/* 계정 만들기 버튼: 테두리 제거 */
+.san-text-button,
+[data-theme="light"] .san-text-button {
+  box-shadow: none;
+}
+
+.san-text-button {
+  background: rgba(255, 255, 255, 0.09);
+}
+
+[data-theme="light"] .san-text-button {
+  background: rgba(255, 255, 255, 0.4);
+}
+
+/* 주요 버튼: 테두리 없이 반투명 라임 */
+.san-primary {
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.22), rgba(255, 255, 255, 0) 60%),
+    rgba(217, 242, 107, 0.82);
+  box-shadow: 0 10px 28px rgba(217, 242, 107, 0.14);
+}
+
+[data-theme="light"] .san-primary {
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.22), rgba(255, 255, 255, 0) 60%),
+    rgba(111, 143, 18, 0.85);
+  box-shadow: 0 10px 24px rgba(111, 143, 18, 0.2);
+}
+
+/* 설정 항목, 구분선도 테두리 없이 */
+.san-theme-option {
+  box-shadow: none;
+}
