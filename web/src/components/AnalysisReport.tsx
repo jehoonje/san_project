@@ -18,6 +18,16 @@ type LoadState =
   | { status: "ready"; data: AnalysisReportResponse; warning: string | null }
   | { status: "error"; message: string };
 
+type LoadingState = Extract<LoadState, { status: "loading" }>;
+type FinalState = Exclude<LoadState, { status: "loading" }>;
+
+const INITIAL_LOADING: LoadingState = {
+  status: "loading",
+  message: "방문 기록을 분석하는 중...",
+  current: 0,
+  total: 0,
+};
+
 const MOOD_LABELS: Record<string, string> = {
   calm: "차분함",
   lively: "활기참",
@@ -40,6 +50,100 @@ async function parseResponse(response: Response) {
     throw error;
   }
   return json;
+}
+
+function authHeaders(accessToken: string) {
+  return {
+    "Content-Type": "application/json",
+    Authorization: `Bearer ${accessToken}`,
+  };
+}
+
+async function loadReport(
+  accessToken: string,
+  force: boolean,
+  onProgress: (state: LoadingState) => void,
+): Promise<FinalState> {
+  const headers = authHeaders(accessToken);
+
+  try {
+    const firstResponse = await fetch("/api/analysis-report", {
+      method: "POST",
+      headers,
+      body: JSON.stringify({ force }),
+    });
+    const first = (await parseResponse(
+      firstResponse,
+    )) as AnalysisReportResponse;
+
+    if (first.status !== "needs_enrichment") {
+      return { status: "ready", data: first, warning: null };
+    }
+
+    const total = first.missingPlaces.length;
+    let completed = 0;
+    let limitReached = false;
+
+    for (const place of first.missingPlaces as MissingInsightPlace[]) {
+      onProgress({
+        status: "loading",
+        message: `장소 정보를 확인하는 중 (${completed + 1}/${total})`,
+        current: completed,
+        total,
+      });
+
+      try {
+        const response = await fetch("/api/place-insight", {
+          method: "POST",
+          headers,
+          body: JSON.stringify(place),
+        });
+        await parseResponse(response);
+        completed += 1;
+      } catch (error) {
+        const requestError = error as Error & { status?: number };
+
+        if (requestError.status === 429) {
+          limitReached = true;
+          break;
+        }
+
+        console.error("장소 인사이트 생성 실패:", place.name, error);
+        completed += 1;
+      }
+    }
+
+    onProgress({
+      status: "loading",
+      message: "개인 취향 리포트를 작성하는 중...",
+      current: completed,
+      total,
+    });
+
+    const finalResponse = await fetch("/api/analysis-report", {
+      method: "POST",
+      headers,
+      body: JSON.stringify({ force, allowPartial: true }),
+    });
+    const final = (await parseResponse(
+      finalResponse,
+    )) as AnalysisReportResponse;
+
+    return {
+      status: "ready",
+      data: final,
+      warning: limitReached
+        ? "이번 달 검색 한도에 도달해 저장된 정보만으로 리포트를 만들었습니다."
+        : null,
+    };
+  } catch (error) {
+    console.error("분석 리포트 로드 실패:", error);
+
+    return {
+      status: "error",
+      message: "분석 리포트를 불러오지 못했습니다.",
+    };
+  }
 }
 
 function StatCard({ label, value }: { label: string; value: string }) {
@@ -238,119 +342,30 @@ function AnalysisBody({
 }
 
 export function AnalysisReport({ accessToken }: AnalysisReportProps) {
-  const [state, setState] = useState<LoadState>({
-    status: "loading",
-    message: "방문 기록을 분석하는 중...",
-    current: 0,
-    total: 0,
-  });
+  const [state, setState] = useState<LoadState>(INITIAL_LOADING);
 
-  const headers = useCallback(
-    () => ({
-      "Content-Type": "application/json",
-      Authorization: `Bearer ${accessToken}`,
-    }),
+  const run = useCallback(
+    async (force: boolean) => {
+      setState(INITIAL_LOADING);
+      const next = await loadReport(accessToken, force, setState);
+      setState(next);
+    },
     [accessToken],
   );
 
-  const enrichPlace = useCallback(
-    async (place: MissingInsightPlace) => {
-      const response = await fetch("/api/place-insight", {
-        method: "POST",
-        headers: headers(),
-        body: JSON.stringify(place),
-      });
-      return parseResponse(response);
-    },
-    [headers],
-  );
-
-  const run = useCallback(
-    async (force = false) => {
-      setState({
-        status: "loading",
-        message: "방문 기록을 분석하는 중...",
-        current: 0,
-        total: 0,
-      });
-
-      try {
-        const firstResponse = await fetch("/api/analysis-report", {
-          method: "POST",
-          headers: headers(),
-          body: JSON.stringify({ force }),
-        });
-        const first = (await parseResponse(
-          firstResponse,
-        )) as AnalysisReportResponse;
-
-        let warning: string | null = null;
-        if (first.status === "needs_enrichment") {
-          let completed = 0;
-          let limitReached = false;
-
-          for (const place of first.missingPlaces) {
-            setState({
-              status: "loading",
-              message: `장소 정보를 확인하는 중 (${completed + 1}/${first.missingPlaces.length})`,
-              current: completed,
-              total: first.missingPlaces.length,
-            });
-
-            try {
-              await enrichPlace(place);
-              completed += 1;
-            } catch (error) {
-              const requestError = error as Error & { status?: number };
-              if (requestError.status === 429) {
-                limitReached = true;
-                break;
-              }
-              console.error("장소 인사이트 생성 실패:", place.name, error);
-              completed += 1;
-            }
-          }
-
-          if (limitReached) {
-            warning =
-              "이번 달 검색 한도에 도달해 저장된 정보만으로 리포트를 만들었습니다.";
-          }
-
-          setState({
-            status: "loading",
-            message: "개인 취향 리포트를 작성하는 중...",
-            current: completed,
-            total: first.missingPlaces.length,
-          });
-
-          const finalResponse = await fetch("/api/analysis-report", {
-            method: "POST",
-            headers: headers(),
-            body: JSON.stringify({ force, allowPartial: true }),
-          });
-          const final = (await parseResponse(
-            finalResponse,
-          )) as AnalysisReportResponse;
-
-          setState({ status: "ready", data: final, warning });
-          return;
-        }
-
-        setState({ status: "ready", data: first, warning: null });
-      } catch (error) {
-        console.error("분석 리포트 로드 실패:", error);
-        setState({
-          status: "error",
-          message: "분석 리포트를 불러오지 못했습니다.",
-        });
-      }
-    },
-    [enrichPlace, headers],
-  );
-
   useEffect(() => {
-    void run(false);
-  }, [run]);
+    let cancelled = false;
+
+    void loadReport(accessToken, false, (progress) => {
+      if (!cancelled) setState(progress);
+    }).then((next) => {
+      if (!cancelled) setState(next);
+    });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [accessToken]);
 
   if (state.status === "loading") {
     const progress =

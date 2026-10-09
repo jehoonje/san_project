@@ -1,0 +1,234 @@
+/*
+ * 지도 중심 다크 인터페이스.
+ * 지도 → 점진적 블러 → 검정 상세 영역이 하나의 장면처럼 이어진다.
+ */
+
+ .san-map-home {
+  position: fixed;
+  inset: 0;
+  width: 100%;
+  height: 100dvh;
+  overflow: hidden;
+  color: var(--san-text, #f4f5f7);
+  background: #05070a;
+  isolation: isolate;
+}
+
+.san-record-view {
+  position: absolute;
+  z-index: 1;
+  inset: 0;
+  overflow: hidden;
+  opacity: 1;
+  visibility: visible;
+  transition:
+    opacity 240ms cubic-bezier(0.16, 1, 0.3, 1),
+    visibility 240ms step-start;
+}
+
+.san-record-view.is-hidden {
+  pointer-events: none;
+  opacity: 0;
+  visibility: hidden;
+  transition:
+    opacity 220ms ease,
+    visibility 220ms step-end;
+}
+
+.san-map-stage {
+  position: absolute;
+  z-index: 0;
+  top: 0;
+  right: 0;
+  left: 0;
+  height: 68dvh;
+  min-height: 430px;
+  overflow: visible;
+  background: #07090d;
+}
+
+.san-map-top-shade {
+  position: absolute;
+  z-index: 4;
+  inset: 0 0 auto;
+  height: 34%;
+  pointer-events: none;
+  background:
+    linear-gradient(
+      180deg,
+      rgba(3, 5, 9, 0.88) 0%,
+      rgba(3, 5, 9, 0.44) 42%,
+      rgba(3, 5, 9, 0) 100%
+    );
+}
+
+.san-map-blur-bridge {
+  position: absolute;
+  z-index: 5;
+  right: 0;
+  bottom: -22dvh;
+  left: 0;
+  height: 48dvh;
+  pointer-events: none;
+
+  background:
+    linear-gradient(
+      180deg,
+      rgba(5, 7, 10, 0) 0%,
+      rgba(5, 7, 10, 0.12) 18%,
+      rgba(5, 7, 10, 0.6) 48%,
+      rgba(5, 7, 10, 0.94) 69%,
+      #05070a 82%,
+      #05070a 100%
+    );
+
+  -webkit-backdrop-filter: blur(13px) saturate(80%);
+  backdrop-filter: blur(13px) saturate(80%);
+
+  -webkit-mask-image:
+    linear-gradient(
+      to bottom,
+      transparent 0%,
+      rgba(0, 0, 0, 0.25) 18%,
+      black 48%,
+      black 100%
+    );
+  mask-image:
+    linear-gradient(
+      to bottom,
+      transparent 0%,
+      rgba(0, 0, 0, 0.25) 18%,
+      black 48%,
+      black 100%
+    );
+}
+
+.san-region-overview {
+  position: absolute;
+  z-index: 20;
+  top: 53dvh;
+  right: 20px;
+  left: 20px;
+  max-width: 680px;
+  margin-inline: auto;
+  pointer-events: none;
+  color: #fff;
+  filter: drop-shadow(0 10px 20px rgba(0, 0, 0, 0.28));
+}
+
+.san-tracking-layer {
+  position: absolute;
+  z-index: 48;
+  right: 16px;
+  bottom: calc(
+    5.75rem + max(12px, env(safe-area-inset-bottom))
+  );
+  left: 16px;
+  display: flex;
+  justify-content: center;
+  pointer-events: none;
+  isolation: isolate;
+}
+
+/*
+ * TrackingControls 자체 루트가 fixed/absolute인 경우에도
+ * 메인 정보 뒤에 남지 않고 이 레이어 안에 배치되도록 정규화한다.
+ */
+.san-tracking-layer > * {
+  position: relative !important;
+  z-index: 1 !important;
+  inset: auto !important;
+  width: min(100%, 560px);
+  margin: 0 !important;
+  pointer-events: auto;
+}
+
+.san-home-toast {
+  position: fixed;
+  z-index: 100;
+  left: 50%;
+  bottom: calc(
+    10.5rem + max(12px, env(safe-area-inset-bottom))
+  );
+  max-width: calc(100% - 32px);
+  padding: 11px 16px;
+  color: #fff;
+  font-size: 13px;
+  font-weight: 600;
+  background: rgba(15, 18, 24, 0.82);
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  border-radius: 16px;
+  box-shadow: 0 14px 36px rgba(0, 0, 0, 0.32);
+  transform: translateX(-50%);
+  -webkit-backdrop-filter: blur(20px);
+  backdrop-filter: blur(20px);
+}
+
+.san-route-view {
+  position: absolute;
+  z-index: 10;
+  inset: 0;
+  overflow: hidden;
+  background: var(--san-background, #080a0f);
+}
+
+.san-route-content {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  padding-top: calc(
+    76px + env(safe-area-inset-top)
+  );
+  padding-bottom: calc(
+    82px + env(safe-area-inset-bottom)
+  );
+}
+
+@media (max-height: 740px) {
+  .san-map-stage {
+    height: 66dvh;
+    min-height: 390px;
+  }
+
+  .san-region-overview {
+    top: 49dvh;
+  }
+
+  .san-region-overview dl {
+    margin-top: 14px;
+    padding-top: 12px;
+  }
+}
+
+@media (min-width: 768px) {
+  .san-region-overview {
+    right: 32px;
+    left: 32px;
+  }
+
+  .san-tracking-layer {
+    right: 24px;
+    left: 24px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .san-record-view {
+    transition: none;
+  }
+}
+
+@supports not (
+  (backdrop-filter: blur(10px)) or
+    (-webkit-backdrop-filter: blur(10px))
+) {
+  .san-map-blur-bridge {
+    background:
+      linear-gradient(
+        180deg,
+        rgba(5, 7, 10, 0) 0%,
+        rgba(5, 7, 10, 0.8) 48%,
+        #05070a 76%
+      );
+  }
+}
