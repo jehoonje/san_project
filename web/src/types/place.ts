@@ -1,11 +1,11 @@
 export const PLACE_CATEGORIES = [
-  { key: "cafe", label: "카페", emoji: "☕" },
-  { key: "restaurant", label: "식당", emoji: "🍽️" },
-  { key: "bar", label: "술집", emoji: "🍺" },
-  { key: "park", label: "공원", emoji: "🌳" },
-  { key: "shop", label: "상점", emoji: "🛍️" },
-  { key: "culture", label: "문화", emoji: "🎭" },
-  { key: "etc", label: "기타", emoji: "📍" },
+  { key: "cafe", label: "카페" },
+  { key: "restaurant", label: "식당" },
+  { key: "bar", label: "술집" },
+  { key: "park", label: "공원" },
+  { key: "shop", label: "소품샵" },
+  { key: "culture", label: "문화" },
+  { key: "etc", label: "기타" },
 ] as const;
 
 export type PlaceCategory = (typeof PLACE_CATEGORIES)[number]["key"];
