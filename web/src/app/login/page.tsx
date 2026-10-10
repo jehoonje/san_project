@@ -1,8 +1,9 @@
 "use client";
 
-import { useEffect } from "react";
+import { useCallback, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { AuthPortal } from "@/components/auth/AuthPortal";
+import { useNativeOAuth } from "@/hooks/useNativeOAuth";
 import { useSession } from "@/hooks/useSession";
 import {
   signInWithProvider,
@@ -12,6 +13,13 @@ import {
 export default function LoginPage() {
   const router = useRouter();
   const { session, loading } = useSession();
+
+  const handleAuthenticated = useCallback(() => {
+    router.replace("/");
+  }, [router]);
+
+  // Expo 앱이 보내는 OAUTH_CALLBACK을 받아 세션을 만든다
+  useNativeOAuth(handleAuthenticated);
 
   useEffect(() => {
     if (!loading && session) {
@@ -42,7 +50,7 @@ export default function LoginPage() {
 
   return (
     <AuthPortal
-      onAuthenticated={() => router.replace("/")}
+      onAuthenticated={handleAuthenticated}
       onSocialLogin={handleSocialLogin}
     />
   );
