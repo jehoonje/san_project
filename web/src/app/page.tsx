@@ -7,7 +7,7 @@ import { useRouter } from "next/navigation";
 
 import { MapTabLayout, type MainTab } from "@/components/MapTabLayout";
 import { AnalysisReport } from "@/components/AnalysisReport";
-import { MapView, type MapViewport } from "@/components/MapView";
+import { MapView, LocationIcon, type MapViewHandle, type MapViewport } from "@/components/MapView";
 import { TrackingControls } from "@/components/TrackingControls";
 import { TopBar } from "@/components/TopBar";
 import { SideDrawer } from "@/components/SideDrawer";
@@ -112,6 +112,8 @@ export default function Home() {
 
   const placeTokenRef = useRef(0);
   const cameraRequestRef = useRef(0);
+  const mapViewRef = useRef<MapViewHandle>(null);
+  const [isFollowing, setIsFollowing] = useState(true);
   const tabRef = useRef<MainTab>("map");
   const mountedRef = useRef(true);
 
@@ -472,14 +474,12 @@ export default function Home() {
    * initialCenter나 viewport 상태를 변경하는 것만으로
    * 실제 지도 카메라를 이동했다고 처리하지 않습니다.
    */
-  async function focusCurrentLocation(_options: {
+  async function focusCurrentLocation(options: {
     reducedMotion: boolean;
   }): Promise<void> {
     const token = ++cameraRequestRef.current;
 
     try {
-      const result = await requestLocation();
-
       if (
         !mountedRef.current ||
         token !== cameraRequestRef.current ||
@@ -488,12 +488,7 @@ export default function Home() {
         return;
       }
 
-      if (!result.ok) {
-        showToast(result.message);
-        return;
-      }
-
-      showToast("위치는 확인했어요. 지도 카메라 이동 연결이 아직 필요해요.");
+      await mapViewRef.current?.focusCurrentLocation(options);
     } catch {
       if (
         mountedRef.current &&
@@ -584,12 +579,27 @@ export default function Home() {
         onTabChange={handleTabChange}
         map={
           <MapView
+            ref={mapViewRef}
+            onFollowingChange={setIsFollowing}
             coords={coords}
             places={places}
             initialCenter={INITIAL_CENTER}
             active={tab !== "routes"}
             onViewportChange={setViewport}
           />
+        }
+        mapControls={
+          <button
+            type="button"
+            onClick={() => mapViewRef.current?.recenter()}
+            aria-label="현재 위치로 이동"
+            title="현재 위치로 이동"
+            className={`grid h-12 w-12 place-items-center rounded-[18px] border border-white/15 bg-[rgba(10,13,18,0.62)] shadow-lg backdrop-blur-xl transition active:scale-95 ${
+              isFollowing ? "text-[#79adff]" : "text-[#f4f5f7]"
+            }`}
+          >
+            <LocationIcon />
+          </button>
         }
         topBar={
           <TopBar

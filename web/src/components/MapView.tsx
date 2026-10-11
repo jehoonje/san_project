@@ -1,8 +1,10 @@
 "use client";
 
 import {
+  forwardRef,
   useCallback,
   useEffect,
+  useImperativeHandle,
   useRef,
   useState,
 } from "react";
@@ -34,6 +36,14 @@ type MapViewProps = {
   initialCenter: [number, number];
   active?: boolean;
   onViewportChange?: (viewport: MapViewport) => void;
+  onFollowingChange?: (following: boolean) => void;
+};
+
+export type MapViewHandle = {
+  recenter: () => void;
+  focusCurrentLocation: (options: {
+    reducedMotion: boolean;
+  }) => Promise<void>;
 };
 
 type LocationState = "loading" | "ready" | "error";
@@ -74,7 +84,7 @@ function createLocationMarkerElement() {
   return container;
 }
 
-function LocationIcon() {
+export function LocationIcon() {
   return (
     <svg
       width="22"
@@ -101,13 +111,17 @@ function LocationIcon() {
   );
 }
 
-export function MapView({
-  coords,
-  places,
-  initialCenter,
-  active = true,
-  onViewportChange,
-}: MapViewProps) {
+export const MapView = forwardRef<MapViewHandle, MapViewProps>(function MapView(
+  {
+    coords,
+    places,
+    initialCenter,
+    active = true,
+    onViewportChange,
+    onFollowingChange,
+  },
+  ref,
+) {
   const containerRef = useRef<HTMLDivElement>(null);
   const mapRef = useRef<maplibregl.Map | null>(null);
   const markerRef = useRef<maplibregl.Marker | null>(null);
@@ -358,8 +372,28 @@ export function MapView({
       new maplibregl.AttributionControl({
         compact: true,
       }),
-      "bottom-left",
+      "top-left",
     );
+
+    const attribEl = () =>
+      map.getContainer().querySelector(".maplibregl-ctrl-attrib");
+    const showAttribution = () => {
+      const el = attribEl();
+      el?.setAttribute("open", "");
+      el?.classList.add("maplibregl-compact-show");
+    };
+    const collapseAttribution = () => {
+      const el = attribEl();
+      el?.removeAttribute("open");
+      el?.classList.remove("maplibregl-compact-show");
+    };
+    const collapseOnUserMove = (event: { originalEvent?: unknown }) => {
+      if (event.originalEvent) collapseAttribution();
+    };
+    showAttribution();
+    map.once("load", showAttribution);
+    const attributionTimer = window.setTimeout(collapseAttribution, 5000);
+    map.on("movestart", collapseOnUserMove);
 
     map.dragRotate.disable();
     map.touchZoomRotate.disableRotation();
@@ -489,6 +523,8 @@ export function MapView({
       disposed = true;
 
       window.clearTimeout(loadingTimer);
+      window.clearTimeout(attributionTimer);
+      map.off("movestart", collapseOnUserMove);
 
       resizeObserver?.disconnect();
 
@@ -602,6 +638,39 @@ export function MapView({
       duration: reducedMotion() ? 0 : 500,
     });
   }
+
+  const followingCallbackRef = useRef(onFollowingChange);
+
+  useEffect(() => {
+    followingCallbackRef.current = onFollowingChange;
+  }, [onFollowingChange]);
+
+  useEffect(() => {
+    followingCallbackRef.current?.(isFollowing && locationState === "ready");
+  }, [isFollowing, locationState]);
+
+  useImperativeHandle(ref, () => ({
+    recenter: handleRecenter,
+    focusCurrentLocation: async ({ reducedMotion: reduce }) => {
+      isFollowingRef.current = true;
+      setIsFollowing(true);
+
+      const map = mapRef.current;
+      const latest = latestCoordRef.current;
+
+      if (map && latest) {
+        map.resize();
+        map.easeTo({
+          center: latest,
+          zoom: 14.8,
+          duration: reduce ? 0 : 500,
+        });
+        return;
+      }
+
+      await locate();
+    },
+  }));
 
   return (
     <div className="san-live-map">
@@ -742,9 +811,30 @@ export function MapView({
           outline-offset: 3px;
         }
 
-        .san-live-map .maplibregl-ctrl-bottom-left {
-          bottom: 22%;
-          opacity: 0.55;
+        .san-live-map .maplibregl-ctrl-top-left {
+          top: calc(env(safe-area-inset-top, 0px) + 68px);
+          left: 4px;
+          opacity: 0.7;
+        }
+
+        .san-live-map .maplibregl-ctrl-attrib.maplibregl-compact {
+          min-height: 20px;
+          background: rgba(10, 13, 18, 0.55);
+        }
+
+        .san-live-map .maplibregl-ctrl-attrib-button {
+          width: 20px;
+          height: 20px;
+        }
+
+        .san-live-map .maplibregl-ctrl-attrib.maplibregl-compact-show {
+          background: rgba(10, 13, 18, 0.75);
+          color: #c9ccd2;
+          font-size: 10px;
+        }
+
+        .san-live-map .maplibregl-ctrl-attrib a {
+          color: inherit;
         }
 
         @keyframes san-map-spin {
@@ -783,7 +873,7 @@ export function MapView({
         className="san-live-map-canvas"
       />
 
-      {active ? (
+      {/* {active ? (
         <>
           {mapError ? (
             <div className="san-map-notice" role="alert">
@@ -825,22 +915,8 @@ export function MapView({
               </button>
             </div>
           ) : null}
-
-          <button
-            type="button"
-            className="san-map-recenter"
-            data-following={
-              isFollowing &&
-              locationState === "ready"
-            }
-            onClick={handleRecenter}
-            aria-label="현재 위치로 이동"
-            title="현재 위치로 이동"
-          >
-            <LocationIcon />
-          </button>
         </>
-      ) : null}
+      ) : null} */}
     </div>
   );
-}
+});

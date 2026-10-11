@@ -18,6 +18,7 @@ type MapTabLayoutProps = {
   overview: ReactNode;
   recordingControls: ReactNode;
   routes: ReactNode;
+  mapControls?: ReactNode;
   onFocusCurrentLocation: (options: {
     reducedMotion: boolean;
   }) => void | Promise<void>;
@@ -82,6 +83,7 @@ export function MapTabLayout({
   overview,
   recordingControls,
   routes,
+  mapControls,
   onFocusCurrentLocation,
   onRestoreMapView,
 }: MapTabLayoutProps) {
@@ -147,6 +149,15 @@ export function MapTabLayout({
       >
         {map}
       </div>
+
+      {!isRoutes && mapControls ? (
+        <div
+          className="pointer-events-auto absolute right-4 z-[35]"
+          style={{ bottom: "24%" }}
+        >
+          {mapControls}
+        </div>
+      ) : null}
 
       {/* 상단 정보 음영은 지도 위에서만 페이드됩니다. */}
       <motion.div
@@ -253,7 +264,7 @@ export function MapTabLayout({
           <motion.section
             key="recording-controls"
             aria-label="루트 기록"
-            className="absolute inset-x-0 z-20 mx-auto max-w-xl px-4"
+            className="pointer-events-none absolute inset-x-0 z-20 mx-auto max-w-xl px-4"
             style={{
               bottom: "calc(env(safe-area-inset-bottom, 0px) + 96px)",
             }}
@@ -279,7 +290,7 @@ export function MapTabLayout({
               </p>
             )}
 
-            {recordingControls}
+            <div className="pointer-events-auto">{recordingControls}</div>
           </motion.section>
         )}
       </AnimatePresence>
