@@ -1,9 +1,6 @@
 "use client";
 
-import {
-  useEffect,
-  useRef,
-} from "react";
+import { useEffect, useRef } from "react";
 import * as maplibregl from "maplibre-gl";
 import "maplibre-gl/dist/maplibre-gl.css";
 import { addPlaceLayer } from "@/lib/placeMap";
@@ -18,83 +15,62 @@ const SOURCE_ID = "saved-route";
 const LAYER_ID = "saved-route-line";
 const PLACE_PREFIX = "saved";
 
-function formatDuration(
-  seconds: number | null,
-) {
+function formatDuration(seconds: number | null) {
   if (seconds == null) return "-";
+  const totalSeconds = Math.max(0, Math.round(seconds));
+  const hours = Math.floor(totalSeconds / 3600);
+  const minutes = Math.floor((totalSeconds % 3600) / 60);
+  const remainingSeconds = totalSeconds % 60;
 
-  const totalSeconds = Math.max(
-    0,
-    Math.round(seconds),
-  );
-
-  const hours = Math.floor(
-    totalSeconds / 3600,
-  );
-
-  const minutes = Math.floor(
-    (totalSeconds % 3600) / 60,
-  );
-
-  const remainingSeconds =
-    totalSeconds % 60;
-
-  if (hours > 0) {
-    return minutes > 0
-      ? `${hours}시간 ${minutes}분`
-      : `${hours}시간`;
-  }
-
-  if (minutes > 0) {
+  if (hours > 0)
+    return minutes > 0 ? `${hours}시간 ${minutes}분` : `${hours}시간`;
+  if (minutes > 0)
     return remainingSeconds > 0
       ? `${minutes}분 ${remainingSeconds}초`
       : `${minutes}분`;
-  }
-
   return `${remainingSeconds}초`;
 }
 
 function makeDot(color: string) {
-  const container =
-    document.createElement("div");
-
-  container.style.position = "relative";
-  container.style.width = "22px";
-  container.style.height = "22px";
-  container.style.display = "flex";
-  container.style.alignItems = "center";
-  container.style.justifyContent = "center";
+  const container = document.createElement("div");
+  Object.assign(container.style, {
+    position: "relative",
+    width: "24px",
+    height: "24px",
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+  });
 
   const ring = document.createElement("div");
-
-  ring.style.position = "absolute";
-  ring.style.inset = "1px";
-  ring.style.borderRadius = "50%";
-  ring.style.background = color;
-  ring.style.opacity = "0.18";
+  Object.assign(ring.style, {
+    position: "absolute",
+    inset: "0",
+    borderRadius: "50%",
+    background: color,
+    opacity: "0.2",
+  });
 
   const dot = document.createElement("div");
+  Object.assign(dot.style, {
+    position: "relative",
+    width: "14px",
+    height: "14px",
+    borderRadius: "50%",
+    background: color,
+    border: "3px solid #ffffff",
+    boxShadow: "0 4px 14px rgba(0,0,0,.45)",
+  });
 
-  dot.style.position = "relative";
-  dot.style.width = "15px";
-  dot.style.height = "15px";
-  dot.style.borderRadius = "50%";
-  dot.style.background = color;
-  dot.style.border = "3px solid white";
-  dot.style.boxShadow =
-    "0 2px 7px rgba(0, 0, 0, 0.3)";
-
-  container.appendChild(ring);
-  container.appendChild(dot);
-
+  container.append(ring, dot);
   return container;
 }
 
 function RouteIcon() {
   return (
     <svg
-      width="16"
-      height="16"
+      width="17"
+      height="17"
       viewBox="0 0 24 24"
       fill="none"
       aria-hidden="true"
@@ -105,20 +81,8 @@ function RouteIcon() {
         strokeWidth="2"
         strokeLinecap="round"
       />
-
-      <circle
-        cx="6"
-        cy="19"
-        r="2"
-        fill="currentColor"
-      />
-
-      <circle
-        cx="9"
-        cy="7"
-        r="2"
-        fill="currentColor"
-      />
+      <circle cx="6" cy="19" r="2" fill="currentColor" />
+      <circle cx="9" cy="7" r="2" fill="currentColor" />
     </svg>
   );
 }
@@ -126,20 +90,13 @@ function RouteIcon() {
 function ClockIcon() {
   return (
     <svg
-      width="16"
-      height="16"
+      width="17"
+      height="17"
       viewBox="0 0 24 24"
       fill="none"
       aria-hidden="true"
     >
-      <circle
-        cx="12"
-        cy="12"
-        r="9"
-        stroke="currentColor"
-        strokeWidth="2"
-      />
-
+      <circle cx="12" cy="12" r="9" stroke="currentColor" strokeWidth="2" />
       <path
         d="M12 7v5l3.5 2"
         stroke="currentColor"
@@ -154,8 +111,8 @@ function ClockIcon() {
 function PlaceIcon() {
   return (
     <svg
-      width="16"
-      height="16"
+      width="17"
+      height="17"
       viewBox="0 0 24 24"
       fill="none"
       aria-hidden="true"
@@ -166,86 +123,43 @@ function PlaceIcon() {
         strokeWidth="2"
         strokeLinejoin="round"
       />
-
-      <circle
-        cx="12"
-        cy="9"
-        r="2.4"
-        fill="currentColor"
-      />
+      <circle cx="12" cy="9" r="2.4" fill="currentColor" />
     </svg>
   );
 }
 
-export function RouteViewer({
-  route,
-  open,
-}: RouteViewerProps) {
-  const containerRef =
-    useRef<HTMLDivElement>(null);
+export function RouteViewer({ route, open }: RouteViewerProps) {
+  const containerRef = useRef<HTMLDivElement>(null);
+  const mapRef = useRef<maplibregl.Map | null>(null);
 
-  const mapRef =
-    useRef<maplibregl.Map | null>(null);
-
-  /*
-   * RouteViewer가 애니메이션으로 열린 다음
-   * 실제 컨테이너 크기에 맞춰 지도를 다시 계산합니다.
-   */
   useEffect(() => {
     const map = mapRef.current;
-
     if (!open || !map) return;
 
     let secondFrame = 0;
-
-    const firstFrame =
-      requestAnimationFrame(() => {
-        secondFrame =
-          requestAnimationFrame(() => {
-            map.resize();
-          });
-      });
-
-    const animationTimer = setTimeout(() => {
-      map.resize();
-    }, 320);
+    const firstFrame = requestAnimationFrame(() => {
+      secondFrame = requestAnimationFrame(() => map.resize());
+    });
+    const animationTimer = setTimeout(() => map.resize(), 320);
 
     return () => {
       cancelAnimationFrame(firstFrame);
-
-      if (secondFrame) {
-        cancelAnimationFrame(secondFrame);
-      }
-
+      if (secondFrame) cancelAnimationFrame(secondFrame);
       clearTimeout(animationTimer);
     };
   }, [open]);
 
   useEffect(() => {
-    const container =
-      containerRef.current;
+    const container = containerRef.current;
+    const coords = route.coordinates ?? [];
+    const places = route.route_places ?? [];
+    if (!container || !coords.length) return;
 
-    const coords =
-      route.coordinates ?? [];
-
-    const places =
-      route.route_places ?? [];
-
-    if (
-      !container ||
-      coords.length === 0
-    ) {
-      return;
-    }
-
-    maplibregl.setWorkerUrl(
-      "/maplibre/maplibre-gl-worker.mjs",
-    );
+    maplibregl.setWorkerUrl("/maplibre/maplibre-gl-worker.mjs");
 
     const map = new maplibregl.Map({
       container,
-      style:
-        "https://tiles.openfreemap.org/styles/liberty",
+      style: "https://tiles.openfreemap.org/styles/dark",
       center: coords[0],
       zoom: 12,
       interactive: false,
@@ -254,255 +168,177 @@ export function RouteViewer({
     });
 
     mapRef.current = map;
-
     map.addControl(
-      new maplibregl.AttributionControl({
-        compact: true,
-      }),
-      "top-left",
+      new maplibregl.AttributionControl({ compact: false }),
+      "top-right",
     );
+    map.getCanvas().style.cursor = "default";
 
-    map.getCanvas().style.cursor =
-      "default";
-
-    /*
-     * 부모 레이아웃의 크기가 바뀌면 MapLibre
-     * 캔버스도 즉시 같은 크기로 맞춥니다.
-     */
-    const resizeObserver =
-      new ResizeObserver(() => {
-        map.resize();
-      });
-
+    const resizeObserver = new ResizeObserver(() => map.resize());
     resizeObserver.observe(container);
 
     map.on("load", () => {
       map.resize();
-
       map.addSource(SOURCE_ID, {
         type: "geojson",
         data: {
           type: "Feature",
           properties: {},
-          geometry: {
-            type: "LineString",
-            coordinates: coords,
-          },
+          geometry: { type: "LineString", coordinates: coords },
         },
       });
-
       map.addLayer({
         id: LAYER_ID,
         type: "line",
         source: SOURCE_ID,
-        layout: {
-          "line-join": "round",
-          "line-cap": "round",
-        },
+        layout: { "line-join": "round", "line-cap": "round" },
         paint: {
-          "line-color": "#ff5a36",
+          "line-color": "#00bfff",
           "line-width": 6,
           "line-opacity": 0.95,
+          "line-blur": 0.25,
         },
       });
 
-      addPlaceLayer(
-        map,
-        PLACE_PREFIX,
-        places,
-      );
-
-      new maplibregl.Marker({
-        element: makeDot("#16a34a"),
-        anchor: "center",
-      })
+      addPlaceLayer(map, PLACE_PREFIX, places);
+      new maplibregl.Marker({ element: makeDot("#5fd39a"), anchor: "center" })
         .setLngLat(coords[0])
         .addTo(map);
-
       if (coords.length > 1) {
-        new maplibregl.Marker({
-          element: makeDot("#dc2626"),
-          anchor: "center",
-        })
-          .setLngLat(
-            coords[coords.length - 1],
-          )
+        new maplibregl.Marker({ element: makeDot("#00bfff"), anchor: "center" })
+          .setLngLat(coords[coords.length - 1])
           .addTo(map);
       }
 
-      const bounds =
-        new maplibregl.LngLatBounds(
-          coords[0],
-          coords[0],
-        );
+      const bounds = new maplibregl.LngLatBounds(coords[0], coords[0]);
+      for (const coord of coords) bounds.extend(coord);
+      for (const place of places) bounds.extend([place.lng, place.lat]);
 
-      for (const coord of coords) {
-        bounds.extend(coord);
-      }
-
-      for (const place of places) {
-        bounds.extend([
-          place.lng,
-          place.lat,
-        ]);
-      }
-
-      /*
-       * 하단 정보 카드가 경로와 장소를
-       * 가리지 않도록 아래 여백을 크게 둡니다.
-       */
       map.fitBounds(bounds, {
-        padding: {
-          top: 72,
-          right: 48,
-          bottom: 180,
-          left: 48,
-        },
+        padding: { top: 92, right: 44, bottom: 300, left: 44 },
         maxZoom: 17,
         duration: 900,
       });
-
-      requestAnimationFrame(() => {
-        map.resize();
-      });
+      requestAnimationFrame(() => map.resize());
     });
 
-    map.on("error", (event) => {
-      console.error(
-        "VIEWER MAP ERROR:",
-        event.error,
-      );
-    });
+    map.on("error", (event) => console.error("VIEWER MAP ERROR:", event.error));
 
     return () => {
       resizeObserver.disconnect();
-
       mapRef.current = null;
       map.remove();
     };
   }, [route]);
 
-  const distanceMeters =
-    Number(route.distance_meters) || 0;
-
-  const km = (
-    distanceMeters / 1000
-  ).toFixed(2);
-
-  const placeCount =
-    route.route_places?.length ?? 0;
+  const distanceMeters = Number(route.distance_meters) || 0;
+  const km = (distanceMeters / 1000).toFixed(2);
+  const placeCount = route.route_places?.length ?? 0;
 
   return (
     <div
-      className={`absolute inset-0 z-10 h-full min-h-0 w-full overflow-hidden bg-white transition duration-300 ease-out ${
-        open
-          ? "visible scale-100 opacity-100"
-          : "pointer-events-none invisible scale-[0.98] opacity-0"
-      }`}
-      style={{
-        position: "absolute",
-        top: 0,
-        right: 0,
-        bottom: 0,
-        left: 0,
-        width: "100%",
-        height: "100%",
-        minHeight: 0,
-      }}
+      className={`san-route-viewer absolute inset-0 z-10 h-full min-h-0 w-full overflow-hidden bg-[#050b14] transition duration-300 ease-out ${open ? "visible scale-100 opacity-100" : "pointer-events-none invisible scale-[0.985] opacity-0"}`}
       aria-hidden={!open}
     >
       <div
         ref={containerRef}
         className="absolute inset-0 h-full min-h-0 w-full"
-        style={{
-          position: "absolute",
-          top: 0,
-          right: 0,
-          bottom: 0,
-          left: 0,
-          width: "100%",
-          height: "100%",
-          minHeight: 0,
-        }}
       />
+      <div className="pointer-events-none absolute inset-0 bg-[linear-gradient(180deg,rgba(5,7,10,.28)_0%,transparent_28%,transparent_52%,rgba(5,7,10,.86)_100%)]" />
 
-      <div
-        className="pointer-events-auto absolute inset-x-4 z-20 rounded-3xl border border-white/70 bg-white/95 px-4 py-4 shadow-[0_10px_35px_rgba(0,0,0,0.18)] backdrop-blur-xl"
-        style={{
-          bottom:
-            "calc(1rem + env(safe-area-inset-bottom))",
-        }}
-        onClick={(event) => {
-          event.stopPropagation();
-        }}
-        onPointerDown={(event) => {
-          event.stopPropagation();
-        }}
+      <section
+        className="pointer-events-auto absolute inset-x-4 z-20 rounded-[24px] border border-white/10 bg-[linear-gradient(145deg,rgba(14,23,34,.92),rgba(5,11,20,.96))] p-4 text-white shadow-[0_22px_60px_rgba(0,0,0,.42)] backdrop-blur-2xl"
+        style={{ bottom: "calc(max(16px, env(safe-area-inset-bottom)) + 72px + 12px)" }}
+        onClick={(event) => event.stopPropagation()}
+        onPointerDown={(event) => event.stopPropagation()}
+        aria-label={`${route.title} 루트 정보`}
       >
-        <p className="truncate text-base font-semibold text-neutral-900">
-          {route.title}
-        </p>
+        <div className="flex items-start justify-between gap-4">
+          <div className="min-w-0">
+            <p className="text-xs font-medium uppercase tracking-[0.14em] text-neutral-500">
+              Saved route
+            </p>
+            <h2 className="mt-1 truncate text-lg font-semibold tracking-[-0.02em] text-white">
+              {route.title}
+            </h2>
+          </div>
+          <span
+            className="mt-1 h-2 w-2 shrink-0 rounded-full bg-[#00bfff] shadow-[0_0_14px_rgba(0,191,255,.55)]"
+            aria-hidden="true"
+          />
+        </div>
 
-        <div
-          className={`mt-3 grid gap-2 ${
-            placeCount > 0
-              ? "grid-cols-3"
-              : "grid-cols-2"
-          }`}
+        <dl
+          className={`mt-4 grid gap-2 ${placeCount > 0 ? "grid-cols-3" : "grid-cols-2"}`}
         >
-          <div className="flex min-w-0 items-center gap-2 rounded-2xl bg-neutral-50 px-3 py-2.5">
-            <span className="shrink-0 text-[#ff5a36]">
-              <RouteIcon />
-            </span>
-
-            <div className="min-w-0">
-              <p className="text-[10px] font-medium text-neutral-400">
-                거리
-              </p>
-
-              <p className="truncate text-sm font-semibold text-neutral-800">
-                {km} km
-              </p>
-            </div>
-          </div>
-
-          <div className="flex min-w-0 items-center gap-2 rounded-2xl bg-neutral-50 px-3 py-2.5">
-            <span className="shrink-0 text-blue-500">
-              <ClockIcon />
-            </span>
-
-            <div className="min-w-0">
-              <p className="text-[10px] font-medium text-neutral-400">
-                시간
-              </p>
-
-              <p className="truncate text-sm font-semibold text-neutral-800">
-                {formatDuration(
-                  route.duration_seconds,
-                )}
-              </p>
-            </div>
-          </div>
-
-          {placeCount > 0 && (
-            <div className="flex min-w-0 items-center gap-2 rounded-2xl bg-neutral-50 px-3 py-2.5">
-              <span className="shrink-0 text-emerald-600">
-                <PlaceIcon />
+          <div className="min-w-0 rounded-2xl border border-white/[0.06] bg-[#0a2233]/60 px-3 py-3">
+            <dt className="flex items-center gap-2 text-xs font-medium text-neutral-500">
+              <span className="text-[#00bfff]">
+                <RouteIcon />
               </span>
-
-              <div className="min-w-0">
-                <p className="text-[10px] font-medium text-neutral-400">
-                  장소
-                </p>
-
-                <p className="truncate text-sm font-semibold text-neutral-800">
-                  {placeCount}개
-                </p>
-              </div>
+              거리
+            </dt>
+            <dd className="mt-2 truncate text-sm font-semibold tabular-nums text-neutral-100">
+              {km} km
+            </dd>
+          </div>
+          <div className="min-w-0 rounded-2xl border border-white/[0.06] bg-[#0a2233]/60 px-3 py-3">
+            <dt className="flex items-center gap-2 text-xs font-medium text-neutral-500">
+              <span className="text-[#8fa3b8]">
+                <ClockIcon />
+              </span>
+              시간
+            </dt>
+            <dd className="mt-2 truncate text-sm font-semibold tabular-nums text-neutral-100">
+              {formatDuration(route.duration_seconds)}
+            </dd>
+          </div>
+          {placeCount > 0 && (
+            <div className="min-w-0 rounded-2xl border border-white/[0.06] bg-[#0a2233]/60 px-3 py-3">
+              <dt className="flex items-center gap-2 text-xs font-medium text-neutral-500">
+                <span className="text-[#5fd39a]">
+                  <PlaceIcon />
+                </span>
+                장소
+              </dt>
+              <dd className="mt-2 truncate text-sm font-semibold tabular-nums text-neutral-100">
+                {placeCount}개
+              </dd>
             </div>
           )}
-        </div>
-      </div>
+        </dl>
+      </section>
+
+      <style jsx global>{`
+        .san-route-viewer .maplibregl-ctrl-top-right {
+          top: calc(env(safe-area-inset-top, 0px) + 68px);
+          right: 8px;
+        }
+        .san-route-viewer .maplibregl-ctrl-attrib {
+          max-width: calc(100vw - 32px);
+          padding: 4px 7px;
+          border: 1px solid rgba(255, 255, 255, 0.1);
+          border-radius: 8px;
+          color: rgba(244, 245, 247, 0.7);
+          background: rgba(5, 11, 20, 0.72);
+          box-shadow: 0 8px 24px rgba(0, 0, 0, 0.2);
+          font-size: 12px;
+          line-height: 1.35;
+          backdrop-filter: blur(12px);
+          -webkit-backdrop-filter: blur(12px);
+        }
+        .san-route-viewer .maplibregl-ctrl-attrib a {
+          color: rgba(244, 245, 247, 0.82);
+        }
+        .san-route-viewer .maplibregl-ctrl-attrib-button {
+          display: none;
+        }
+        @media (prefers-reduced-motion: reduce) {
+          .san-route-viewer {
+            transition: none !important;
+          }
+        }
+      `}</style>
     </div>
   );
 }

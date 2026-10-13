@@ -1,7 +1,6 @@
-// web/src/components/RouteTitleModal.tsx
 "use client";
 
-import { useState } from "react";
+import { useEffect, useId, useState } from "react";
 
 type RouteTitleModalProps = {
   defaultTitle: string;
@@ -25,51 +24,66 @@ export function RouteTitleModal({
   confirmLabel = "확인",
 }: RouteTitleModalProps) {
   const [title, setTitle] = useState(defaultTitle);
+  const titleId = useId();
+  const descriptionId = useId();
+  const errorId = useId();
   const trimmed = title.trim();
 
-  function handleSubmit(e: React.FormEvent) {
-    e.preventDefault();
+  useEffect(() => {
+    function handleKeyDown(event: KeyboardEvent) {
+      if (event.key === "Escape" && !isSaving) onCancel();
+    }
+    document.addEventListener("keydown", handleKeyDown);
+    return () => document.removeEventListener("keydown", handleKeyDown);
+  }, [isSaving, onCancel]);
+
+  function handleSubmit(event: React.FormEvent) {
+    event.preventDefault();
     if (!trimmed || isSaving) return;
     onConfirm(trimmed);
   }
 
   return (
-    <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/40 px-6">
+    <div
+      className="fixed inset-0 z-[100] grid place-items-end bg-black/60 p-4 backdrop-blur-sm sm:place-items-center"
+      onMouseDown={(e) => {
+        if (e.target === e.currentTarget && !isSaving) onCancel();
+      }}
+    >
       <form
         onSubmit={handleSubmit}
-        className="w-full max-w-sm rounded-2xl bg-white p-5 shadow-xl"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby={titleId}
+        aria-describedby={descriptionId}
+        className="w-full max-w-md rounded-[28px] border border-white/[0.08] bg-[#0e1722] p-6 shadow-[0_24px_60px_rgba(0,0,0,.5)]"
       >
-        <h2 className="text-base font-semibold text-neutral-900">{heading}</h2>
-        <p className="mt-1 text-sm text-neutral-500">{description}</p>
+        <p className="text-[11px] font-bold uppercase tracking-[0.2em] text-[#00bfff]">Route</p>
+        <h2 id={titleId} className="mt-1 text-2xl font-extrabold tracking-tight text-white">{heading}</h2>
+        <p id={descriptionId} className="mt-1 text-sm text-[#8fa3b8]">{description}</p>
 
         <input
           autoFocus
           value={title}
           onChange={(e) => setTitle(e.target.value)}
           maxLength={40}
-          placeholder="예: 한강 저녁 산책"
-          className="mt-4 w-full rounded-xl border border-neutral-200 px-4 py-3 text-[16px] text-neutral-900 outline-none focus:border-[#ff5a36]"
+          disabled={isSaving}
+          aria-invalid={errorMessage ? true : undefined}
+          aria-describedby={errorMessage ? errorId : undefined}
+          className="mt-5 h-14 w-full rounded-full border border-white/10 bg-[#0a121c] px-5 text-base text-white outline-none transition placeholder:text-[#5f7387] focus:border-[#00bfff]/60 focus:ring-4 focus:ring-[#00bfff]/15 disabled:opacity-60"
         />
+        {errorMessage ? (
+          <p id={errorId} className="mt-2 px-2 text-sm text-[#ff9c8d]">{errorMessage}</p>
+        ) : null}
 
-        {errorMessage && (
-          <p className="mt-2 text-sm text-red-500">{errorMessage}</p>
-        )}
-
-        <div className="mt-5 flex gap-2">
-          <button
-            type="button"
-            onClick={onCancel}
-            disabled={isSaving}
-            className="flex-1 rounded-xl bg-neutral-100 py-3 text-sm font-semibold text-neutral-700 active:scale-95 transition disabled:opacity-50"
-          >
+        <div className="mt-6 grid grid-cols-2 gap-3">
+          <button type="button" onClick={onCancel} disabled={isSaving}
+            className="h-14 rounded-full border border-white/10 bg-white/[0.05] font-bold text-white transition active:scale-[0.98] disabled:opacity-50">
             취소
           </button>
-          <button
-            type="submit"
-            disabled={!trimmed || isSaving}
-            className="flex-1 rounded-xl bg-[#ff5a36] py-3 text-sm font-semibold text-white active:scale-95 transition disabled:opacity-50"
-          >
-            {isSaving ? "저장 중..." : confirmLabel}
+          <button type="submit" disabled={!trimmed || isSaving}
+            className="h-14 rounded-full bg-[#00bfff] font-extrabold tracking-wide text-[#04121c] shadow-[0_10px_28px_rgba(0,191,255,.25)] transition active:scale-[0.98] disabled:opacity-40">
+            {isSaving ? "저장 중…" : confirmLabel}
           </button>
         </div>
       </form>

@@ -1,0 +1,35 @@
+/* cadenz-theme.css — globals.css 맨 아래에 @import "./cadenz-theme.css"; 추가 */
+:root,[data-theme="dark"]{
+--san-background:#050b14;--san-background-soft:#0a121c;
+--san-surface:rgba(14,23,34,.9);--san-surface-strong:#0e1722;
+--san-surface-soft:rgba(255,255,255,.05);--san-surface-hover:rgba(0,191,255,.10);
+--san-border:rgba(255,255,255,.08);--san-border-strong:rgba(0,191,255,.30);
+--san-text:#ffffff;--san-text-muted:#8fa3b8;--san-text-faint:#5f7387;
+--san-input:#0a121c;
+--san-accent:#00bfff;--san-accent-hover:#33ccff;--san-accent-text:#04121c;
+--san-error:#ff9c8d;--san-icon-fill:rgba(5,11,20,.6);
+--san-shadow:0 16px 40px rgba(0,0,0,.35);
+--san-gradient-base-start:#0b3a52;--san-gradient-base-end:#050b14;
+}
+html,body{background:#050b14 radial-gradient(circle at 85% 0%,#0b3a52 0%,transparent 55%) no-repeat}
+.san-entry{--san-accent:#00bfff;--san-accent-hover:#33ccff;--san-accent-text:#04121c;
+background:radial-gradient(circle at 85% 0%,#0b3a52 0%,transparent 55%),#050b14}
+.san-entry::after,.san-ambient{display:none}
+.san-card{border:1px solid rgba(255,255,255,.08);border-radius:28px;background:#0e1722;
+box-shadow:0 24px 60px rgba(0,0,0,.5);backdrop-filter:blur(20px);-webkit-backdrop-filter:blur(20px)}
+.san-input,.san-field input{height:56px;border-radius:999px;padding:0 22px;background:#0a121c;
+box-shadow:inset 0 0 0 1px rgba(255,255,255,.10);color:#fff;caret-color:#00bfff}
+.san-input::placeholder,.san-field input::placeholder{color:#5f7387}
+.san-input:focus,.san-field input:focus{background:#0a121c;
+box-shadow:inset 0 0 0 1px rgba(0,191,255,.6),0 0 0 4px rgba(0,191,255,.15)}
+.san-primary{min-height:56px;border-radius:999px;color:#04121c;background:#00bfff;
+font-weight:800;letter-spacing:.04em;box-shadow:0 10px 28px rgba(0,191,255,.25)}
+.san-secondary,.san-text-button{min-height:56px;border-radius:999px;color:#fff;
+background:rgba(255,255,255,.05);box-shadow:inset 0 0 0 1px rgba(255,255,255,.10)}
+.san-theme-option{border-radius:24px;background:#0e1722}
+.san-theme-option.is-active{background:#0a2233;box-shadow:inset 0 0 0 1px rgba(0,191,255,.3)}
+.san-progress span.is-on{background:#00bfff}
+.san-notice{background:rgba(14,23,34,.7);border:1px solid rgba(255,255,255,.1)}
+.san-scrim{background:rgba(0,0,0,.6)}
+.cz-card{background:#0e1722;border:1px solid rgba(255,255,255,.08);border-radius:24px}
+.cz-label{font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.2em;color:#00bfff}

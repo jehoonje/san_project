@@ -1,15 +1,7 @@
 "use client";
 
-import {
-  useEffect,
-  useId,
-  useRef,
-  useState,
-} from "react";
-import {
-  motion,
-  useReducedMotion,
-} from "motion/react";
+import { useEffect, useId, useRef, useState } from "react";
+import { motion, useReducedMotion } from "motion/react";
 
 import { Avatar } from "@/components/Avatar";
 import { useProfile } from "@/hooks/useProfile";
@@ -37,8 +29,7 @@ export function SideDrawer({
   openRef.current = open;
 
   const displayName = profile?.displayName ?? "러너";
-  const emailText =
-    profile?.email ?? email ?? "이메일 정보 없음";
+  const emailText = profile?.email ?? email ?? "이메일 정보 없음";
 
   useEffect(() => {
     const dialog = dialogRef.current;
@@ -105,8 +96,7 @@ export function SideDrawer({
             "linear-gradient(145deg, rgba(29,33,38,.96), rgba(9,12,16,.98))",
           backdropFilter: "blur(28px) saturate(125%)",
           WebkitBackdropFilter: "blur(28px) saturate(125%)",
-          paddingBottom:
-            "calc(env(safe-area-inset-bottom, 0px) + 24px)",
+          paddingBottom: "calc(env(safe-area-inset-bottom, 0px) + 24px)",
         }}
         initial={false}
         animate={{
@@ -126,10 +116,7 @@ export function SideDrawer({
         />
 
         <header className="mb-6 flex items-center justify-between gap-4">
-          <h2
-            id={titleId}
-            className="text-base font-semibold tracking-tight"
-          >
+          <h2 id={titleId} className="text-base font-semibold tracking-tight">
             내 계정
           </h2>
 
@@ -137,9 +124,7 @@ export function SideDrawer({
             type="button"
             aria-label="계정 메뉴 닫기"
             onClick={onClose}
-            whileTap={
-              reducedMotion ? undefined : { scale: 0.94 }
-            }
+            whileTap={reducedMotion ? undefined : { scale: 0.94 }}
             className="flex h-11 w-11 items-center justify-center rounded-full border border-white/10 bg-white/5 text-neutral-300 transition-colors hover:bg-white/10 hover:text-white focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white"
           >
             <svg
@@ -178,9 +163,7 @@ export function SideDrawer({
 
         <section className="mt-7 border-t border-white/10 pt-5">
           <div className="flex items-center justify-between gap-4">
-            <h3 className="text-sm font-medium text-neutral-200">
-              카테고리
-            </h3>
+            <h3 className="text-sm font-medium text-neutral-200">카테고리</h3>
 
             <span className="rounded-full border border-white/10 px-2.5 py-1 text-xs text-neutral-400">
               준비 중
@@ -192,12 +175,35 @@ export function SideDrawer({
           </p>
         </section>
 
+        <section className="mt-7 border-t border-white/10 pt-5">
+          <h3 className="text-sm font-medium text-neutral-200">지도 정보</h3>
+
+          <p className="mt-3 text-xs leading-relaxed text-neutral-400">
+            지도 데이터 ©{" "}
+            <a
+              href="https://www.openstreetmap.org/copyright"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="underline underline-offset-2 hover:text-white"
+            >
+              OpenStreetMap contributors
+            </a>
+            , 지도 스타일 ©{" "}
+            <a
+              href="https://carto.com/about-carto/"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="underline underline-offset-2 hover:text-white"
+            >
+              CARTO
+            </a>
+          </p>
+        </section>
+
         <motion.button
           type="button"
           onClick={onLogout}
-          whileTap={
-            reducedMotion ? undefined : { scale: 0.98 }
-          }
+          whileTap={reducedMotion ? undefined : { scale: 0.98 }}
           className="mt-7 flex min-h-12 w-full items-center justify-center gap-2 rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-sm font-medium text-neutral-200 transition-colors hover:bg-white/10 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white"
         >
           <svg

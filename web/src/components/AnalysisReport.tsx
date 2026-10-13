@@ -40,6 +40,9 @@ const MOOD_LABELS: Record<string, string> = {
   work_friendly: "작업 친화",
 };
 
+const GLASS_CARD =
+  "rounded-[24px] border border-white/[0.09] bg-[linear-gradient(145deg,rgba(255,255,255,.07),rgba(255,255,255,.025))] shadow-[0_16px_40px_rgba(0,0,0,.2)] backdrop-blur-xl";
+
 async function parseResponse(response: Response) {
   const json = await response.json().catch(() => null);
   if (!response.ok) {
@@ -146,39 +149,87 @@ async function loadReport(
   }
 }
 
+function PinIcon() {
+  return (
+    <svg
+      width="30"
+      height="30"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.6"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden="true"
+    >
+      <path d="M12 21s7-6.1 7-12a7 7 0 1 0-14 0c0 5.9 7 12 7 12Z" />
+      <circle cx="12" cy="9" r="2.4" />
+    </svg>
+  );
+}
+
+function SparkIcon() {
+  return (
+    <svg
+      width="14"
+      height="14"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden="true"
+    >
+      <path d="M12 3v4M12 17v4M3 12h4M17 12h4M6.3 6.3l2.4 2.4M15.3 15.3l2.4 2.4M17.7 6.3l-2.4 2.4M8.7 15.3l-2.4 2.4" />
+    </svg>
+  );
+}
+
 function StatCard({ label, value }: { label: string; value: string }) {
   return (
-    <div className="rounded-2xl border border-neutral-200 bg-white p-4 shadow-sm">
-      <p className="text-xs text-neutral-500">{label}</p>
-      <p className="mt-1 text-xl font-semibold text-neutral-900">{value}</p>
+    <div className={`${GLASS_CARD} p-4`}>
+      <p className="text-xs font-medium text-neutral-500">{label}</p>
+      <p className="mt-2 text-xl font-semibold tabular-nums tracking-[-0.02em] text-neutral-100">
+        {value}
+      </p>
     </div>
   );
 }
 
 function RankedBars({ items }: { items: RankedStat[] }) {
   if (items.length === 0) {
-    return <p className="text-sm text-neutral-400">표시할 데이터가 없습니다.</p>;
+    return <p className="text-sm text-neutral-500">표시할 데이터가 없습니다.</p>;
   }
 
   return (
-    <div className="space-y-3">
+    <ul className="space-y-4">
       {items.slice(0, 6).map((item) => (
-        <div key={item.key}>
-          <div className="mb-1 flex items-center justify-between text-sm">
-            <span className="font-medium text-neutral-700">{item.label}</span>
-            <span className="text-neutral-400">
+        <li key={item.key}>
+          <div className="mb-2 flex items-center justify-between gap-3 text-sm">
+            <span className="min-w-0 truncate font-medium text-neutral-200">
+              {item.label}
+            </span>
+            <span className="shrink-0 tabular-nums text-neutral-500">
               {item.count}회 · {item.percent}%
             </span>
           </div>
-          <div className="h-2 overflow-hidden rounded-full bg-neutral-100">
+          <div
+            className="h-1.5 overflow-hidden rounded-full bg-white/[0.07]"
+            role="progressbar"
+            aria-label={item.label}
+            aria-valuemin={0}
+            aria-valuemax={100}
+            aria-valuenow={item.percent}
+          >
             <div
-              className="h-full rounded-full bg-[#ff5a36] transition-all"
+              className="h-full rounded-full bg-[#00bfff] shadow-[0_0_12px_rgba(0,191,255,.45)] transition-[width] duration-500 motion-reduce:transition-none"
               style={{ width: `${Math.max(item.percent, 3)}%` }}
             />
           </div>
-        </div>
+        </li>
       ))}
-    </div>
+    </ul>
   );
 }
 
@@ -190,8 +241,10 @@ function Section({
   children: React.ReactNode;
 }) {
   return (
-    <section className="rounded-2xl border border-neutral-200 bg-white p-4 shadow-sm">
-      <h2 className="mb-3 text-base font-semibold text-neutral-900">{title}</h2>
+    <section className={`${GLASS_CARD} p-5`}>
+      <h2 className="mb-4 text-base font-semibold tracking-[-0.01em] text-neutral-100">
+        {title}
+      </h2>
       {children}
     </section>
   );
@@ -209,18 +262,29 @@ function ReportText({ report }: { report: PersonalReport }) {
 
   return (
     <>
-      <div className="rounded-2xl bg-neutral-900 p-5 text-white shadow-sm">
-        <p className="text-xs text-white/60">Gemini 취향 리포트</p>
-        <h2 className="mt-1 text-xl font-semibold">{report.title}</h2>
-        <p className="mt-3 text-sm leading-6 text-white/80">{report.summary}</p>
+      <div className="relative overflow-hidden rounded-[24px] border border-white/[0.12] bg-[linear-gradient(145deg,rgba(14,23,34,.96),rgba(5,11,20,.98))] p-6 shadow-[0_24px_70px_rgba(0,0,0,.4)]">
+        <div
+          className="pointer-events-none absolute -right-16 -top-20 h-48 w-48 rounded-full bg-[#00bfff]/[0.09] blur-3xl"
+          aria-hidden="true"
+        />
+        <p className="relative flex items-center gap-1.5 text-xs font-medium text-[#00bfff]">
+          <SparkIcon />
+          Gemini 취향 리포트
+        </p>
+        <h2 className="relative mt-3 text-xl font-semibold leading-snug tracking-[-0.02em] text-white">
+          {report.title}
+        </h2>
+        <p className="relative mt-3 text-sm leading-7 text-neutral-300">
+          {report.summary}
+        </p>
       </div>
 
       <Section title="상세 분석">
-        <div className="space-y-4">
+        <div className="divide-y divide-white/[0.07]">
           {paragraphs.map(([label, value]) => (
-            <div key={label}>
-              <h3 className="text-sm font-semibold text-neutral-800">{label}</h3>
-              <p className="mt-1 text-sm leading-6 text-neutral-600">
+            <div key={label} className="py-4 first:pt-0 last:pb-0">
+              <h3 className="text-sm font-semibold text-neutral-200">{label}</h3>
+              <p className="mt-1.5 text-sm leading-7 text-neutral-400">
                 {value || "분석할 데이터가 부족합니다."}
               </p>
             </div>
@@ -234,9 +298,15 @@ function ReportText({ report }: { report: PersonalReport }) {
             {report.recommendations.map((item, index) => (
               <li
                 key={`${index}-${item}`}
-                className="rounded-xl bg-neutral-50 px-3 py-2 text-sm leading-5 text-neutral-700"
+                className="flex gap-3 rounded-2xl border border-white/[0.06] bg-white/[0.04] px-4 py-3 text-sm leading-6 text-neutral-300"
               >
-                {item}
+                <span
+                  className="mt-0.5 shrink-0 tabular-nums text-[#00bfff]"
+                  aria-hidden="true"
+                >
+                  {String(index + 1).padStart(2, "0")}
+                </span>
+                <span>{item}</span>
               </li>
             ))}
           </ul>
@@ -244,7 +314,7 @@ function ReportText({ report }: { report: PersonalReport }) {
       )}
 
       {report.caveat && (
-        <p className="px-1 text-xs leading-5 text-neutral-400">{report.caveat}</p>
+        <p className="px-1 text-xs leading-5 text-neutral-500">{report.caveat}</p>
       )}
     </>
   );
@@ -260,11 +330,13 @@ function AnalysisBody({
   if (stats.totalVisits === 0) {
     return (
       <div className="flex min-h-[60vh] flex-col items-center justify-center px-6 text-center">
-        <div className="text-4xl">📍</div>
-        <h2 className="mt-4 text-base font-semibold text-neutral-900">
+        <span className="text-neutral-600">
+          <PinIcon />
+        </span>
+        <h2 className="mt-5 text-base font-semibold text-neutral-100">
           아직 분석할 장소가 없어요
         </h2>
-        <p className="mt-2 text-sm leading-6 text-neutral-500">
+        <p className="mt-2 max-w-[30ch] text-sm leading-6 text-neutral-500">
           루트를 기록하면서 장소를 저장하면 카테고리, 지역, 시간대 취향을
           분석해 드립니다.
         </p>
@@ -273,7 +345,7 @@ function AnalysisBody({
   }
 
   return (
-    <div className="space-y-4 p-4 pb-10">
+    <div className="mx-auto max-w-2xl space-y-4 p-4 pb-12">
       {report && <ReportText report={report} />}
 
       <div className="grid grid-cols-2 gap-3">
@@ -300,7 +372,7 @@ function AnalysisBody({
 
       <Section title="방문 시간대">
         <RankedBars items={stats.timeSlots} />
-        <p className="mt-4 text-xs text-neutral-400">
+        <p className="mt-5 border-t border-white/[0.07] pt-4 text-xs tabular-nums text-neutral-500">
           평일 {stats.weekdayVisits}회 · 주말 {stats.weekendVisits}회
         </p>
       </Section>
@@ -313,7 +385,7 @@ function AnalysisBody({
             {stats.topKeywords.map((item) => (
               <span
                 key={`keyword-${item.label}`}
-                className="rounded-full bg-[#fff1ed] px-3 py-1.5 text-xs font-medium text-[#e84928]"
+                className="rounded-full border border-[#00bfff]/25 bg-[#00bfff]/10 px-3 py-1.5 text-xs font-medium text-[#7fdfff]"
               >
                 {item.label} · {item.count}
               </span>
@@ -321,7 +393,7 @@ function AnalysisBody({
             {stats.topMoods.map((item) => (
               <span
                 key={`mood-${item.label}`}
-                className="rounded-full bg-blue-50 px-3 py-1.5 text-xs font-medium text-blue-600"
+                className="rounded-full border border-white/10 bg-white/[0.06] px-3 py-1.5 text-xs font-medium text-neutral-300"
               >
                 {MOOD_LABELS[item.label] ?? item.label} · {item.count}
               </span>
@@ -329,7 +401,7 @@ function AnalysisBody({
             {stats.topMenus.map((item) => (
               <span
                 key={`menu-${item.label}`}
-                className="rounded-full bg-amber-50 px-3 py-1.5 text-xs font-medium text-amber-700"
+                className="rounded-full border border-[#f2c879]/20 bg-[#f2c879]/[0.08] px-3 py-1.5 text-xs font-medium text-[#f0d6a4]"
               >
                 {item.label} · {item.count}
               </span>
@@ -372,18 +444,30 @@ export function AnalysisReport({ accessToken }: AnalysisReportProps) {
       state.total > 0 ? Math.round((state.current / state.total) * 100) : 0;
 
     return (
-      <div className="flex h-full flex-col items-center justify-center px-8 text-center">
-        <span className="h-8 w-8 animate-spin rounded-full border-2 border-neutral-200 border-t-[#ff5a36]" />
-        <p className="mt-4 text-sm font-medium text-neutral-700">{state.message}</p>
+      <div
+        className="flex h-full flex-col items-center justify-center px-8 text-center"
+        role="status"
+        aria-live="polite"
+      >
+        <span className="h-8 w-8 animate-spin rounded-full border-2 border-white/10 border-t-[#00bfff] motion-reduce:animate-none" />
+        <p className="mt-5 text-sm font-medium text-neutral-200">
+          {state.message}
+        </p>
         {state.total > 0 && (
-          <div className="mt-4 h-2 w-full max-w-xs overflow-hidden rounded-full bg-neutral-100">
+          <div
+            className="mt-4 h-1.5 w-full max-w-xs overflow-hidden rounded-full bg-white/[0.07]"
+            role="progressbar"
+            aria-valuemin={0}
+            aria-valuemax={100}
+            aria-valuenow={progress}
+          >
             <div
-              className="h-full rounded-full bg-[#ff5a36] transition-all"
+              className="h-full rounded-full bg-[#00bfff] transition-[width] duration-300 motion-reduce:transition-none"
               style={{ width: `${progress}%` }}
             />
           </div>
         )}
-        <p className="mt-2 text-xs text-neutral-400">
+        <p className="mt-3 text-xs text-neutral-500">
           처음 한 번은 장소 검색 때문에 시간이 걸릴 수 있어요.
         </p>
       </div>
@@ -393,10 +477,13 @@ export function AnalysisReport({ accessToken }: AnalysisReportProps) {
   if (state.status === "error") {
     return (
       <div className="flex h-full flex-col items-center justify-center px-6 text-center">
-        <p className="text-sm text-red-500">{state.message}</p>
+        <p role="alert" className="text-sm text-[#ff8b78]">
+          {state.message}
+        </p>
         <button
+          type="button"
           onClick={() => void run(false)}
-          className="mt-4 rounded-xl bg-neutral-900 px-4 py-2 text-sm font-semibold text-white active:scale-95"
+          className="mt-5 min-h-11 rounded-2xl bg-[#ffffff] px-5 text-sm font-semibold text-[#050b14] transition hover:bg-white active:scale-95"
         >
           다시 시도
         </button>
@@ -405,28 +492,34 @@ export function AnalysisReport({ accessToken }: AnalysisReportProps) {
   }
 
   return (
-    <div className="h-full overflow-y-auto bg-neutral-50">
-      <div className="sticky top-0 z-10 flex items-center justify-between border-b border-neutral-200 bg-white/90 px-4 py-2 backdrop-blur">
-        <div>
-          <p className="text-xs text-neutral-500">
+    <div className="h-full overflow-y-auto overscroll-contain bg-[#050b14] text-white">
+      <div className="sticky top-0 z-10 flex items-center justify-between gap-3 border-b border-white/[0.07] bg-[#050b14]/80 px-4 py-2.5 backdrop-blur-2xl">
+        <div className="min-w-0">
+          <p className="truncate text-xs text-neutral-400">
             {state.data.generatedAt
               ? `${new Date(state.data.generatedAt).toLocaleString("ko-KR")} 생성`
               : "저장된 기록 기준"}
           </p>
           {state.data.cached && (
-            <p className="text-[11px] text-green-600">저장된 리포트를 불러왔어요</p>
+            <p className="mt-0.5 text-xs text-[#5fd39a]">
+              저장된 리포트를 불러왔어요
+            </p>
           )}
         </div>
         <button
+          type="button"
           onClick={() => void run(true)}
-          className="rounded-full bg-neutral-900 px-3 py-1.5 text-xs font-semibold text-white active:scale-95"
+          className="min-h-11 shrink-0 rounded-full border border-white/10 bg-white/[0.07] px-4 text-xs font-semibold text-white transition hover:bg-white/[0.12] active:scale-95"
         >
           새로 분석
         </button>
       </div>
 
       {state.warning && (
-        <p className="mx-4 mt-4 rounded-xl bg-amber-50 px-3 py-2 text-xs leading-5 text-amber-700">
+        <p
+          role="status"
+          className="mx-auto mt-4 max-w-2xl rounded-2xl border border-[#f2c879]/20 bg-[#f2c879]/[0.08] px-4 py-3 text-xs leading-5 text-[#f0d6a4] sm:mx-4 md:mx-auto"
+        >
           {state.warning}
         </p>
       )}

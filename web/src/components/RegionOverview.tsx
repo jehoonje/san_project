@@ -1,10 +1,6 @@
 "use client";
 
-import {
-  AnimatePresence,
-  motion,
-  useReducedMotion,
-} from "motion/react";
+import { AnimatePresence, motion, useReducedMotion } from "motion/react";
 
 import type { RegionSummary } from "@/hooks/useRegionSummary";
 
@@ -14,34 +10,30 @@ type RegionOverviewProps = {
 
 const numberFormatter = new Intl.NumberFormat("ko-KR");
 
-function formatCount(value: number | null, loading: boolean) {
+function formatCount(
+  value: number | null,
+  loading: boolean,
+  unit?: string,
+) {
   if (loading) return "…";
-  return value === null ? "—" : numberFormatter.format(value);
+  if (value === null) return "—";
+  const formatted = numberFormatter.format(value);
+  return unit ? `${formatted}${unit}` : formatted;
 }
 
-export function RegionOverview({
-  summary,
-}: RegionOverviewProps) {
+export function RegionOverview({ summary }: RegionOverviewProps) {
   const reducedMotion = Boolean(useReducedMotion());
 
-  const title = summary.regionLoading
-    ? "지역 확인 중"
-    : summary.displayName;
+  const title = summary.regionLoading ? "지역 확인 중" : summary.displayName;
 
   const metrics = [
     {
-      label: "모든 사람의 루트",
-      value: formatCount(
-        summary.totalRoutes,
-        summary.countsLoading,
-      ),
+      label: "이곳에 모인 사람",
+      value: formatCount(summary.totalRoutes, summary.countsLoading, " "),
     },
     {
-      label: "내가 저장한 루트",
-      value: formatCount(
-        summary.myRoutes,
-        summary.countsLoading,
-      ),
+      label: "내가 담아둔 루트",
+      value: formatCount(summary.myRoutes, summary.countsLoading, " "),
     },
     {
       label: "현재 기온",
@@ -56,7 +48,7 @@ export function RegionOverview({
   return (
     <div className="w-full text-white">
       <p className="mb-2 text-xs font-medium tracking-[0.12em] text-neutral-400">
-        현재 보고 있는 지역
+        지금 여기는
       </p>
 
       <AnimatePresence mode="wait" initial={false}>
@@ -72,12 +64,9 @@ export function RegionOverview({
         </motion.h1>
       </AnimatePresence>
 
-      {summary.localName &&
-        summary.localName !== summary.displayName && (
-          <p className="mt-1 text-sm text-neutral-400">
-            {summary.localName}
-          </p>
-        )}
+      {summary.localName && summary.localName !== summary.displayName && (
+        <p className="mt-1 text-sm text-neutral-400">{summary.localName}</p>
+      )}
 
       <dl className="mt-6 grid grid-cols-3 gap-3">
         {metrics.map((metric) => (
@@ -108,7 +97,7 @@ export function RegionOverview({
         !summary.regionError &&
         summary.temperature === null && (
           <p className="mt-3 text-xs text-neutral-400">
-            현재 기온을 확인하지 못했어요.
+            지금 기온은 잠시 확인하기 어려워요.
           </p>
         )}
     </div>
