@@ -9,7 +9,7 @@ type Props = {
 };
 
 const BTN =
-  "flex h-10 w-10 select-none items-center justify-center rounded-xl border border-white/15 bg-white/10 text-white active:bg-[#ff6843]/70";
+  "flex h-10 w-10 touch-none select-none items-center justify-center rounded-xl border border-white/15 bg-white/10 text-white active:bg-[#ff6843]/70";
 
 function Hold({
   dir,
@@ -38,12 +38,17 @@ function Hold({
   );
 }
 
-/** 로컬 개발용 가상 이동 패널 (isDevMockEnabled일 때만 렌더링) */
+/**
+ * 가상 이동 패널.
+ * MapView 안이 아니라 document.body 로 포털 렌더링하고 fixed 로 배치합니다.
+ * (지도 스테이지/블러/탑바 레이어의 쌓임 순서와 Expo WebView 뷰포트 차이 영향을 받지 않도록)
+ */
 export function DevWalkPanel({ auto, onAutoChange, onPress }: Props) {
   return (
     <div
-      className="pointer-events-auto absolute top-18 left-3 z-[60] rounded-2xl border border-white/15 bg-black/60 p-2.5 text-[11px] text-white backdrop-blur-md"
       data-dev-walk
+      className="pointer-events-auto fixed left-3 z-[90] rounded-2xl border border-white/15 bg-black/70 p-2.5 text-[11px] text-white backdrop-blur-md"
+      style={{ top: "calc(env(safe-area-inset-top, 0px) + 80px)" }}
     >
       <div className="mb-2 font-semibold text-[#ff7959]">DEV 가상 이동</div>
       <div className="grid grid-cols-3 gap-1">

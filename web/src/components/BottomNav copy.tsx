@@ -79,9 +79,9 @@ function RouteIcon() {
 }
 
 const ITEMS: NavItem[] = [
-  { key: "map", label: "내 지도", icon: <MapIcon /> },
-  { key: "record", label: "기록", icon: <RecordIcon /> },
-  { key: "myroute", label: "내 루트", icon: <RouteIcon /> },
+  { key: "map", label: "Map", icon: <MapIcon /> },
+  { key: "record", label: "Record", icon: <RecordIcon /> },
+  { key: "myroute", label: "My Route", icon: <RouteIcon /> },
 ];
 
 export function BottomNav({ tab, onChange }: BottomNavProps) {
