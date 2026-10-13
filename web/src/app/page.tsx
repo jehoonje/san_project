@@ -36,6 +36,9 @@ import type { PlaceCategory, PlaceDraft } from "@/types/place";
 const INITIAL_CENTER: [number, number] = [126.978, 37.5665];
 const VIEWER_ANIM_MS = 300;
 
+// 로컬 가상 이동 시 경로에 점을 추가하는 최소 간격(m)
+const DEV_MIN_STEP_M = 3;
+
 type PendingRoute = {
   coords: [number, number][];
   places: PlaceDraft[];
@@ -119,6 +122,26 @@ export default function Home() {
 
   const coordsRef = useRef<[number, number][]>([]);
   const placesRef = useRef<PlaceDraft[]>([]);
+
+  const statusRef = useRef<TrackingStatus>(status);
+
+  useEffect(() => {
+    statusRef.current = status;
+  }, [status]);
+
+  // 로컬 가상 이동: 앱의 LOCATION_UPDATE처럼 기록 중일 때만 경로에 좌표를 쌓음
+  const handleDevMove = useCallback((coord: [number, number]) => {
+    if (statusRef.current !== "recording") return;
+
+    const list = coordsRef.current;
+    const last = list[list.length - 1];
+
+    if (last && haversineMeters(last, coord) < DEV_MIN_STEP_M) return;
+
+    const next: [number, number][] = [...list, coord];
+    coordsRef.current = next;
+    setCoords(next);
+  }, []);
 
   const handleNativeMessage = useCallback((data: AppToWebMessage) => {
     if (data.type === "LOCATION_UPDATE") {
@@ -582,6 +605,7 @@ export default function Home() {
             ref={mapViewRef}
             onFollowingChange={setIsFollowing}
             coords={coords}
+            onDevMove={handleDevMove}
             places={places}
             initialCenter={INITIAL_CENTER}
             active={tab !== "routes"}

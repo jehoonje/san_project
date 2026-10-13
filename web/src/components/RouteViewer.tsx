@@ -215,7 +215,7 @@ export function RouteViewer({ route, open }: RouteViewerProps) {
       for (const place of places) bounds.extend([place.lng, place.lat]);
 
       map.fitBounds(bounds, {
-        padding: { top: 92, right: 44, bottom: 210, left: 44 },
+        padding: { top: 92, right: 44, bottom: 300, left: 44 },
         maxZoom: 17,
         duration: 900,
       });
@@ -247,8 +247,8 @@ export function RouteViewer({ route, open }: RouteViewerProps) {
       <div className="pointer-events-none absolute inset-0 bg-[linear-gradient(180deg,rgba(5,7,10,.28)_0%,transparent_28%,transparent_52%,rgba(5,7,10,.86)_100%)]" />
 
       <section
-        className="pointer-events-auto absolute inset-x-4 z-20 rounded-[24px] border border-white/10 bg-[linear-gradient(145deg,rgba(14,23,34,.88),rgba(5,11,20,.94))] p-4 text-white shadow-[0_22px_60px_rgba(0,0,0,.42)] backdrop-blur-2xl"
-        style={{ bottom: "calc(1rem + env(safe-area-inset-bottom))" }}
+        className="pointer-events-auto absolute inset-x-4 z-20 rounded-[24px] border border-white/10 bg-[linear-gradient(145deg,rgba(14,23,34,.92),rgba(5,11,20,.96))] p-4 text-white shadow-[0_22px_60px_rgba(0,0,0,.42)] backdrop-blur-2xl"
+        style={{ bottom: "calc(max(16px, env(safe-area-inset-bottom)) + 72px + 12px)" }}
         onClick={(event) => event.stopPropagation()}
         onPointerDown={(event) => event.stopPropagation()}
         aria-label={`${route.title} 루트 정보`}
@@ -271,7 +271,7 @@ export function RouteViewer({ route, open }: RouteViewerProps) {
         <dl
           className={`mt-4 grid gap-2 ${placeCount > 0 ? "grid-cols-3" : "grid-cols-2"}`}
         >
-          <div className="min-w-0 rounded-2xl border border-white/[0.06] bg-white/[0.045] px-3 py-3">
+          <div className="min-w-0 rounded-2xl border border-white/[0.06] bg-[#0a2233]/60 px-3 py-3">
             <dt className="flex items-center gap-2 text-xs font-medium text-neutral-500">
               <span className="text-[#00bfff]">
                 <RouteIcon />
@@ -282,7 +282,7 @@ export function RouteViewer({ route, open }: RouteViewerProps) {
               {km} km
             </dd>
           </div>
-          <div className="min-w-0 rounded-2xl border border-white/[0.06] bg-white/[0.045] px-3 py-3">
+          <div className="min-w-0 rounded-2xl border border-white/[0.06] bg-[#0a2233]/60 px-3 py-3">
             <dt className="flex items-center gap-2 text-xs font-medium text-neutral-500">
               <span className="text-[#8fa3b8]">
                 <ClockIcon />
@@ -294,7 +294,7 @@ export function RouteViewer({ route, open }: RouteViewerProps) {
             </dd>
           </div>
           {placeCount > 0 && (
-            <div className="min-w-0 rounded-2xl border border-white/[0.06] bg-white/[0.045] px-3 py-3">
+            <div className="min-w-0 rounded-2xl border border-white/[0.06] bg-[#0a2233]/60 px-3 py-3">
               <dt className="flex items-center gap-2 text-xs font-medium text-neutral-500">
                 <span className="text-[#5fd39a]">
                   <PlaceIcon />

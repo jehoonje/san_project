@@ -27,9 +27,13 @@ type TrackingControlsProps = {
 };
 
 const COLORS = {
-  accent: "#ff6843",
-  accentDark: "#e95332",
-  ink: "#292b2e",
+  accent: "#00bfff",
+  accentHover: "#33ccff",
+  accentText: "#04121c",
+  surface: "#0e1722",
+  surfaceActive: "#0a2233",
+  danger: "#ff715c",
+  dangerSoft: "#ff9c8d",
   white: "#ffffff",
 } as const;
 
@@ -38,9 +42,9 @@ const STOP_CONFIRM_DURATION = 2400;
 const focusRingClass = [
   "focus-visible:outline-none",
   "focus-visible:ring-2",
-  "focus-visible:ring-white/90",
+  "focus-visible:ring-[#00bfff]/80",
   "focus-visible:ring-offset-2",
-  "focus-visible:ring-offset-black/80",
+  "focus-visible:ring-offset-[#050b14]",
 ].join(" ");
 
 const secondaryButtonClass = [
@@ -48,7 +52,7 @@ const secondaryButtonClass = [
   "touch-manipulation select-none items-center justify-center",
   "overflow-hidden rounded-full border",
   "text-white/75",
-  "shadow-[0_10px_28px_rgba(0,0,0,0.3),inset_0_1px_0_rgba(255,255,255,0.12)]",
+  "shadow-[0_10px_28px_rgba(0,0,0,0.35),inset_0_1px_0_rgba(255,255,255,0.08)]",
   "backdrop-blur-xl",
   "transition-colors duration-200",
   focusRingClass,
@@ -142,10 +146,7 @@ function GlassHighlight() {
   return (
     <span
       aria-hidden="true"
-      className={[
-        "pointer-events-none absolute inset-px rounded-[inherit]",
-        "bg-gradient-to-b from-white/[0.09] via-transparent to-black/[0.08]",
-      ].join(" ")}
+      className="pointer-events-none absolute inset-px rounded-[inherit] bg-gradient-to-b from-white/[0.06] via-transparent to-black/[0.1]"
     />
   );
 }
@@ -295,57 +296,59 @@ export function TrackingControls({
       <AnimatePresence initial={false} mode="wait">
         {isIdle ? (
           <motion.button
-          key="start"
-          type="button"
-          aria-label="경로 기록 시작"
-          aria-describedby={statusDescriptionId}
-          onClick={handleStart}
-          initial={
-            reducedMotion
-              ? { opacity: 0 }
-              : { opacity: 0, scale: 0.9, y: 10 }
-          }
-          animate={{ opacity: 1, scale: 1, y: 0 }}
-          exit={
-            reducedMotion
-              ? { opacity: 0 }
-              : { opacity: 0, scale: 0.92, y: 8 }
-          }
-          transition={entranceTransition}
-          whileHover={reducedMotion ? undefined : { scale: 1.03, y: -2 }}
-          whileTap={reducedMotion ? undefined : { scale: 0.95, y: 1 }}
-          className={[
-            "relative flex h-[92px] w-[92px]",
-            "touch-manipulation select-none items-center justify-center",
-            "overflow-hidden rounded-full border-0",
-            "focus-visible:outline-none focus-visible:ring-2",
-            "focus-visible:ring-[#d9f26b]/80 focus-visible:ring-offset-2",
-            "focus-visible:ring-offset-black/80",
-          ].join(" ")}
-          style={{
-            backgroundColor: "rgba(217,242,107,0.82)",
-            color: "#14170c",
-            boxShadow:
-              "0 14px 36px rgba(217,242,107,0.2), 0 22px 56px rgba(0,0,0,0.34)",
-            backdropFilter: "blur(40px) saturate(130%)",
-            WebkitBackdropFilter: "blur(40px) saturate(130%)",
-          }}
-        >
-          <span
-            aria-hidden="true"
-            className="pointer-events-none absolute inset-0 rounded-[inherit]"
+            key="start"
+            type="button"
+            aria-label="경로 기록 시작"
+            aria-describedby={statusDescriptionId}
+            onClick={handleStart}
+            initial={
+              reducedMotion
+                ? { opacity: 0 }
+                : { opacity: 0, scale: 0.9, y: 10 }
+            }
+            animate={{ opacity: 1, scale: 1, y: 0 }}
+            exit={
+              reducedMotion
+                ? { opacity: 0 }
+                : { opacity: 0, scale: 0.92, y: 8 }
+            }
+            transition={entranceTransition}
+            whileHover={
+              reducedMotion
+                ? undefined
+                : {
+                    scale: 1.03,
+                    y: -2,
+                    backgroundColor: COLORS.accentHover,
+                  }
+            }
+            whileTap={reducedMotion ? undefined : { scale: 0.95, y: 1 }}
+            className={[
+              "relative flex h-[92px] w-[92px]",
+              "touch-manipulation select-none items-center justify-center",
+              "overflow-hidden rounded-full border-0",
+              focusRingClass,
+            ].join(" ")}
             style={{
-              background:
-                "linear-gradient(180deg, rgba(255,255,255,0.32), rgba(255,255,255,0) 58%)",
+              backgroundColor: COLORS.accent,
+              color: COLORS.accentText,
+              boxShadow:
+                "0 10px 28px rgba(0,191,255,0.25), 0 22px 56px rgba(0,0,0,0.4)",
             }}
-          />
-        
-          <span className="relative z-10 flex flex-col items-center gap-2">
-            <span className="pl-[0.15em] text-[11px] font-bold tracking-[0.18em]">
+          >
+            <span
+              aria-hidden="true"
+              className="pointer-events-none absolute inset-0 rounded-[inherit]"
+              style={{
+                background:
+                  "linear-gradient(180deg, rgba(255,255,255,0.28), rgba(255,255,255,0) 58%)",
+              }}
+            />
+
+            <span className="relative z-10 pl-[0.18em] text-[12px] font-extrabold tracking-[0.18em]">
               START
             </span>
-          </span>
-        </motion.button>
+          </motion.button>
         ) : (
           <motion.div
             key="active"
@@ -378,17 +381,14 @@ export function TrackingControls({
             className={[
               "relative grid grid-cols-[52px_76px_52px]",
               "items-center gap-3 rounded-[32px] p-2.5",
-              "bg-black/25",
-              "shadow-[0_18px_52px_rgba(0,0,0,0.32),inset_0_1px_0_rgba(255,255,255,0.1)]",
+              "border border-white/[0.08] bg-[#0e1722]/90",
+              "shadow-[0_24px_60px_rgba(0,0,0,0.5),inset_0_1px_0_rgba(255,255,255,0.06)]",
               "backdrop-blur-2xl",
             ].join(" ")}
           >
             <span
               aria-hidden="true"
-              className={[
-                "pointer-events-none absolute inset-px rounded-[31px]",
-                "bg-gradient-to-b from-white/[0.07] via-transparent to-black/[0.08]",
-              ].join(" ")}
+              className="pointer-events-none absolute inset-px rounded-[31px] bg-gradient-to-b from-white/[0.05] via-transparent to-black/[0.1]"
             />
 
             {canSavePlace ? (
@@ -406,15 +406,15 @@ export function TrackingControls({
                     ? undefined
                     : {
                         scale: 1.05,
-                        color: "rgba(255,255,255,1)",
+                        color: COLORS.accentHover,
                       }
                 }
                 whileTap={tapAnimation}
                 transition={stateTransition}
                 className={secondaryButtonClass}
                 style={{
-                  backgroundColor: "rgba(0,0,0,0.28)",
-                  borderColor: "rgba(255,255,255,0.16)",
+                  backgroundColor: COLORS.surfaceActive,
+                  borderColor: "rgba(255,255,255,0.15)",
                 }}
               >
                 <GlassHighlight />
@@ -444,9 +444,9 @@ export function TrackingControls({
                       className={[
                         "absolute -right-1 -top-1 z-20",
                         "flex h-5 min-w-5 items-center justify-center",
-                        "rounded-full border-2 border-[#151617]",
-                        "bg-[#ff6843] px-1",
-                        "text-[9px] font-bold leading-none text-white",
+                        "rounded-full border-2 border-[#0e1722]",
+                        "bg-[#00bfff] px-1",
+                        "text-[9px] font-bold leading-none text-[#04121c]",
                         "shadow-[0_4px_12px_rgba(0,0,0,0.35)]",
                       ].join(" ")}
                     >
@@ -469,7 +469,7 @@ export function TrackingControls({
                 animate={{
                   opacity: isRecording ? 1 : 0,
                   boxShadow: isRecording
-                    ? "0 0 0 1px rgba(255,104,67,0.18), 0 0 30px rgba(255,104,67,0.18)"
+                    ? "0 0 0 1px rgba(0,191,255,0.28), 0 0 30px rgba(0,191,255,0.22)"
                     : "0 0 0 1px rgba(255,255,255,0), 0 0 0 rgba(255,255,255,0)",
                 }}
                 transition={stateTransition}
@@ -488,11 +488,9 @@ export function TrackingControls({
                   backgroundColor: isRecording
                     ? COLORS.accent
                     : "rgba(255,255,255,0.96)",
-                  color: isRecording
-                    ? COLORS.white
-                    : COLORS.ink,
+                  color: isRecording ? COLORS.accentText : "#050b14",
                   boxShadow: isRecording
-                    ? "0 16px 38px rgba(255,104,67,0.2), 0 14px 38px rgba(0,0,0,0.32), inset 0 1px 0 rgba(255,255,255,0.24)"
+                    ? "0 10px 28px rgba(0,191,255,0.28), 0 14px 38px rgba(0,0,0,0.35), inset 0 1px 0 rgba(255,255,255,0.3)"
                     : "0 14px 36px rgba(0,0,0,0.3), inset 0 1px 0 rgba(255,255,255,0.72), inset 0 -1px 0 rgba(0,0,0,0.1)",
                 }}
                 whileHover={
@@ -538,17 +536,17 @@ export function TrackingControls({
               onClick={handleStop}
               animate={{
                 color: stopArmed
-                  ? COLORS.accent
+                  ? COLORS.dangerSoft
                   : "rgba(255,255,255,0.76)",
                 backgroundColor: stopArmed
-                  ? "rgba(255,104,67,0.12)"
-                  : "rgba(0,0,0,0.28)",
+                  ? "rgba(74,28,24,0.95)"
+                  : COLORS.surfaceActive,
                 borderColor: stopArmed
-                  ? "rgba(255,104,67,0.65)"
-                  : "rgba(255,255,255,0.16)",
+                  ? "rgba(255,113,92,0.5)"
+                  : "rgba(255,255,255,0.15)",
                 boxShadow: stopArmed
-                  ? "0 10px 30px rgba(0,0,0,0.3), 0 0 24px rgba(255,104,67,0.12), inset 0 1px 0 rgba(255,255,255,0.1)"
-                  : "0 10px 28px rgba(0,0,0,0.3), inset 0 1px 0 rgba(255,255,255,0.1)",
+                  ? "0 10px 30px rgba(0,0,0,0.35), 0 0 24px rgba(255,113,92,0.18), inset 0 1px 0 rgba(255,255,255,0.08)"
+                  : "0 10px 28px rgba(0,0,0,0.35), inset 0 1px 0 rgba(255,255,255,0.08)",
               }}
               whileHover={
                 reducedMotion
@@ -599,7 +597,7 @@ export function TrackingControls({
             }}
             className={[
               "text-center text-[11px] font-medium tracking-[0.01em]",
-              stopArmed ? "text-[#ff8a70]" : "text-white/50",
+              stopArmed ? "text-[#ff9c8d]" : "text-[#8fa3b8]",
             ].join(" ")}
           >
             {statusMessage}

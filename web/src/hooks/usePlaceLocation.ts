@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useRef } from "react";
+import { getMockCurrent, isDevMockEnabled } from "@/lib/devLocation";
 
 export type PlaceLocationResult =
   | {
@@ -173,6 +174,13 @@ export function usePlaceLocation() {
               "위치 확인 시간이 초과됐어요. 위치 권한과 GPS 설정을 확인한 뒤 다시 시도해 주세요.",
           });
         }, TIMEOUT_MS);
+
+        // 로컬 웹 개발용: 가상 이동 중인 현재 위치를 즉시 반환 (앱 WebView에서는 비활성)
+        if (isDevMockEnabled()) {
+          const [mockLng, mockLat] = getMockCurrent();
+          finish({ ok: true, lat: mockLat, lng: mockLng, accuracy: 5 });
+          return;
+        }
 
         const bridge =
           (window as NativeWindow).ReactNativeWebView;

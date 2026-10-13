@@ -19,17 +19,19 @@ import {
 import {
   MAP_3D,
   bearingBetween,
-  createAvatarElement,
   createGroundMarkerElement,
   disable3DWorld,
   distanceMeters,
   enable3DWorld,
   listenCompass,
   requestCompassPermission,
-  setAvatarMotion,
   shortestAngleDelta,
 } from "@/lib/map3d";
+import { createAvatarLayer, type AvatarLayerHandle } from "@/lib/avatar3d";
 import { usePlaceLocation } from "@/hooks/usePlaceLocation";
+import { useDevWalk } from "@/hooks/useDevWalk";
+import { DevWalkPanel } from "@/components/DevWalkPanel";
+import { getMockStart, isDevMockEnabled } from "@/lib/devLocation";
 import type { PlaceMapItem } from "@/types/place";
 
 export type MapBounds = {
@@ -51,6 +53,7 @@ type MapViewProps = {
   active?: boolean;
   onViewportChange?: (viewport: MapViewport) => void;
   onFollowingChange?: (following: boolean) => void;
+  onDevMove?: (coord: [number, number]) => void;
 };
 
 export type MapViewHandle = {
@@ -72,9 +75,6 @@ const DARK_MAP_STYLE =
 const POSITION_SMOOTHING_MS = 140;
 const HEADING_SMOOTHING_MS = 180;
 const MIN_MOVE_FOR_HEADING_M = 4;
-const WALK_START_MPS = 0.35;
-const WALK_STOP_MPS = 0.12;
-const WALK_HOLD_MS = 700;
 
 function validCoord(coord: [number, number]): boolean {
   const [lng, lat] = coord;
@@ -117,13 +117,14 @@ export const MapView = forwardRef<MapViewHandle, MapViewProps>(function MapView(
     active = true,
     onViewportChange,
     onFollowingChange,
+    onDevMove,
   },
   ref,
 ) {
   const containerRef = useRef<HTMLDivElement | null>(null);
   const mapRef = useRef<maplibregl.Map | null>(null);
   const groundMarkerRef = useRef<maplibregl.Marker | null>(null);
-  const avatarMarkerRef = useRef<maplibregl.Marker | null>(null);
+  const avatarLayerRef = useRef<AvatarLayerHandle | null>(null);
   const viewportCallbackRef = useRef(onViewportChange);
 
   const mountedRef = useRef(false);
@@ -141,11 +142,7 @@ export const MapView = forwardRef<MapViewHandle, MapViewProps>(function MapView(
   const hasCompassRef = useRef(false);
   const cameraBusyUntilRef = useRef(0);
   const compassCleanupRef = useRef<(() => void) | null>(null);
-
   const speedRef = useRef(0);
-  const walkingRef = useRef(false);
-  const lastMovingAtRef = useRef(0);
-  const faceRightRef = useRef(true);
 
   const requestTokenRef = useRef(0);
   const initialRequestStartedRef = useRef(false);
@@ -159,6 +156,12 @@ export const MapView = forwardRef<MapViewHandle, MapViewProps>(function MapView(
   const [, setMapError] = useState<string | null>(null);
 
   const { requestLocation } = usePlaceLocation();
+
+  const [devMock, setDevMock] = useState(false);
+
+  useEffect(() => {
+    setDevMock(isDevMockEnabled());
+  }, []);
 
   const centerLng = initialCenter[0];
   const centerLat = initialCenter[1];
@@ -183,29 +186,18 @@ export const MapView = forwardRef<MapViewHandle, MapViewProps>(function MapView(
     });
   }, []);
 
-  const ensureMarkers = useCallback(
+  const ensureGroundMarker = useCallback(
     (map: maplibregl.Map, coord: [number, number]) => {
-      if (!groundMarkerRef.current) {
-        groundMarkerRef.current = new maplibregl.Marker({
-          element: createGroundMarkerElement(),
-          anchor: "center",
-          pitchAlignment: "map",
-          rotationAlignment: "map",
-        })
-          .setLngLat(coord)
-          .addTo(map);
-      }
+      if (groundMarkerRef.current) return;
 
-      if (!avatarMarkerRef.current) {
-        avatarMarkerRef.current = new maplibregl.Marker({
-          element: createAvatarElement(),
-          anchor: "bottom",
-          pitchAlignment: "viewport",
-          rotationAlignment: "viewport",
-        })
-          .setLngLat(coord)
-          .addTo(map);
-      }
+      groundMarkerRef.current = new maplibregl.Marker({
+        element: createGroundMarkerElement(),
+        anchor: "center",
+        pitchAlignment: "map",
+        rotationAlignment: "map",
+      })
+        .setLngLat(coord)
+        .addTo(map);
     },
     [],
   );
@@ -241,7 +233,7 @@ export const MapView = forwardRef<MapViewHandle, MapViewProps>(function MapView(
       }
 
       if (!displayCoordRef.current) displayCoordRef.current = coord;
-      ensureMarkers(map, displayCoordRef.current);
+      ensureGroundMarker(map, displayCoordRef.current);
 
       setLocationState("ready");
       setLocationError(null);
@@ -250,7 +242,6 @@ export const MapView = forwardRef<MapViewHandle, MapViewProps>(function MapView(
         hasRealLocationRef.current = true;
         displayCoordRef.current = coord;
         groundMarkerRef.current?.setLngLat(coord);
-        avatarMarkerRef.current?.setLngLat(coord);
 
         map.jumpTo({
           center: coord,
@@ -261,7 +252,7 @@ export const MapView = forwardRef<MapViewHandle, MapViewProps>(function MapView(
         emitViewport(map);
       }
     },
-    [emitViewport, ensureMarkers],
+    [emitViewport, ensureGroundMarker],
   );
 
   const applyCoords = useCallback(
@@ -293,6 +284,32 @@ export const MapView = forwardRef<MapViewHandle, MapViewProps>(function MapView(
     },
     [applyLocation],
   );
+
+  const handleDevMove = useCallback(
+    (coord: [number, number], heading: number) => {
+      const map = mapRef.current;
+      if (!map || !mapLoadedRef.current) return;
+
+      hasCompassRef.current = true;
+      headingTargetRef.current = heading;
+      applyLocation(map, coord);
+      onDevMove?.(coord);
+    },
+    [applyLocation, onDevMove],
+  );
+
+  const devWalk = useDevWalk({
+    enabled: devMock,
+    getCurrent: useCallback(() => latestCoordRef.current, []),
+    getStart: getMockStart,
+    getMapBearing: useCallback(() => mapRef.current?.getBearing() ?? 0, []),
+    onMove: handleDevMove,
+  });
+
+  useEffect(() => {
+    if (!devMock) return;
+    mapRef.current?.keyboard.disable();
+  }, [devMock]);
 
   const locate = useCallback(async () => {
     const token = ++requestTokenRef.current;
@@ -470,16 +487,20 @@ export const MapView = forwardRef<MapViewHandle, MapViewProps>(function MapView(
       const dt = Math.min(now - lastFrame, 100);
       lastFrame = now;
 
-      const target = latestCoordRef.current;
-      const shown = displayCoordRef.current;
-
       const hk = reducedMotion() ? 1 : 1 - Math.exp(-dt / HEADING_SMOOTHING_MS);
       headingDisplayRef.current =
         (headingDisplayRef.current +
-          shortestAngleDelta(headingDisplayRef.current, headingTargetRef.current) * hk +
+          shortestAngleDelta(
+            headingDisplayRef.current,
+            headingTargetRef.current,
+          ) *
+            hk +
           360) %
         360;
       groundMarkerRef.current?.setRotation(headingDisplayRef.current);
+
+      const target = latestCoordRef.current;
+      const shown = displayCoordRef.current;
 
       if (target && shown) {
         const k = reducedMotion() ? 1 : 1 - Math.exp(-dt / POSITION_SMOOTHING_MS);
@@ -488,36 +509,19 @@ export const MapView = forwardRef<MapViewHandle, MapViewProps>(function MapView(
           shown[1] + (target[1] - shown[1]) * k,
         ];
 
-        // 걷기 판정: 실제로 화면에서 움직이는 속도(m/s)로 판단
+        // 화면에서 실제로 움직이는 속도(m/s) → 걷기/달리기 모션에 사용
         const stepM = distanceMeters(shown, next);
         const instantMps = dt > 0 ? (stepM / dt) * 1000 : 0;
-        speedRef.current += (instantMps - speedRef.current) * 0.12;
-
-        if (speedRef.current > WALK_START_MPS) lastMovingAtRef.current = now;
-
-        const holding = now - lastMovingAtRef.current < WALK_HOLD_MS;
-        walkingRef.current = walkingRef.current
-          ? speedRef.current > WALK_STOP_MPS || holding
-          : speedRef.current > WALK_START_MPS;
-
-        // 화면 기준 진행 방향에 따라 캐릭터 좌우 반전
-        const rel =
-          ((headingDisplayRef.current - map.getBearing()) * Math.PI) / 180;
-        const side = Math.sin(rel);
-        if (Math.abs(side) > 0.25) faceRightRef.current = side > 0;
-
-        const avatarEl = avatarMarkerRef.current?.getElement();
-        if (avatarEl) {
-          setAvatarMotion(avatarEl, {
-            walking: walkingRef.current,
-            speed: speedRef.current,
-            faceRight: faceRightRef.current,
-          });
-        }
+        speedRef.current += (instantMps - speedRef.current) * 0.1;
 
         displayCoordRef.current = next;
         groundMarkerRef.current?.setLngLat(next);
-        avatarMarkerRef.current?.setLngLat(next);
+
+        avatarLayerRef.current?.update({
+          lngLat: next,
+          headingDeg: headingDisplayRef.current,
+          speedMps: speedRef.current,
+        });
 
         if (isFollowingRef.current && now > cameraBusyUntilRef.current) {
           map.setCenter(next);
@@ -554,6 +558,10 @@ export const MapView = forwardRef<MapViewHandle, MapViewProps>(function MapView(
 
         addPlaceLayer(map, PLACE_PREFIX, latestPlacesRef.current);
         if (!reducedMotion()) stopPulse = startPlacePulse(map, PLACE_PREFIX);
+
+        // three.js 아바타: 가장 마지막에 추가해 건물/기둥과 같은 깊이 공간에서 그려짐
+        avatarLayerRef.current = createAvatarLayer();
+        map.addLayer(avatarLayerRef.current.layer);
 
         mapLoadedRef.current = true;
         setMapLoading(false);
@@ -601,8 +609,7 @@ export const MapView = forwardRef<MapViewHandle, MapViewProps>(function MapView(
 
       groundMarkerRef.current?.remove();
       groundMarkerRef.current = null;
-      avatarMarkerRef.current?.remove();
-      avatarMarkerRef.current = null;
+      avatarLayerRef.current = null;
       displayCoordRef.current = null;
 
       mapLoadedRef.current = false;
@@ -724,6 +731,13 @@ export const MapView = forwardRef<MapViewHandle, MapViewProps>(function MapView(
   return (
     <div className="san-map-3d relative h-full w-full">
       <div ref={containerRef} className="h-full w-full" />
+      {devMock ? (
+        <DevWalkPanel
+          auto={devWalk.auto}
+          onAutoChange={devWalk.setAuto}
+          onPress={devWalk.press}
+        />
+      ) : null}
     </div>
   );
 });

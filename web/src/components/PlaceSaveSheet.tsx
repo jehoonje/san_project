@@ -24,6 +24,9 @@ type PlaceSaveSheetProps = {
   onCancel: () => void;
 };
 
+const focusOutlineClass =
+  "focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#00bfff]";
+
 function CategoryIcon({ category }: { category: PlaceCategory }) {
   const common = {
     width: 21,
@@ -183,12 +186,12 @@ export function PlaceSaveSheet({
     state.status === "ready" && state.accuracy !== null && state.accuracy > 50
       ? "bg-[#f1a447]"
       : state.status === "error"
-        ? "bg-[#ff685f]"
+        ? "bg-[#ff715c]"
         : "bg-[#71d08c]";
 
   return (
     <motion.div
-      className="fixed inset-0 z-[60] flex items-end justify-center bg-black/55 backdrop-blur-[3px] sm:items-center sm:p-4"
+      className="fixed inset-0 z-[60] flex items-end justify-center bg-black/70 backdrop-blur-md sm:items-center sm:p-4"
       role="presentation"
       initial={{ opacity: reducedMotion ? 1 : 0 }}
       animate={{ opacity: 1 }}
@@ -203,7 +206,7 @@ export function PlaceSaveSheet({
         role="dialog"
         aria-modal="true"
         aria-labelledby={titleId}
-        className="relative flex max-h-[min(86dvh,760px)] w-full max-w-none flex-col overflow-hidden border-none bg-[rgba(9,9,11,0.94)] text-white shadow-[0_-20px_60px_rgba(0,0,0,0.5)] backdrop-blur-[32px] backdrop-saturate-150 sm:max-w-[480px] sm:rounded-[28px] sm:border"
+        className="relative flex max-h-[min(86dvh,760px)] w-full max-w-none flex-col overflow-hidden rounded-t-[28px] border border-b-0 border-white/10 bg-[linear-gradient(145deg,rgba(14,23,34,.97),rgba(5,11,20,.99))] text-white shadow-[0_-24px_80px_rgba(0,0,0,0.55)] backdrop-blur-2xl sm:max-w-[480px] sm:rounded-[28px] sm:border-b"
         initial={{ y: reducedMotion ? 0 : "100%" }}
         animate={{ y: 0 }}
         exit={{ y: reducedMotion ? 0 : "100%" }}
@@ -225,7 +228,11 @@ export function PlaceSaveSheet({
 
         <header className="flex items-start justify-between px-5 pb-4 pt-2">
           <div>
-            <p className="mb-1 text-[12px] font-medium tracking-[0.16em] text-white/38">
+            <div
+              className="mb-3 h-px w-10 bg-[#00bfff]/70"
+              aria-hidden="true"
+            />
+            <p className="mb-1 text-[11px] font-bold uppercase tracking-[0.2em] text-[#00bfff]">
               PLACE
             </p>
             <h2
@@ -240,7 +247,7 @@ export function PlaceSaveSheet({
             type="button"
             onClick={onCancel}
             aria-label="장소 저장 닫기"
-            className="grid h-11 w-11 shrink-0 place-items-center rounded-full text-white/55 transition-colors hover:bg-white/[0.07] hover:text-white active:scale-90 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white"
+            className={`grid h-11 w-11 shrink-0 place-items-center rounded-full text-[#8fa3b8] transition-colors hover:bg-[#00bfff]/10 hover:text-white active:scale-90 ${focusOutlineClass}`}
           >
             <CloseIcon />
           </button>
@@ -253,8 +260,8 @@ export function PlaceSaveSheet({
           >
             {state.status === "locating" ? (
               <span className="relative h-2.5 w-2.5 shrink-0">
-                <span className="absolute inset-0 animate-ping rounded-full bg-[#ff6843]/60" />
-                <span className="absolute inset-[2px] rounded-full bg-[#ff6843]" />
+                <span className="absolute inset-0 animate-ping rounded-full bg-[#00bfff]/60" />
+                <span className="absolute inset-[2px] rounded-full bg-[#00bfff]" />
               </span>
             ) : (
               <span
@@ -264,22 +271,22 @@ export function PlaceSaveSheet({
 
             <div className="min-w-0 flex-1">
               {state.status === "locating" && (
-                <p className="text-[13px] text-white/62">
+                <p className="text-[13px] text-[#8fa3b8]">
                   현재 위치를 확인하고 있어요
                 </p>
               )}
               {state.status === "ready" && (
-                <p className="text-[13px] text-white/62">
+                <p className="text-[13px] text-[#8fa3b8]">
                   위치 확인됨
                   {state.accuracy !== null && (
-                    <span className="ml-2 text-white/32">
+                    <span className="ml-2 text-[#5f7387]">
                       오차 약 {Math.round(state.accuracy)}m
                     </span>
                   )}
                 </p>
               )}
               {state.status === "error" && (
-                <p className="truncate text-[13px] text-white/62">
+                <p className="truncate text-[13px] text-[#ff9c8d]">
                   {state.message}
                 </p>
               )}
@@ -289,7 +296,7 @@ export function PlaceSaveSheet({
               <button
                 type="button"
                 onClick={onRetry}
-                className="min-h-11 shrink-0 px-2 text-[13px] font-semibold text-[#ff8061] active:opacity-60"
+                className={`min-h-11 shrink-0 rounded-full px-3 text-[13px] font-semibold text-[#00bfff] transition-colors hover:text-[#33ccff] active:opacity-60 ${focusOutlineClass}`}
               >
                 다시 시도
               </button>
@@ -298,12 +305,12 @@ export function PlaceSaveSheet({
 
           {state.status === "ready" && nearby.status === "loading" && (
             <div className="mt-5" role="status" aria-label="주변 장소 검색 중">
-              <div className="mb-3 h-3 w-20 animate-pulse rounded-full bg-white/[0.09]" />
+              <div className="mb-3 h-3 w-20 animate-pulse rounded-full bg-white/[0.08]" />
               <div className="space-y-2">
                 {[0, 1].map((item) => (
                   <div
                     key={item}
-                    className="h-14 animate-pulse rounded-2xl bg-white/[0.055]"
+                    className="h-14 animate-pulse rounded-[20px] border border-white/[0.06] bg-white/[0.04]"
                   />
                 ))}
               </div>
@@ -315,11 +322,11 @@ export function PlaceSaveSheet({
               <div className="mb-2.5 flex items-center justify-between">
                 <h3
                   id={`${titleId}-nearby`}
-                  className="text-[12px] font-medium tracking-[0.08em] text-white/38"
+                  className="text-[12px] font-medium tracking-[0.08em] text-[#5f7387]"
                 >
                   가까운 장소
                 </h3>
-                <span className="text-[12px] tabular-nums text-white/25">
+                <span className="text-[12px] tabular-nums text-[#5f7387]">
                   200m
                 </span>
               </div>
@@ -334,14 +341,14 @@ export function PlaceSaveSheet({
                         type="button"
                         onClick={() => handlePickCandidate(place)}
                         aria-pressed={selected}
-                        className="group flex min-h-[58px] w-full items-center gap-3 text-left active:opacity-65"
+                        className={`group flex min-h-[58px] w-full items-center gap-3 rounded-xl text-left active:opacity-65 ${focusOutlineClass}`}
                       >
                         <span
                           className={[
                             "grid h-9 w-9 shrink-0 place-items-center rounded-full transition-colors",
                             selected
-                              ? "bg-[#ff6843] text-white"
-                              : "bg-white/[0.06] text-white/58 group-hover:bg-white/[0.1]",
+                              ? "bg-[#00bfff] text-[#04121c]"
+                              : "bg-white/[0.05] text-[#8fa3b8] group-hover:bg-[#00bfff]/10 group-hover:text-[#33ccff]",
                           ].join(" ")}
                         >
                           <CategoryIcon category={place.category} />
@@ -351,17 +358,17 @@ export function PlaceSaveSheet({
                           <span
                             className={[
                               "block truncate text-[14px] font-medium",
-                              selected ? "text-white" : "text-white/82",
+                              selected ? "text-white" : "text-neutral-200",
                             ].join(" ")}
                           >
                             {place.name}
                           </span>
-                          <span className="mt-0.5 block truncate text-[12px] text-white/32">
+                          <span className="mt-0.5 block truncate text-[12px] text-[#5f7387]">
                             {place.categoryName.split(" > ").slice(-1)[0]}
                           </span>
                         </span>
 
-                        <span className="shrink-0 text-[12px] tabular-nums text-white/28">
+                        <span className="shrink-0 text-[12px] tabular-nums text-[#5f7387]">
                           {place.distanceMeters}m
                         </span>
 
@@ -369,7 +376,7 @@ export function PlaceSaveSheet({
                           className={[
                             "grid h-5 w-5 shrink-0 place-items-center rounded-full border transition-colors",
                             selected
-                              ? "border-[#ff6843] bg-[#ff6843] text-white"
+                              ? "border-[#00bfff] bg-[#00bfff] text-[#04121c]"
                               : "border-white/15 text-transparent",
                           ].join(" ")}
                           aria-hidden="true"
@@ -385,13 +392,13 @@ export function PlaceSaveSheet({
           )}
 
           {nearby.status === "done" && nearby.places.length === 0 && (
-            <p className="mt-5 text-[13px] leading-relaxed text-white/38">
+            <p className="mt-5 text-[13px] leading-relaxed text-[#5f7387]">
               가까운 추천 장소가 없어요. 이름을 직접 입력해 주세요.
             </p>
           )}
 
           {nearby.status === "error" && (
-            <p className="mt-5 text-[13px] leading-relaxed text-white/38">
+            <p className="mt-5 text-[13px] leading-relaxed text-[#5f7387]">
               주변 장소를 불러오지 못했어요. 직접 입력은 계속할 수 있어요.
             </p>
           )}
@@ -407,12 +414,12 @@ export function PlaceSaveSheet({
               maxLength={60}
               placeholder="장소 이름"
               autoComplete="off"
-              className="h-14 w-full rounded-[18px] bg-white/[0.055] px-4 text-[16px] font-medium text-white caret-[#ff6843] outline-none transition placeholder:text-white/27 focus:border-white/25 focus:bg-white/[0.075] focus:ring-2 focus:ring-[#ff6843]/20"
+              className="h-14 w-full rounded-full bg-[#0a121c] px-[22px] text-[16px] font-medium text-white caret-[#00bfff] shadow-[inset_0_0_0_1px_rgba(255,255,255,0.10)] outline-none transition placeholder:text-[#5f7387] focus:bg-[#0a121c] focus:shadow-[inset_0_0_0_1px_rgba(0,191,255,0.6),0_0_0_4px_rgba(0,191,255,0.15)]"
             />
           </div>
 
           <fieldset className="mt-5 min-w-0">
-            <legend className="mb-3 text-[12px] font-medium tracking-[0.08em] text-white/38">
+            <legend className="mb-3 text-[12px] font-medium tracking-[0.08em] text-[#5f7387]">
               카테고리
             </legend>
 
@@ -428,10 +435,11 @@ export function PlaceSaveSheet({
                     onClick={() => setCategory(item.key)}
                     whileTap={reducedMotion ? undefined : { scale: 0.94 }}
                     className={[
-                      "flex min-h-[68px] min-w-0 flex-col items-center justify-center gap-1.5 rounded-2xl px-1 text-[12px] font-medium transition-colors",
+                      "flex min-h-[68px] min-w-0 flex-col items-center justify-center gap-1.5 rounded-[20px] border px-1 text-[12px] font-medium transition-colors",
+                      focusOutlineClass,
                       selected
-                        ? " bg-[#ff6843] text-white shadow-[0_8px_26px_rgba(255,104,67,0.2)]"
-                        : " bg-white/[0.045] text-white/55 hover:bg-white/[0.08] hover:text-white/80",
+                        ? "border-[#00bfff] bg-[#00bfff] font-semibold text-[#04121c] shadow-[0_10px_28px_rgba(0,191,255,0.25)]"
+                        : "border-white/[0.08] bg-[#0e1722] text-[#8fa3b8] hover:border-[#00bfff]/30 hover:bg-[#00bfff]/10 hover:text-white",
                     ].join(" ")}
                   >
                     <CategoryIcon category={item.key} />
@@ -445,12 +453,12 @@ export function PlaceSaveSheet({
           </fieldset>
         </div>
 
-        <footer className="border-t border-white/[0.08] bg-black/15 px-5 pb-[max(20px,env(safe-area-inset-bottom))] pt-4 backdrop-blur-xl">
+        <footer className="border-t border-white/[0.08] bg-[#050b14]/40 px-5 pb-[max(20px,env(safe-area-inset-bottom))] pt-4 backdrop-blur-xl">
           <motion.button
             type="submit"
             disabled={!canSave}
             whileTap={canSave && !reducedMotion ? { scale: 0.98 } : undefined}
-            className="flex h-14 w-full items-center justify-center rounded-[18px] bg-[#ff6843] text-[15px] font-semibold text-white shadow-[0_12px_36px_rgba(255,104,67,0.2)] transition disabled:cursor-not-allowed disabled:bg-white/[0.07] disabled:text-white/25 disabled:shadow-none focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white"
+            className={`flex h-14 w-full items-center justify-center rounded-full bg-[#00bfff] text-[15px] font-extrabold tracking-[0.04em] text-[#04121c] shadow-[0_10px_28px_rgba(0,191,255,0.25)] transition hover:bg-[#33ccff] disabled:cursor-not-allowed disabled:bg-white/[0.06] disabled:text-[#5f7387] disabled:shadow-none ${focusOutlineClass}`}
           >
             장소 저장
           </motion.button>
