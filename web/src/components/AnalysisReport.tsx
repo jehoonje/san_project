@@ -41,7 +41,7 @@ const MOOD_LABELS: Record<string, string> = {
 };
 
 const GLASS_CARD =
-  "rounded-[22px] border border-white/[0.09] bg-[linear-gradient(145deg,rgba(255,255,255,.07),rgba(255,255,255,.025))] shadow-[0_16px_40px_rgba(0,0,0,.2)] backdrop-blur-xl";
+  "rounded-[24px] border border-white/[0.09] bg-[linear-gradient(145deg,rgba(255,255,255,.07),rgba(255,255,255,.025))] shadow-[0_16px_40px_rgba(0,0,0,.2)] backdrop-blur-xl";
 
 async function parseResponse(response: Response) {
   const json = await response.json().catch(() => null);
@@ -223,7 +223,7 @@ function RankedBars({ items }: { items: RankedStat[] }) {
             aria-valuenow={item.percent}
           >
             <div
-              className="h-full rounded-full bg-[#79adff] shadow-[0_0_12px_rgba(121,173,255,.45)] transition-[width] duration-500 motion-reduce:transition-none"
+              className="h-full rounded-full bg-[#00bfff] shadow-[0_0_12px_rgba(0,191,255,.45)] transition-[width] duration-500 motion-reduce:transition-none"
               style={{ width: `${Math.max(item.percent, 3)}%` }}
             />
           </div>
@@ -262,12 +262,12 @@ function ReportText({ report }: { report: PersonalReport }) {
 
   return (
     <>
-      <div className="relative overflow-hidden rounded-[26px] border border-white/[0.12] bg-[linear-gradient(145deg,rgba(34,40,48,.96),rgba(9,12,16,.98))] p-6 shadow-[0_24px_70px_rgba(0,0,0,.4)]">
+      <div className="relative overflow-hidden rounded-[24px] border border-white/[0.12] bg-[linear-gradient(145deg,rgba(14,23,34,.96),rgba(5,11,20,.98))] p-6 shadow-[0_24px_70px_rgba(0,0,0,.4)]">
         <div
-          className="pointer-events-none absolute -right-16 -top-20 h-48 w-48 rounded-full bg-[#79adff]/[0.09] blur-3xl"
+          className="pointer-events-none absolute -right-16 -top-20 h-48 w-48 rounded-full bg-[#00bfff]/[0.09] blur-3xl"
           aria-hidden="true"
         />
-        <p className="relative flex items-center gap-1.5 text-xs font-medium text-[#79adff]">
+        <p className="relative flex items-center gap-1.5 text-xs font-medium text-[#00bfff]">
           <SparkIcon />
           Gemini 취향 리포트
         </p>
@@ -301,7 +301,7 @@ function ReportText({ report }: { report: PersonalReport }) {
                 className="flex gap-3 rounded-2xl border border-white/[0.06] bg-white/[0.04] px-4 py-3 text-sm leading-6 text-neutral-300"
               >
                 <span
-                  className="mt-0.5 shrink-0 tabular-nums text-[#79adff]"
+                  className="mt-0.5 shrink-0 tabular-nums text-[#00bfff]"
                   aria-hidden="true"
                 >
                   {String(index + 1).padStart(2, "0")}
@@ -385,7 +385,7 @@ function AnalysisBody({
             {stats.topKeywords.map((item) => (
               <span
                 key={`keyword-${item.label}`}
-                className="rounded-full border border-[#79adff]/25 bg-[#79adff]/10 px-3 py-1.5 text-xs font-medium text-[#a9c9ff]"
+                className="rounded-full border border-[#00bfff]/25 bg-[#00bfff]/10 px-3 py-1.5 text-xs font-medium text-[#7fdfff]"
               >
                 {item.label} · {item.count}
               </span>
@@ -449,7 +449,7 @@ export function AnalysisReport({ accessToken }: AnalysisReportProps) {
         role="status"
         aria-live="polite"
       >
-        <span className="h-8 w-8 animate-spin rounded-full border-2 border-white/10 border-t-[#79adff] motion-reduce:animate-none" />
+        <span className="h-8 w-8 animate-spin rounded-full border-2 border-white/10 border-t-[#00bfff] motion-reduce:animate-none" />
         <p className="mt-5 text-sm font-medium text-neutral-200">
           {state.message}
         </p>
@@ -462,7 +462,7 @@ export function AnalysisReport({ accessToken }: AnalysisReportProps) {
             aria-valuenow={progress}
           >
             <div
-              className="h-full rounded-full bg-[#79adff] transition-[width] duration-300 motion-reduce:transition-none"
+              className="h-full rounded-full bg-[#00bfff] transition-[width] duration-300 motion-reduce:transition-none"
               style={{ width: `${progress}%` }}
             />
           </div>
@@ -483,7 +483,7 @@ export function AnalysisReport({ accessToken }: AnalysisReportProps) {
         <button
           type="button"
           onClick={() => void run(false)}
-          className="mt-5 min-h-11 rounded-2xl bg-[#f4f5f7] px-5 text-sm font-semibold text-[#090c10] transition hover:bg-white active:scale-95"
+          className="mt-5 min-h-11 rounded-2xl bg-[#ffffff] px-5 text-sm font-semibold text-[#050b14] transition hover:bg-white active:scale-95"
         >
           다시 시도
         </button>
@@ -492,8 +492,8 @@ export function AnalysisReport({ accessToken }: AnalysisReportProps) {
   }
 
   return (
-    <div className="h-full overflow-y-auto overscroll-contain bg-[#080a0f] text-white">
-      <div className="sticky top-0 z-10 flex items-center justify-between gap-3 border-b border-white/[0.07] bg-[#080a0f]/80 px-4 py-2.5 backdrop-blur-2xl">
+    <div className="h-full overflow-y-auto overscroll-contain bg-[#050b14] text-white">
+      <div className="sticky top-0 z-10 flex items-center justify-between gap-3 border-b border-white/[0.07] bg-[#050b14]/80 px-4 py-2.5 backdrop-blur-2xl">
         <div className="min-w-0">
           <p className="truncate text-xs text-neutral-400">
             {state.data.generatedAt

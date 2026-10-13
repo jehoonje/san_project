@@ -58,7 +58,7 @@ function makeDot(color: string) {
     height: "14px",
     borderRadius: "50%",
     background: color,
-    border: "3px solid #f4f5f7",
+    border: "3px solid #ffffff",
     boxShadow: "0 4px 14px rgba(0,0,0,.45)",
   });
 
@@ -193,7 +193,7 @@ export function RouteViewer({ route, open }: RouteViewerProps) {
         source: SOURCE_ID,
         layout: { "line-join": "round", "line-cap": "round" },
         paint: {
-          "line-color": "#79adff",
+          "line-color": "#00bfff",
           "line-width": 6,
           "line-opacity": 0.95,
           "line-blur": 0.25,
@@ -205,7 +205,7 @@ export function RouteViewer({ route, open }: RouteViewerProps) {
         .setLngLat(coords[0])
         .addTo(map);
       if (coords.length > 1) {
-        new maplibregl.Marker({ element: makeDot("#ff715c"), anchor: "center" })
+        new maplibregl.Marker({ element: makeDot("#00bfff"), anchor: "center" })
           .setLngLat(coords[coords.length - 1])
           .addTo(map);
       }
@@ -237,7 +237,7 @@ export function RouteViewer({ route, open }: RouteViewerProps) {
 
   return (
     <div
-      className={`san-route-viewer absolute inset-0 z-10 h-full min-h-0 w-full overflow-hidden bg-[#07090d] transition duration-300 ease-out ${open ? "visible scale-100 opacity-100" : "pointer-events-none invisible scale-[0.985] opacity-0"}`}
+      className={`san-route-viewer absolute inset-0 z-10 h-full min-h-0 w-full overflow-hidden bg-[#050b14] transition duration-300 ease-out ${open ? "visible scale-100 opacity-100" : "pointer-events-none invisible scale-[0.985] opacity-0"}`}
       aria-hidden={!open}
     >
       <div
@@ -247,7 +247,7 @@ export function RouteViewer({ route, open }: RouteViewerProps) {
       <div className="pointer-events-none absolute inset-0 bg-[linear-gradient(180deg,rgba(5,7,10,.28)_0%,transparent_28%,transparent_52%,rgba(5,7,10,.86)_100%)]" />
 
       <section
-        className="pointer-events-auto absolute inset-x-4 z-20 rounded-[24px] border border-white/10 bg-[linear-gradient(145deg,rgba(24,28,34,.88),rgba(8,11,15,.94))] p-4 text-white shadow-[0_22px_60px_rgba(0,0,0,.42)] backdrop-blur-2xl"
+        className="pointer-events-auto absolute inset-x-4 z-20 rounded-[24px] border border-white/10 bg-[linear-gradient(145deg,rgba(14,23,34,.88),rgba(5,11,20,.94))] p-4 text-white shadow-[0_22px_60px_rgba(0,0,0,.42)] backdrop-blur-2xl"
         style={{ bottom: "calc(1rem + env(safe-area-inset-bottom))" }}
         onClick={(event) => event.stopPropagation()}
         onPointerDown={(event) => event.stopPropagation()}
@@ -263,7 +263,7 @@ export function RouteViewer({ route, open }: RouteViewerProps) {
             </h2>
           </div>
           <span
-            className="mt-1 h-2 w-2 shrink-0 rounded-full bg-[#79adff] shadow-[0_0_14px_rgba(121,173,255,.55)]"
+            className="mt-1 h-2 w-2 shrink-0 rounded-full bg-[#00bfff] shadow-[0_0_14px_rgba(0,191,255,.55)]"
             aria-hidden="true"
           />
         </div>
@@ -273,7 +273,7 @@ export function RouteViewer({ route, open }: RouteViewerProps) {
         >
           <div className="min-w-0 rounded-2xl border border-white/[0.06] bg-white/[0.045] px-3 py-3">
             <dt className="flex items-center gap-2 text-xs font-medium text-neutral-500">
-              <span className="text-[#79adff]">
+              <span className="text-[#00bfff]">
                 <RouteIcon />
               </span>
               거리
@@ -284,7 +284,7 @@ export function RouteViewer({ route, open }: RouteViewerProps) {
           </div>
           <div className="min-w-0 rounded-2xl border border-white/[0.06] bg-white/[0.045] px-3 py-3">
             <dt className="flex items-center gap-2 text-xs font-medium text-neutral-500">
-              <span className="text-[#9aa8bc]">
+              <span className="text-[#8fa3b8]">
                 <ClockIcon />
               </span>
               시간
@@ -320,7 +320,7 @@ export function RouteViewer({ route, open }: RouteViewerProps) {
           border: 1px solid rgba(255, 255, 255, 0.1);
           border-radius: 8px;
           color: rgba(244, 245, 247, 0.7);
-          background: rgba(7, 9, 13, 0.72);
+          background: rgba(5, 11, 20, 0.72);
           box-shadow: 0 8px 24px rgba(0, 0, 0, 0.2);
           font-size: 12px;
           line-height: 1.35;

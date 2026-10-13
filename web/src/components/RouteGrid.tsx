@@ -244,7 +244,7 @@ export function RouteGrid({ onSelect }: RouteGridProps) {
         {Array.from({ length: 6 }, (_, index) => (
           <div
             key={index}
-            className="aspect-[1.05] animate-pulse rounded-[22px] border border-white/[0.06] bg-white/[0.04]"
+            className="aspect-[1.05] animate-pulse rounded-[24px] border border-white/[0.06] bg-white/[0.04]"
           />
         ))}
       </div>
@@ -289,7 +289,7 @@ export function RouteGrid({ onSelect }: RouteGridProps) {
       `}</style>
 
       {editing && (
-        <div className="sticky top-0 z-20 flex items-center justify-between border-b border-white/[0.06] bg-[#080a0f]/80 px-4 py-3 backdrop-blur-2xl">
+        <div className="sticky top-0 z-20 flex items-center justify-between border-b border-white/[0.06] bg-[#050b14]/80 px-4 py-3 backdrop-blur-2xl">
           <span className="text-xs font-medium text-neutral-400">
             수정하거나 삭제할 루트를 선택하세요
           </span>
@@ -325,10 +325,10 @@ export function RouteGrid({ onSelect }: RouteGridProps) {
               onPointerLeave={clearPress}
               onPointerCancel={clearPress}
               onContextMenu={(event) => event.preventDefault()}
-              className="group flex aspect-[1.05] w-full select-none flex-col justify-between overflow-hidden rounded-[22px] border border-white/[0.09] bg-[linear-gradient(145deg,rgba(255,255,255,.075),rgba(255,255,255,.025))] p-4 text-left shadow-[0_16px_40px_rgba(0,0,0,.18)] backdrop-blur-xl transition duration-200 [-webkit-touch-callout:none] hover:border-white/[0.16] hover:bg-white/[0.08] active:scale-[0.98]"
+              className="group flex aspect-[1.05] w-full select-none flex-col justify-between overflow-hidden rounded-[24px] border border-white/[0.08] bg-[#0e1722]/90 bg-[radial-gradient(circle_at_100%_0%,rgba(0,191,255,.12),transparent_55%)] p-4 text-left shadow-[0_16px_40px_rgba(0,0,0,.18)] backdrop-blur-xl transition duration-200 [-webkit-touch-callout:none] hover:border-[#00bfff]/30 active:scale-[0.98]"
               aria-label={`${route.title} 루트 열기`}
             >
-              <span className="text-[#79adff]/85 transition group-hover:text-[#91bbff]">
+              <span className="text-[#00bfff]/85 transition group-hover:text-[#33ccff]">
                 <RouteGlyph />
               </span>
               <span className="block min-w-0">
@@ -357,7 +357,7 @@ export function RouteGrid({ onSelect }: RouteGridProps) {
                     setActionError(null);
                     setEditTarget(route);
                   }}
-                  className="grid h-11 w-11 place-items-center rounded-full border border-white/15 bg-[#1b2028]/95 text-white shadow-xl backdrop-blur-xl transition active:scale-90"
+                  className="grid h-11 w-11 place-items-center rounded-full border border-white/15 bg-[#0a2233]/95 text-white shadow-xl backdrop-blur-xl transition active:scale-90"
                   style={{
                     animation:
                       "routeBadgePop .3s cubic-bezier(.34,1.56,.64,1) both",
@@ -413,10 +413,10 @@ export function RouteGrid({ onSelect }: RouteGridProps) {
                   role="alertdialog"
                   aria-modal="true"
                   aria-labelledby="delete-route-title"
-                  className="w-full max-w-sm rounded-[24px] border border-white/10 bg-[linear-gradient(145deg,rgba(29,33,38,.96),rgba(9,12,16,.98))] p-5 text-white shadow-[0_24px_80px_rgba(0,0,0,.55)] backdrop-blur-2xl"
+                  className="w-full max-w-sm rounded-[24px] border border-white/10 bg-[linear-gradient(145deg,rgba(14,23,34,.96),rgba(5,11,20,.98))] p-5 text-white shadow-[0_24px_80px_rgba(0,0,0,.55)] backdrop-blur-2xl"
                 >
                   <div
-                    className="mb-5 h-px w-10 bg-[#ff715c]/70"
+                    className="mb-5 h-px w-10 bg-[#00bfff]/70"
                     aria-hidden="true"
                   />
                   <h2
@@ -441,7 +441,7 @@ export function RouteGrid({ onSelect }: RouteGridProps) {
                       type="button"
                       onClick={closeModals}
                       disabled={isBusy}
-                      className="min-h-12 rounded-2xl border border-white/10 bg-white/[0.04] text-sm font-semibold text-neutral-300 transition active:scale-[0.98] disabled:opacity-40"
+                      className="min-h-12 rounded-full border border-white/10 bg-white/[0.04] text-sm font-semibold text-neutral-300 transition active:scale-[0.98] disabled:opacity-40"
                     >
                       취소
                     </button>
@@ -449,7 +449,7 @@ export function RouteGrid({ onSelect }: RouteGridProps) {
                       type="button"
                       onClick={handleDeleteConfirm}
                       disabled={isBusy}
-                      className="min-h-12 rounded-2xl bg-[#ff715c] text-sm font-semibold text-[#180806] transition hover:bg-[#ff856f] active:scale-[0.98] disabled:opacity-40"
+                      className="min-h-12 rounded-full bg-[#ff715c] text-sm font-semibold text-[#180806] transition hover:bg-[#ff856f] active:scale-[0.98] disabled:opacity-40"
                     >
                       {isBusy ? "삭제 중…" : "삭제"}
                     </button>

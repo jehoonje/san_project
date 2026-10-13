@@ -1,6 +1,7 @@
 @import "tailwindcss";
 @import "./map-home.css";
 
+
 @font-face {
   font-family: "Pretendard Variable";
   src: url("/fonts/PretendardVariable.woff2") format("woff2-variations");
@@ -168,3 +169,6 @@ input {
 .maplibregl-map * {
   -webkit-tap-highlight-color: transparent;
 }
+
+
+@import "./cadenz-theme.css"; 
