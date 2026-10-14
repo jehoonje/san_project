@@ -1,4 +1,5 @@
 import type { Metadata, Viewport } from "next";
+import { DevFlagBootstrap } from "@/components/DevFlagBootstrap";
 import "./globals.css";
 import "@/styles/san-entry.css";
 
@@ -58,7 +59,10 @@ export default function RootLayout({
         />
         <script dangerouslySetInnerHTML={{ __html: themeBootScript }} />
       </head>
-      <body>{children}</body>
+      <body>
+        <DevFlagBootstrap />
+        {children}
+      </body>
     </html>
   );
 }

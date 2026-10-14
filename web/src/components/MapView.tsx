@@ -8,8 +8,10 @@ import {
   useRef,
   useState,
 } from "react";
+
 import * as maplibregl from "maplibre-gl";
 import "maplibre-gl/dist/maplibre-gl.css";
+import { createPortal } from "react-dom";
 
 import {
   addPlaceLayer,
@@ -31,7 +33,7 @@ import { createAvatarLayer, type AvatarLayerHandle } from "@/lib/avatar3d";
 import { usePlaceLocation } from "@/hooks/usePlaceLocation";
 import { useDevWalk } from "@/hooks/useDevWalk";
 import { DevWalkPanel } from "@/components/DevWalkPanel";
-import { getMockStart, isDevMockEnabled } from "@/lib/devLocation";
+import { getMockStart, isDevPanelEnabled } from "@/lib/devLocation";
 import type { PlaceMapItem } from "@/types/place";
 
 export type MapBounds = {
@@ -160,7 +162,7 @@ export const MapView = forwardRef<MapViewHandle, MapViewProps>(function MapView(
   const [devMock, setDevMock] = useState(false);
 
   useEffect(() => {
-    setDevMock(isDevMockEnabled());
+    setDevMock(isDevPanelEnabled());
   }, []);
 
   const centerLng = initialCenter[0];
@@ -731,13 +733,28 @@ export const MapView = forwardRef<MapViewHandle, MapViewProps>(function MapView(
   return (
     <div className="san-map-3d relative h-full w-full">
       <div ref={containerRef} className="h-full w-full" />
-      {devMock ? (
-        <DevWalkPanel
-          auto={devWalk.auto}
-          onAutoChange={devWalk.setAuto}
-          onPress={devWalk.press}
-        />
-      ) : null}
+      <div
+  style={{
+    position: "fixed", left: 8, bottom: 120, zIndex: 9999, padding: 6,
+    fontSize: 10, color: "#fff", background: "rgba(0,0,0,.7)", borderRadius: 6,
+  }}
+>
+  {`panel:${devMock} env:${process.env.NEXT_PUBLIC_DEV_WALK ?? "-"} q:${
+    typeof window !== "undefined" ? window.location.search : ""
+  } ls:${
+    typeof window !== "undefined" ? window.localStorage.getItem("san-dev-walk") : ""
+  } rn:${typeof window !== "undefined" && "ReactNativeWebView" in window}`}
+</div>
+      {devMock
+  ? createPortal(
+      <DevWalkPanel
+        auto={devWalk.auto}
+        onAutoChange={devWalk.setAuto}
+        onPress={devWalk.press}
+      />,
+      document.body,
+    )
+  : null}
     </div>
   );
 });

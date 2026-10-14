@@ -35,9 +35,23 @@ export function isDevPanelEnabled(): boolean {
   if (typeof window === "undefined") return false;
 
   const flag = new URLSearchParams(window.location.search).get("mock");
+
+  try {
+    if (flag === "1") window.localStorage.setItem("san-dev-walk", "1");
+    if (flag === "0") window.localStorage.removeItem("san-dev-walk");
+  } catch {
+    /* 저장소 접근 불가 시 무시 */
+  }
+
   if (flag === "0") return false;
   if (flag === "1") return true;
   if (process.env.NEXT_PUBLIC_DEV_WALK === "1") return true;
+
+  try {
+    if (window.localStorage.getItem("san-dev-walk") === "1") return true;
+  } catch {
+    /* 무시 */
+  }
 
   return isDevMockEnabled();
 }
