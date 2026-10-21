@@ -32,9 +32,9 @@ const tabs: Array<{
   label: string;
   icon: "map" | "record" | "routes";
 }> = [
-  { id: "map", label: "내 지도", icon: "map" },
-  { id: "record", label: "기록", icon: "record" },
-  { id: "routes", label: "내 루트", icon: "routes" },
+  { id: "map", label: "Map", icon: "map" },
+  { id: "record", label: "Record", icon: "record" },
+  { id: "routes", label: "My Routes", icon: "routes" },
 ];
 
 function TabIcon({ type }: { type: "map" | "record" | "routes" }) {

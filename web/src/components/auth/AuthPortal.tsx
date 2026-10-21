@@ -26,13 +26,47 @@ const MENU: { key: MenuKey; label: string }[] = [
 const SIGNUP_STEPS = 4;
 const EASE_OUT = [0.16, 1, 0.3, 1] as const;
 
+/* ───────── 스탠드 조명 ───────── */
+
+// 전원이 들어오듯 깜빡이다 안정되는 곡선
+const LAMP_FLICKER = [0, 0.35, 0.08, 0.6, 0.25, 0.85, 0.7, 1];
+const LAMP_TIMES = [0, 0.1, 0.18, 0.32, 0.42, 0.62, 0.74, 1];
+
+const lampConeVariants: Variants = {
+  off: { opacity: 0 },
+  on: {
+    opacity: LAMP_FLICKER,
+    transition: { duration: 1.6, times: LAMP_TIMES, ease: "linear", delay: 0.2 },
+  },
+  focus: {
+    opacity: 0.75,
+    transition: { duration: 0.9, ease: EASE_OUT },
+  },
+};
+
+const lampPoolVariants: Variants = {
+  off: { opacity: 0, scale: 0.8, top: "66%" },
+  on: {
+    opacity: LAMP_FLICKER,
+    scale: 1,
+    top: "66%",
+    transition: { duration: 1.6, times: LAMP_TIMES, ease: "linear", delay: 0.2 },
+  },
+  focus: {
+    opacity: 1,
+    scale: 1.18,
+    top: "50%",
+    transition: { duration: 1.1, ease: EASE_OUT },
+  },
+};
+
 const menuVariants: Variants = {
   hidden: {},
-  show: { transition: { delayChildren: 0.35, staggerChildren: 0.5 } },
+  show: { transition: { delayChildren: 1.1, staggerChildren: 0.42 } },
   away: {
     opacity: 0,
-    x: -16,
-    transition: { duration: 0.3, ease: "easeOut" },
+    filter: "blur(6px)",
+    transition: { duration: 0.35, ease: "easeOut" },
   },
 };
 
@@ -42,48 +76,53 @@ const rowVariants: Variants = {
 };
 
 const charVariants: Variants = {
-  hidden: { opacity: 0, x: -8, filter: "blur(10px)" },
+  hidden: { opacity: 0, y: 6, filter: "blur(12px)" },
   show: {
     opacity: 1,
-    x: 0,
+    y: 0,
     filter: "blur(0px)",
-    transition: { duration: 0.6, ease: EASE_OUT },
+    transition: { duration: 0.9, ease: EASE_OUT },
   },
 };
 
-const whipVariants: Variants = {
-  enter: { x: "112%", skewX: -16, opacity: 0, filter: "blur(22px)" },
+// 빛 속에서 서서히 초점이 맞는 페이드인
+const lightInVariants: Variants = {
+  enter: { opacity: 0, y: 14, scale: 0.985, filter: "blur(14px)" },
   center: {
-    x: 0,
-    skewX: 0,
     opacity: 1,
+    y: 0,
+    scale: 1,
     filter: "blur(0px)",
-    transition: {
-      x: { type: "spring", stiffness: 190, damping: 21, mass: 0.85 },
-      skewX: { type: "spring", stiffness: 190, damping: 18 },
-      opacity: { duration: 0.2 },
-      filter: { duration: 0.45 },
-    },
+    transition: { duration: 0.95, ease: EASE_OUT, delay: 0.12 },
   },
   exit: {
-    x: "-112%",
-    skewX: 16,
     opacity: 0,
-    filter: "blur(22px)",
-    transition: { duration: 0.42, ease: [0.7, 0, 0.84, 0] },
+    y: 6,
+    filter: "blur(8px)",
+    transition: { duration: 0.32, ease: "easeIn" },
   },
 };
 
 const viewVariants: Variants = {
-  enter: { opacity: 0, y: 12 },
-  center: { opacity: 1, y: 0, transition: { duration: 0.38, ease: EASE_OUT } },
-  exit: { opacity: 0, y: -8, transition: { duration: 0.16 } },
+  enter: { opacity: 0, y: 10, filter: "blur(6px)" },
+  center: {
+    opacity: 1,
+    y: 0,
+    filter: "blur(0px)",
+    transition: { duration: 0.55, ease: EASE_OUT },
+  },
+  exit: { opacity: 0, y: -6, filter: "blur(4px)", transition: { duration: 0.18 } },
 };
 
 const stepVariants: Variants = {
-  enter: { opacity: 0, x: 22 },
-  center: { opacity: 1, x: 0, transition: { duration: 0.36, ease: EASE_OUT } },
-  exit: { opacity: 0, x: -18, transition: { duration: 0.15 } },
+  enter: { opacity: 0, x: 18, filter: "blur(6px)" },
+  center: {
+    opacity: 1,
+    x: 0,
+    filter: "blur(0px)",
+    transition: { duration: 0.5, ease: EASE_OUT },
+  },
+  exit: { opacity: 0, x: -14, filter: "blur(4px)", transition: { duration: 0.16 } },
 };
 
 function BackIcon() {
@@ -400,7 +439,7 @@ export function AuthPortal({ onAuthenticated, onSocialLogin }: AuthPortalProps) 
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            transition={{ duration: 0.35 }}
+            transition={{ duration: 0.5, ease: "easeOut" }}
             onClick={closePanel}
           />
         )}
@@ -409,7 +448,8 @@ export function AuthPortal({ onAuthenticated, onSocialLogin }: AuthPortalProps) 
           <motion.div
             key="whip"
             className="san-whip"
-            variants={whipVariants}
+            style={{ willChange: "transform, opacity, filter" }}
+            variants={lightInVariants}
             initial="enter"
             animate="center"
             exit="exit"
@@ -420,14 +460,6 @@ export function AuthPortal({ onAuthenticated, onSocialLogin }: AuthPortalProps) 
               aria-modal="true"
               aria-label={panel === "settings" ? "화면 설정" : "로그인"}
             >
-              <motion.span
-                className="san-sweep"
-                aria-hidden="true"
-                initial={{ x: "-10%", opacity: 0.9 }}
-                animate={{ x: "130%", opacity: 0 }}
-                transition={{ duration: 0.9, delay: 0.08, ease: "easeOut" }}
-              />
-
               <button
                 type="button"
                 className="san-icon-button san-card-back"
@@ -501,7 +533,7 @@ export function AuthPortal({ onAuthenticated, onSocialLogin }: AuthPortalProps) 
                           initial={{ height: 0, opacity: 0, y: -8 }}
                           animate={{ height: "auto", opacity: 1, y: 0 }}
                           exit={{ height: 0, opacity: 0, y: -8 }}
-                          transition={{ duration: 0.45, ease: EASE_OUT }}
+                          transition={{ duration: 0.5, ease: EASE_OUT }}
                         >
                           <div className="san-reveal-inner">
                             <input
@@ -660,14 +692,7 @@ export function AuthPortal({ onAuthenticated, onSocialLogin }: AuthPortalProps) 
         )}
       </AnimatePresence>
 
-      <motion.footer
-        className="san-footer"
-        initial={{ opacity: 0 }}
-        animate={{ opacity: panel ? 0 : 1 }}
-        transition={{ duration: 0.4, delay: panel ? 0 : 2.6 }}
-      >
-        SAN
-      </motion.footer>
+      
 
       <AnimatePresence>
         {notice && (
