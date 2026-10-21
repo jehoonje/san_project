@@ -70,6 +70,7 @@
 .san-gradient-4 { --a: #46607f; --b: #a9809a; --c: #0b0b0f; }
 .san-gradient-5 { --a: #7a5d7e; --b: #d09a8a; --c: #100c0d; }
 
+
 .san-ambient {
   position: absolute;
   inset: -18%;
@@ -948,4 +949,108 @@
 /* 설정 항목, 구분선도 테두리 없이 */
 .san-theme-option {
   box-shadow: none;
+}
+
+.san-entry { position: relative; isolation: isolate; }
+
+.san-lamp {
+  --lamp: 255, 206, 138;
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+  overflow: hidden;
+}
+
+/* 위에서 내려오는 빛줄기 */
+.san-lamp-cone {
+  position: absolute;
+  top: -8%;
+  left: 50%;
+  width: min(110vmin, 960px);
+  height: 125%;
+  background: linear-gradient(
+    to bottom,
+    rgba(var(--lamp), 0.34) 0%,
+    rgba(var(--lamp), 0.12) 45%,
+    transparent 85%
+  );
+  clip-path: polygon(44% 0, 56% 0, 100% 100%, 0 100%);
+  filter: blur(34px);
+  mix-blend-mode: screen;
+  transform-origin: 50% 0;
+}
+
+/* 바닥에 맺히는 빛 웅덩이 */
+.san-lamp-pool {
+  position: absolute;
+  left: 50%;
+  top: 66%;
+  width: min(90vmin, 780px);
+  height: min(50vmin, 440px);
+  background: radial-gradient(
+    ellipse at center,
+    rgba(var(--lamp), 0.42) 0%,
+    rgba(var(--lamp), 0.16) 38%,
+    transparent 70%
+  );
+  filter: blur(22px);
+  mix-blend-mode: screen;
+}
+
+/* 가장자리를 눌러주는 어둠 */
+.san-lamp-vignette {
+  position: absolute;
+  inset: 0;
+  background: radial-gradient(
+    ellipse at 50% 45%,
+    transparent 28%,
+    rgba(0, 0, 0, 0.62) 100%
+  );
+}
+
+/* 미세한 필름 그레인 */
+.san-lamp-grain {
+  position: absolute;
+  inset: 0;
+  opacity: 0.07;
+  mix-blend-mode: overlay;
+  background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='160' height='160'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='.9' numOctaves='2'/></filter><rect width='100%' height='100%' filter='url(%23n)'/></svg>");
+}
+
+/* 라이트 테마: 화이트 스크린 대신 은은한 따뜻함만 */
+[data-theme="light"] .san-lamp { --lamp: 255, 226, 180; }
+[data-theme="light"] .san-lamp-cone,
+[data-theme="light"] .san-lamp-pool { mix-blend-mode: soft-light; }
+[data-theme="light"] .san-lamp-vignette {
+  background: radial-gradient(ellipse at 50% 45%, transparent 40%, rgba(60, 40, 20, 0.14) 100%);
+}
+
+/* 메뉴, 카드는 조명 위로 */
+.san-menu, .san-whip, .san-footer { position: relative; z-index: 2; }
+.san-scrim { z-index: 1; background: rgba(0, 0, 0, 0.38); backdrop-filter: blur(3px); }
+.san-whip { z-index: 3; }
+
+/* 카드: 위에서 빛을 받는 유리 질감 */
+.san-card {
+  position: relative;
+  overflow: hidden;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: linear-gradient(
+    to bottom,
+    rgba(255, 236, 205, 0.08),
+    rgba(255, 255, 255, 0.025) 40%
+  );
+  box-shadow:
+    0 -1px 0 rgba(255, 226, 180, 0.28) inset,
+    0 40px 90px -30px rgba(0, 0, 0, 0.7),
+    0 0 80px -20px rgba(255, 206, 138, 0.18);
+  backdrop-filter: blur(18px) saturate(1.1);
+}
+
+/* 메뉴 글자에 따뜻한 빛 번짐 */
+.san-menu-char { text-shadow: 0 0 22px rgba(255, 206, 138, 0.35); }
+
+@media (prefers-reduced-motion: reduce) {
+  .san-lamp-cone, .san-lamp-pool { opacity: 1 !important; }
 }

@@ -8,7 +8,7 @@ import * as Linking from "expo-linking";
 
 WebBrowser.maybeCompleteAuthSession();
 
-const WEB_URL = "https://san-project-haf6q41a8-jehoonjes-projects.vercel.app/";
+const WEB_URL = "https://san-project-80vfbfqlh-jehoonjes-projects.vercel.app/";
 
 type TrackingStatus = "idle" | "recording" | "paused";
 
@@ -282,9 +282,11 @@ export default function Index() {
         originWhitelist={["*"]}
         javaScriptEnabled
         domStorageEnabled
-        injectedJavaScriptBeforeContentLoaded={`window.__NATIVE_REDIRECT_URI__ = ${JSON.stringify(
-          redirectUri
-        )}; true;`}
+        injectedJavaScriptBeforeContentLoaded={
+          __DEV__
+            ? `window.localStorage.setItem('san-dev-walk','1'); true;`
+            : undefined
+        }
         onMessage={handleWebMessage}
         onLoadEnd={handleWebViewLoadEnd}
       />

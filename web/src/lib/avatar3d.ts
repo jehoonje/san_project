@@ -198,13 +198,13 @@ function buildRig(): Rig {
   // 짧고 통통한 다리
   const makeLeg = (side: 1 | -1) => {
     const l = limb({
-      upper: 0.22,
-      lower: 0.22,
+      upper: 0.16,
+      lower: 0.16,
       top: 0.098,
       joint: 0.082,
       end: 0.068,
       bulge: 0.06,
-      blend: 0.09,
+      blend: 0.99,
     });
     l.root.position.set(side * 0.1, 0, 0);
 
@@ -232,15 +232,15 @@ function buildRig(): Rig {
   // 몸에 붙어 늘어진 팔: 손목 쪽을 굵게 하고 손을 겹쳐 팔과 손 사이의 간격을 없앰
   const makeArm = (side: 1 | -1) => {
     const a = limb({
-      upper: 0.19,
-      lower: 0.18,
-      top: 0.056,
-      joint: 0.048,
+      upper: 0.14,
+      lower: 0.13,
+      top: 0.042,
+      joint: 0.058,
       end: 0.042,
       bulge: 0.04,
       blend: 0.07,
     });
-    a.root.position.set(side * 0.26, 0.38, 0);
+    a.root.position.set(side * 0.23, 0.38, 0);
 
     const hand = rigid(new THREE.SphereGeometry(0.043, 20, 16));
     hand.scale.set(0.95, 1.1, 0.9);
