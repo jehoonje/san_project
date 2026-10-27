@@ -10,11 +10,7 @@ type RegionOverviewProps = {
 
 const numberFormatter = new Intl.NumberFormat("ko-KR");
 
-function formatCount(
-  value: number | null,
-  loading: boolean,
-  unit?: string,
-) {
+function formatCount(value: number | null, loading: boolean, unit?: string) {
   if (loading) return "…";
   if (value === null) return "—";
   const formatted = numberFormatter.format(value);
@@ -29,11 +25,11 @@ export function RegionOverview({ summary }: RegionOverviewProps) {
   const metrics = [
     {
       label: "이곳에 모인 사람",
-      value: formatCount(summary.totalRoutes, summary.countsLoading, " "),
+      value: formatCount(summary.totalRoutes, summary.countsLoading, "명"),
     },
     {
       label: "내가 담아둔 루트",
-      value: formatCount(summary.myRoutes, summary.countsLoading, " "),
+      value: formatCount(summary.myRoutes, summary.countsLoading, "개"),
     },
     {
       label: "현재 기온",

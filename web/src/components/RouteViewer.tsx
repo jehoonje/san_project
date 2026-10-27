@@ -14,6 +14,13 @@ type RouteViewerProps = {
 const SOURCE_ID = "saved-route";
 const LAYER_ID = "saved-route-line";
 const PLACE_PREFIX = "saved";
+const MAX_PAD = { top: 150, right: 44, bottom: 300, left: 44 };
+const GESTURES = [
+  "dragPan",
+  "scrollZoom",
+  "touchZoomRotate",
+  "doubleClickZoom",
+] as const;
 
 function formatDuration(seconds: number | null) {
   if (seconds == null) return "-";
@@ -29,6 +36,58 @@ function formatDuration(seconds: number | null) {
       ? `${minutes}분 ${remainingSeconds}초`
       : `${minutes}분`;
   return `${remainingSeconds}초`;
+}
+
+function getPadding(container: HTMLElement) {
+  const h = container.clientHeight;
+  const w = container.clientWidth;
+  const maxV = Math.max(0, h * 0.7);
+  let top: number = MAX_PAD.top;
+  let bottom: number = MAX_PAD.bottom;
+  if (top + bottom > maxV) {
+    const scale = maxV / (top + bottom);
+    top = Math.floor(top * scale);
+    bottom = Math.floor(bottom * scale);
+  }
+  const side = Math.min(MAX_PAD.left, Math.floor(w * 0.1));
+  return { top, bottom, left: side, right: side };
+}
+
+function setGestures(map: maplibregl.Map, enabled: boolean) {
+  for (const name of GESTURES) {
+    if (enabled) map[name].enable();
+    else map[name].disable();
+  }
+}
+
+// 애니메이션 동안 제스처를 잠그고, 끝나면 해제. 해제 함수를 반환
+function fitRoute(
+  map: maplibregl.Map,
+  bounds: maplibregl.LngLatBounds,
+  container: HTMLElement,
+  duration: number,
+) {
+  const options = { padding: getPadding(container), maxZoom: 17, duration };
+
+  if (duration <= 0) {
+    map.fitBounds(bounds, options);
+    return () => {};
+  }
+
+  setGestures(map, false);
+  map.fitBounds(bounds, options);
+
+  let done = false;
+  const unlock = () => {
+    if (done) return;
+    done = true;
+    clearTimeout(timer);
+    map.off("moveend", unlock);
+    setGestures(map, true);
+  };
+  const timer = setTimeout(unlock, duration + 400);
+  map.on("moveend", unlock);
+  return unlock;
 }
 
 function makeDot(color: string) {
@@ -68,13 +127,7 @@ function makeDot(color: string) {
 
 function RouteIcon() {
   return (
-    <svg
-      width="17"
-      height="17"
-      viewBox="0 0 24 24"
-      fill="none"
-      aria-hidden="true"
-    >
+    <svg width="17" height="17" viewBox="0 0 24 24" fill="none" aria-hidden="true">
       <path
         d="M6 19c-1.7 0-3-1.3-3-3s1.3-3 3-3h12c1.7 0 3-1.3 3-3s-1.3-3-3-3H9"
         stroke="currentColor"
@@ -89,13 +142,7 @@ function RouteIcon() {
 
 function ClockIcon() {
   return (
-    <svg
-      width="17"
-      height="17"
-      viewBox="0 0 24 24"
-      fill="none"
-      aria-hidden="true"
-    >
+    <svg width="17" height="17" viewBox="0 0 24 24" fill="none" aria-hidden="true">
       <circle cx="12" cy="12" r="9" stroke="currentColor" strokeWidth="2" />
       <path
         d="M12 7v5l3.5 2"
@@ -110,13 +157,7 @@ function ClockIcon() {
 
 function PlaceIcon() {
   return (
-    <svg
-      width="17"
-      height="17"
-      viewBox="0 0 24 24"
-      fill="none"
-      aria-hidden="true"
-    >
+    <svg width="17" height="17" viewBox="0 0 24 24" fill="none" aria-hidden="true">
       <path
         d="M12 21s7-6.1 7-12a7 7 0 1 0-14 0c0 5.9 7 12 7 12Z"
         stroke="currentColor"
@@ -131,30 +172,50 @@ function PlaceIcon() {
 export function RouteViewer({ route, open }: RouteViewerProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const mapRef = useRef<maplibregl.Map | null>(null);
+  const boundsRef = useRef<maplibregl.LngLatBounds | null>(null);
+  const unlockRef = useRef<(() => void) | null>(null);
+  const openRef = useRef(open);
+  openRef.current = open;
 
+  const hasCoords = (route.coordinates?.length ?? 0) > 0;
+
+  // 열릴 때: 크기 재계산 후 경로에 맞추기
   useEffect(() => {
     const map = mapRef.current;
-    if (!open || !map) return;
+    const container = containerRef.current;
+    if (!open || !map || !container) return;
+
+    const fit = (duration: number) => {
+      map.resize();
+      if (!boundsRef.current) return;
+      unlockRef.current?.();
+      unlockRef.current = fitRoute(map, boundsRef.current, container, duration);
+    };
 
     let secondFrame = 0;
     const firstFrame = requestAnimationFrame(() => {
-      secondFrame = requestAnimationFrame(() => map.resize());
+      secondFrame = requestAnimationFrame(() => fit(600));
     });
-    const animationTimer = setTimeout(() => map.resize(), 320);
+    const timer = setTimeout(() => map.resize(), 320);
 
     return () => {
       cancelAnimationFrame(firstFrame);
       if (secondFrame) cancelAnimationFrame(secondFrame);
-      clearTimeout(animationTimer);
+      clearTimeout(timer);
+      unlockRef.current?.();
+      unlockRef.current = null;
     };
   }, [open]);
 
   useEffect(() => {
     const container = containerRef.current;
     const coords = route.coordinates ?? [];
-    const places = route.route_places ?? [];
+    const places = (route.route_places ?? []).filter(
+      (p) => Number.isFinite(p.lng) && Number.isFinite(p.lat),
+    );
     if (!container || !coords.length) return;
 
+    let disposed = false;
     maplibregl.setWorkerUrl("/maplibre/maplibre-gl-worker.mjs");
 
     const map = new maplibregl.Map({
@@ -162,22 +223,39 @@ export function RouteViewer({ route, open }: RouteViewerProps) {
       style: "https://tiles.openfreemap.org/styles/dark",
       center: coords[0],
       zoom: 12,
-      interactive: false,
+      minZoom: 8,
+      maxZoom: 19,
+      interactive: true,
+      dragRotate: false,
+      pitchWithRotate: false,
+      touchPitch: false,
+      keyboard: false,
+      boxZoom: false,
       attributionControl: false,
-      trackResize: true,
+      trackResize: false,
     });
 
+    map.touchZoomRotate.disableRotation();
     mapRef.current = map;
     map.addControl(
-      new maplibregl.AttributionControl({ compact: false }),
+      new maplibregl.AttributionControl({ compact: true }),
       "top-right",
     );
-    map.getCanvas().style.cursor = "default";
+
+    const collapseAttribution = () => {
+      const el = container.querySelector(".maplibregl-ctrl-attrib");
+      el?.classList.remove("maplibregl-compact-show");
+      el?.removeAttribute("open");
+    };
+    map.on("mousedown", collapseAttribution);
+    map.on("touchstart", collapseAttribution);
+    map.on("wheel", collapseAttribution);
 
     const resizeObserver = new ResizeObserver(() => map.resize());
     resizeObserver.observe(container);
 
     map.on("load", () => {
+      if (disposed) return;
       map.resize();
       map.addSource(SOURCE_ID, {
         type: "geojson",
@@ -213,23 +291,29 @@ export function RouteViewer({ route, open }: RouteViewerProps) {
       const bounds = new maplibregl.LngLatBounds(coords[0], coords[0]);
       for (const coord of coords) bounds.extend(coord);
       for (const place of places) bounds.extend([place.lng, place.lat]);
+      boundsRef.current = bounds;
 
-      map.fitBounds(bounds, {
-        padding: { top: 92, right: 44, bottom: 300, left: 44 },
-        maxZoom: 17,
-        duration: 900,
-      });
-      requestAnimationFrame(() => map.resize());
+      unlockRef.current?.();
+      unlockRef.current = fitRoute(
+        map,
+        bounds,
+        container,
+        openRef.current ? 900 : 0,
+      );
     });
 
     map.on("error", (event) => console.error("VIEWER MAP ERROR:", event.error));
 
     return () => {
+      disposed = true;
+      unlockRef.current?.();
+      unlockRef.current = null;
       resizeObserver.disconnect();
+      boundsRef.current = null;
       mapRef.current = null;
       map.remove();
     };
-  }, [route]);
+  }, [route.id, route.coordinates, route.route_places]);
 
   const distanceMeters = Number(route.distance_meters) || 0;
   const km = (distanceMeters / 1000).toFixed(2);
@@ -244,6 +328,11 @@ export function RouteViewer({ route, open }: RouteViewerProps) {
         ref={containerRef}
         className="absolute inset-0 h-full min-h-0 w-full"
       />
+      {!hasCoords && (
+        <div className="absolute inset-0 z-[5] grid place-items-center px-8 text-center text-sm text-neutral-500">
+          이 루트에는 표시할 경로 좌표가 없어요
+        </div>
+      )}
       <div className="pointer-events-none absolute inset-0 bg-[linear-gradient(180deg,rgba(5,7,10,.28)_0%,transparent_28%,transparent_52%,rgba(5,7,10,.86)_100%)]" />
 
       <section
@@ -315,15 +404,14 @@ export function RouteViewer({ route, open }: RouteViewerProps) {
           right: 8px;
         }
         .san-route-viewer .maplibregl-ctrl-attrib {
-          max-width: calc(100vw - 32px);
-          padding: 4px 7px;
+          max-width: min(240px, calc(100vw - 32px));
           border: 1px solid rgba(255, 255, 255, 0.1);
-          border-radius: 8px;
+          border-radius: 12px;
           color: rgba(244, 245, 247, 0.7);
           background: rgba(5, 11, 20, 0.72);
           box-shadow: 0 8px 24px rgba(0, 0, 0, 0.2);
-          font-size: 12px;
-          line-height: 1.35;
+          font-size: 10px;
+          line-height: 1.3;
           backdrop-filter: blur(12px);
           -webkit-backdrop-filter: blur(12px);
         }
@@ -331,7 +419,9 @@ export function RouteViewer({ route, open }: RouteViewerProps) {
           color: rgba(244, 245, 247, 0.82);
         }
         .san-route-viewer .maplibregl-ctrl-attrib-button {
-          display: none;
+          display: block;
+          filter: invert(1);
+          opacity: 0.8;
         }
         @media (prefers-reduced-motion: reduce) {
           .san-route-viewer {

@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useId, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { supabase } from "@/lib/supabaseClient";
 import { RouteTitleModal } from "@/components/RouteTitleModal";
@@ -10,22 +10,13 @@ type RouteGridProps = {
   onSelect: (route: SavedRoute) => void;
 };
 
-const LONG_PRESS_MS = 2000;
+const LONG_PRESS_MS = 600;
 const MOVE_TOLERANCE_PX = 10;
 
 function PencilIcon() {
   return (
-    <svg
-      width="15"
-      height="15"
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="2"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      aria-hidden="true"
-    >
+    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+      strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
       <path d="M12 20h9" />
       <path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4Z" />
     </svg>
@@ -34,17 +25,8 @@ function PencilIcon() {
 
 function TrashIcon() {
   return (
-    <svg
-      width="15"
-      height="15"
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="2"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      aria-hidden="true"
-    >
+    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+      strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
       <path d="M3 6h18M8 6V4a1 1 0 0 1 1-1h6a1 1 0 0 1 1 1v2M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6" />
     </svg>
   );
@@ -52,18 +34,10 @@ function TrashIcon() {
 
 function RouteGlyph() {
   return (
-    <svg
-      width="28"
-      height="28"
-      viewBox="0 0 32 32"
-      fill="none"
-      aria-hidden="true"
-    >
+    <svg width="28" height="28" viewBox="0 0 32 32" fill="none" aria-hidden="true">
       <path
         d="M7 24c-2.2 0-4-1.8-4-4s1.8-4 4-4h18c2.2 0 4-1.8 4-4s-1.8-4-4-4H11"
-        stroke="currentColor"
-        strokeWidth="2"
-        strokeLinecap="round"
+        stroke="currentColor" strokeWidth="2" strokeLinecap="round"
       />
       <circle cx="7" cy="24" r="2.5" fill="currentColor" />
       <circle cx="11" cy="8" r="2.5" fill="currentColor" />
@@ -78,12 +52,99 @@ function formatDistance(meters: number | null) {
     : `${Math.round(meters)} m`;
 }
 
+const dateFormatter = new Intl.DateTimeFormat("ko-KR", {
+  month: "short",
+  day: "numeric",
+});
+
 function formatDate(value: string | null | undefined) {
   if (!value) return "날짜 없음";
-  return new Intl.DateTimeFormat("ko-KR", {
-    month: "short",
-    day: "numeric",
-  }).format(new Date(value));
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return "날짜 없음";
+  return dateFormatter.format(date);
+}
+
+type DeleteRouteModalProps = {
+  title: string;
+  isBusy: boolean;
+  errorMessage: string | null;
+  onConfirm: () => void;
+  onCancel: () => void;
+};
+
+function DeleteRouteModal({
+  title,
+  isBusy,
+  errorMessage,
+  onConfirm,
+  onCancel,
+}: DeleteRouteModalProps) {
+  const headingId = useId();
+  const cancelRef = useRef<HTMLButtonElement>(null);
+  const onCancelRef = useRef(onCancel);
+  onCancelRef.current = onCancel;
+
+  useEffect(() => {
+    cancelRef.current?.focus();
+  }, []);
+
+  useEffect(() => {
+    function handleKeyDown(event: KeyboardEvent) {
+      if (event.key === "Escape" && !isBusy) onCancelRef.current();
+    }
+    document.addEventListener("keydown", handleKeyDown);
+    return () => document.removeEventListener("keydown", handleKeyDown);
+  }, [isBusy]);
+
+  return (
+    <div
+      className="fixed inset-0 z-[60] flex items-center justify-center bg-black/70 px-5 backdrop-blur-md"
+      role="presentation"
+      onMouseDown={(event) => {
+        if (event.target === event.currentTarget) onCancel();
+      }}
+    >
+      <section
+        role="alertdialog"
+        aria-modal="true"
+        aria-labelledby={headingId}
+        className="w-full max-w-sm rounded-[24px] border border-white/10 bg-[linear-gradient(145deg,rgba(14,23,34,.96),rgba(5,11,20,.98))] p-5 text-white shadow-[0_24px_80px_rgba(0,0,0,.55)] backdrop-blur-2xl"
+      >
+        <div className="mb-5 h-px w-10 bg-[#00bfff]/70" aria-hidden="true" />
+        <h2 id={headingId} className="text-lg font-semibold tracking-[-0.02em]">
+          루트를 삭제할까요?
+        </h2>
+        <p className="mt-2 text-sm leading-6 text-neutral-400">
+          <span className="font-medium text-neutral-200">{title}</span>{" "}
+          기록은 삭제 후 복구할 수 없습니다.
+        </p>
+        {errorMessage && (
+          <p role="alert" className="mt-3 text-sm text-[#ff8b78]">
+            {errorMessage}
+          </p>
+        )}
+        <div className="mt-6 grid grid-cols-2 gap-2.5">
+          <button
+            ref={cancelRef}
+            type="button"
+            onClick={onCancel}
+            disabled={isBusy}
+            className="min-h-12 rounded-full border border-white/10 bg-white/[0.04] text-sm font-semibold text-neutral-300 transition active:scale-[0.98] disabled:opacity-40"
+          >
+            취소
+          </button>
+          <button
+            type="button"
+            onClick={onConfirm}
+            disabled={isBusy}
+            className="min-h-12 rounded-full bg-[#ff715c] text-sm font-semibold text-[#180806] transition hover:bg-[#ff856f] active:scale-[0.98] disabled:opacity-40"
+          >
+            {isBusy ? "삭제 중…" : "삭제"}
+          </button>
+        </div>
+      </section>
+    </div>
+  );
 }
 
 export function RouteGrid({ onSelect }: RouteGridProps) {
@@ -140,6 +201,11 @@ export function RouteGrid({ onSelect }: RouteGridProps) {
     [],
   );
 
+  // 루트가 모두 사라지면 편집 모드 해제
+  useEffect(() => {
+    if (!loading && routes.length === 0) setEditing(false);
+  }, [loading, routes.length]);
+
   function clearPress() {
     if (timerRef.current) clearTimeout(timerRef.current);
     timerRef.current = null;
@@ -182,24 +248,29 @@ export function RouteGrid({ onSelect }: RouteGridProps) {
       return;
     }
 
+    const targetId = editTarget.id;
     setIsBusy(true);
     setActionError(null);
     const { data, error: updateError } = await supabase
       .from("routes")
       .update({ title })
-      .eq("id", editTarget.id)
+      .eq("id", targetId)
       .select("id");
     setIsBusy(false);
 
-    if (updateError || !data?.length) {
+    if (updateError) {
       console.error("루트 수정 실패:", updateError);
-      setActionError("수정에 실패했습니다. 권한 설정을 확인해 주세요.");
+      setActionError("수정에 실패했습니다. 잠시 후 다시 시도해 주세요.");
+      return;
+    }
+    if (!data?.length) {
+      setActionError("수정 권한이 없거나 이미 삭제된 루트입니다.");
       return;
     }
 
     setRoutes((previous) =>
       previous.map((route) =>
-        route.id === editTarget.id ? { ...route, title } : route,
+        route.id === targetId ? { ...route, title } : route,
       ),
     );
     setEditTarget(null);
@@ -207,33 +278,37 @@ export function RouteGrid({ onSelect }: RouteGridProps) {
 
   async function handleDeleteConfirm() {
     if (!deleteTarget) return;
+
+    const targetId = deleteTarget.id;
     setIsBusy(true);
     setActionError(null);
     const { data, error: deleteError } = await supabase
       .from("routes")
       .delete()
-      .eq("id", deleteTarget.id)
+      .eq("id", targetId)
       .select("id");
     setIsBusy(false);
 
-    if (deleteError || !data?.length) {
+    if (deleteError) {
       console.error("루트 삭제 실패:", deleteError);
-      setActionError("삭제에 실패했습니다. 권한 설정을 확인해 주세요.");
+      setActionError("삭제에 실패했습니다. 잠시 후 다시 시도해 주세요.");
+      return;
+    }
+    if (!data?.length) {
+      setActionError("삭제 권한이 없거나 이미 삭제된 루트입니다.");
       return;
     }
 
-    const remaining = routes.filter((route) => route.id !== deleteTarget.id);
-    setRoutes(remaining);
+    setRoutes((previous) => previous.filter((route) => route.id !== targetId));
     setDeleteTarget(null);
-    if (!remaining.length) setEditing(false);
   }
 
-  function closeModals() {
+  const closeModals = useCallback(() => {
     if (isBusy) return;
     setEditTarget(null);
     setDeleteTarget(null);
     setActionError(null);
-  }
+  }, [isBusy]);
 
   if (loading) {
     return (
@@ -325,7 +400,7 @@ export function RouteGrid({ onSelect }: RouteGridProps) {
               onPointerLeave={clearPress}
               onPointerCancel={clearPress}
               onContextMenu={(event) => event.preventDefault()}
-              className="group flex aspect-[1.05] w-full select-none flex-col justify-between overflow-hidden rounded-[24px] border border-white/[0.08] bg-[#0e1722]/90 bg-[radial-gradient(circle_at_100%_0%,rgba(0,191,255,.12),transparent_55%)] p-4 text-left shadow-[0_16px_40px_rgba(0,0,0,.18)] backdrop-blur-xl transition duration-200 [-webkit-touch-callout:none] hover:border-[#00bfff]/30 active:scale-[0.98]"
+              className="group flex aspect-[1.05] w-full touch-pan-y select-none flex-col justify-between overflow-hidden rounded-[24px] border border-white/[0.08] bg-[#0e1722]/90 bg-[radial-gradient(circle_at_100%_0%,rgba(0,191,255,.12),transparent_55%)] p-4 text-left shadow-[0_16px_40px_rgba(0,0,0,.18)] backdrop-blur-xl transition duration-200 [-webkit-touch-callout:none] hover:border-[#00bfff]/30 active:scale-[0.98]"
               aria-label={`${route.title} 루트 열기`}
             >
               <span className="text-[#00bfff]/85 transition group-hover:text-[#33ccff]">
@@ -341,9 +416,7 @@ export function RouteGrid({ onSelect }: RouteGridProps) {
                     className="h-0.5 w-0.5 rounded-full bg-neutral-600"
                     aria-hidden="true"
                   />
-                  <span>
-                    {formatDate(route.started_at ?? route.created_at)}
-                  </span>
+                  <span>{formatDate(route.started_at ?? route.created_at)}</span>
                 </span>
               </span>
             </button>
@@ -359,8 +432,7 @@ export function RouteGrid({ onSelect }: RouteGridProps) {
                   }}
                   className="grid h-11 w-11 place-items-center rounded-full border border-white/15 bg-[#0a2233]/95 text-white shadow-xl backdrop-blur-xl transition active:scale-90"
                   style={{
-                    animation:
-                      "routeBadgePop .3s cubic-bezier(.34,1.56,.64,1) both",
+                    animation: "routeBadgePop .3s cubic-bezier(.34,1.56,.64,1) both",
                   }}
                 >
                   <PencilIcon />
@@ -374,8 +446,7 @@ export function RouteGrid({ onSelect }: RouteGridProps) {
                   }}
                   className="grid h-11 w-11 place-items-center rounded-full border border-[#ff715c]/25 bg-[#4a1c18]/95 text-[#ff9c8d] shadow-xl backdrop-blur-xl transition active:scale-90"
                   style={{
-                    animation:
-                      "routeBadgePop .3s cubic-bezier(.34,1.56,.64,1) .05s both",
+                    animation: "routeBadgePop .3s cubic-bezier(.34,1.56,.64,1) .05s both",
                   }}
                 >
                   <TrashIcon />
@@ -402,60 +473,13 @@ export function RouteGrid({ onSelect }: RouteGridProps) {
               />
             )}
             {deleteTarget && (
-              <div
-                className="fixed inset-0 z-[60] flex items-center justify-center bg-black/70 px-5 backdrop-blur-md"
-                role="presentation"
-                onMouseDown={(event) => {
-                  if (event.target === event.currentTarget) closeModals();
-                }}
-              >
-                <section
-                  role="alertdialog"
-                  aria-modal="true"
-                  aria-labelledby="delete-route-title"
-                  className="w-full max-w-sm rounded-[24px] border border-white/10 bg-[linear-gradient(145deg,rgba(14,23,34,.96),rgba(5,11,20,.98))] p-5 text-white shadow-[0_24px_80px_rgba(0,0,0,.55)] backdrop-blur-2xl"
-                >
-                  <div
-                    className="mb-5 h-px w-10 bg-[#00bfff]/70"
-                    aria-hidden="true"
-                  />
-                  <h2
-                    id="delete-route-title"
-                    className="text-lg font-semibold tracking-[-0.02em]"
-                  >
-                    루트를 삭제할까요?
-                  </h2>
-                  <p className="mt-2 text-sm leading-6 text-neutral-400">
-                    <span className="font-medium text-neutral-200">
-                      {deleteTarget.title}
-                    </span>{" "}
-                    기록은 삭제 후 복구할 수 없습니다.
-                  </p>
-                  {actionError && (
-                    <p role="alert" className="mt-3 text-sm text-[#ff8b78]">
-                      {actionError}
-                    </p>
-                  )}
-                  <div className="mt-6 grid grid-cols-2 gap-2.5">
-                    <button
-                      type="button"
-                      onClick={closeModals}
-                      disabled={isBusy}
-                      className="min-h-12 rounded-full border border-white/10 bg-white/[0.04] text-sm font-semibold text-neutral-300 transition active:scale-[0.98] disabled:opacity-40"
-                    >
-                      취소
-                    </button>
-                    <button
-                      type="button"
-                      onClick={handleDeleteConfirm}
-                      disabled={isBusy}
-                      className="min-h-12 rounded-full bg-[#ff715c] text-sm font-semibold text-[#180806] transition hover:bg-[#ff856f] active:scale-[0.98] disabled:opacity-40"
-                    >
-                      {isBusy ? "삭제 중…" : "삭제"}
-                    </button>
-                  </div>
-                </section>
-              </div>
+              <DeleteRouteModal
+                title={deleteTarget.title}
+                isBusy={isBusy}
+                errorMessage={actionError}
+                onConfirm={handleDeleteConfirm}
+                onCancel={closeModals}
+              />
             )}
           </>,
           document.body,

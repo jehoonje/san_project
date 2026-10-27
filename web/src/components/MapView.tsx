@@ -431,9 +431,9 @@ export const MapView = forwardRef<MapViewHandle, MapViewProps>(function MapView(
       el?.classList.add("maplibregl-compact-show");
     };
     const collapseAttribution = () => {
-      const el = attribEl();
-      el?.removeAttribute("open");
+      const el = container.querySelector(".maplibregl-ctrl-attrib");
       el?.classList.remove("maplibregl-compact-show");
+      el?.removeAttribute("open");
     };
     const collapseOnUserMove = (event: { originalEvent?: unknown }) => {
       if (event.originalEvent) collapseAttribution();
@@ -442,6 +442,9 @@ export const MapView = forwardRef<MapViewHandle, MapViewProps>(function MapView(
     map.once("load", showAttribution);
     const attributionTimer = window.setTimeout(collapseAttribution, 5000);
     map.on("movestart", collapseOnUserMove);
+    map.on("mousedown", collapseAttribution);
+    map.on("touchstart", collapseAttribution);
+    map.on("wheel", collapseAttribution);
 
     const stopFollowing = () => {
       isFollowingRef.current = false;

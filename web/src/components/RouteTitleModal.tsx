@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useId, useState } from "react";
+import { useEffect, useId, useRef, useState } from "react";
 
 type RouteTitleModalProps = {
   defaultTitle: string;
@@ -29,13 +29,16 @@ export function RouteTitleModal({
   const errorId = useId();
   const trimmed = title.trim();
 
+  const onCancelRef = useRef(onCancel);
+  onCancelRef.current = onCancel;
+
   useEffect(() => {
     function handleKeyDown(event: KeyboardEvent) {
-      if (event.key === "Escape" && !isSaving) onCancel();
+      if (event.key === "Escape" && !isSaving) onCancelRef.current();
     }
     document.addEventListener("keydown", handleKeyDown);
     return () => document.removeEventListener("keydown", handleKeyDown);
-  }, [isSaving, onCancel]);
+  }, [isSaving]);
 
   function handleSubmit(event: React.FormEvent) {
     event.preventDefault();
@@ -68,12 +71,13 @@ export function RouteTitleModal({
           onChange={(e) => setTitle(e.target.value)}
           maxLength={40}
           disabled={isSaving}
+          aria-label={heading}
           aria-invalid={errorMessage ? true : undefined}
           aria-describedby={errorMessage ? errorId : undefined}
           className="mt-5 h-14 w-full rounded-full border border-white/10 bg-[#0a121c] px-5 text-base text-white outline-none transition placeholder:text-[#5f7387] focus:border-[#00bfff]/60 focus:ring-4 focus:ring-[#00bfff]/15 disabled:opacity-60"
         />
         {errorMessage ? (
-          <p id={errorId} className="mt-2 px-2 text-sm text-[#ff9c8d]">{errorMessage}</p>
+          <p id={errorId} role="alert" className="mt-2 px-2 text-sm text-[#ff9c8d]">{errorMessage}</p>
         ) : null}
 
         <div className="mt-6 grid grid-cols-2 gap-3">
