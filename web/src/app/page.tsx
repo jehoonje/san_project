@@ -19,6 +19,7 @@ import {
   PlaceSaveSheet,
   type PlaceSheetState,
 } from "@/components/PlaceSaveSheet";
+import BootIntroScreen from "@/components/BootIntroScreen"; // [부트 연동]
 
 import { useRegionSummary } from "@/hooks/useRegionSummary";
 import { useNativeBridge } from "@/hooks/useNativeBridge";
@@ -95,6 +96,10 @@ export default function Home() {
   const [viewerOpen, setViewerOpen] = useState(false);
   const [analysisOpen, setAnalysisOpen] = useState(false);
 
+  // [부트 연동] 부트 스크린 상태
+  const [booting, setBooting] = useState(true);
+  const [mapReady, setMapReady] = useState(false);
+
   const [viewport, setViewport] = useState<MapViewport>({
     center: INITIAL_CENTER,
     bounds: {
@@ -123,7 +128,7 @@ export default function Home() {
   const coordsRef = useRef<[number, number][]>([]);
   const placesRef = useRef<PlaceDraft[]>([]);
 
-  const statusRef = useRef<TrackingStatus>(status);
+  const statusRef = useRef(status);
 
   useEffect(() => {
     statusRef.current = status;
@@ -487,16 +492,7 @@ export default function Home() {
     // 탭 변경은 기록 시작/중지와 별개입니다.
   }
 
-  /**
-   * 현재 MapView에는 카메라 제어 prop/ref가 없으므로
-   * 위치만 요청하고 카메라 연결 미완료 상태를 안내합니다.
-   *
-   * MapView 카메라 API를 추가한 뒤 아래 showToast 부분을
-   * 실제 지도 이동 호출로 교체해야 합니다.
-   *
-   * initialCenter나 viewport 상태를 변경하는 것만으로
-   * 실제 지도 카메라를 이동했다고 처리하지 않습니다.
-   */
+  // 기록 탭 진입 시 MapView 카메라 API로 현재 위치로 이동합니다.
   async function focusCurrentLocation(options: {
     reducedMotion: boolean;
   }): Promise<void> {
@@ -585,142 +581,153 @@ export default function Home() {
     !isSaving &&
     pendingRoute === null;
 
-  if (sessionLoading || !session) {
-    return (
-      <main
-        className="fixed inset-0 bg-black"
-        aria-label="로딩 중"
-        aria-busy="true"
-      />
-    );
-  }
+  // [부트 연동] 세션 확인 전에도 부트 스크린이 같은 위치에 유지되도록 단일 return 구조로 변경
+  const authed = !sessionLoading && !!session;
 
   return (
     <>
-      <MapTabLayout
-        tab={tab}
-        onTabChange={handleTabChange}
-        map={
-          <MapView
-            ref={mapViewRef}
-            onFollowingChange={setIsFollowing}
-            coords={coords}
-            onDevMove={handleDevMove}
-            places={places}
-            initialCenter={INITIAL_CENTER}
-            active={tab !== "routes"}
-            onViewportChange={setViewport}
-          />
-        }
-        mapControls={
-          <button
-            type="button"
-            onClick={() => mapViewRef.current?.recenter()}
-            aria-label="현재 위치로 이동"
-            title="현재 위치로 이동"
-            className={`grid h-12 w-12 place-items-center rounded-[18px] border border-white/15 bg-[rgba(10,13,18,0.62)] shadow-lg backdrop-blur-xl transition active:scale-95 ${
-              isFollowing ? "text-[#79adff]" : "text-[#f4f5f7]"
-            }`}
-          >
-            <LocationIcon />
-          </button>
-        }
-        topBar={
-          <TopBar
-            title={tab === "record" ? "기록" : "지도"}
-            isBack={false}
-            onMenu={() => setDrawerOpen(true)}
-            onBack={handleBack}
-          />
-        }
-        overview={<RegionOverview summary={regionSummary} />}
-        recordingControls={
-          <TrackingControls
-            status={isSaving ? "paused" : status}
-            onStart={handleStart}
-            onPause={handlePause}
-            onStop={handleStop}
-            showSavePlace={canSavePlace}
-            placeCount={places.length}
-            onSavePlace={handleOpenPlaceSheet}
-          />
-        }
-        routes={
-          tab === "routes" ? (
-            <section className="san-route-view">
+      {authed && session ? (
+        <>
+          <MapTabLayout
+            tab={tab}
+            onTabChange={handleTabChange}
+            map={
+              <MapView
+                ref={mapViewRef}
+                coords={coords}
+                places={places}
+                initialCenter={INITIAL_CENTER}
+                active={tab !== "routes"}
+                onViewportChange={setViewport}
+                onFollowingChange={setIsFollowing}
+                onDevMove={handleDevMove}
+                onReady={() => setMapReady(true)} // [부트 연동]
+              />
+            }
+            mapControls={
+              <button
+                type="button"
+                onClick={() => mapViewRef.current?.recenter()}
+                aria-label="현재 위치로 이동"
+                title="현재 위치로 이동"
+                className={`grid h-12 w-12 place-items-center rounded-[18px] border border-white/15 bg-[rgba(10,13,18,0.62)] shadow-lg backdrop-blur-xl transition active:scale-95 ${
+                  isFollowing ? "text-[#79adff]" : "text-[#f4f5f7]"
+                }`}
+              >
+                <LocationIcon />
+              </button>
+            }
+            topBar={
               <TopBar
-                title={topTitle}
-                isBack={isBack}
+                title={tab === "record" ? "기록" : "지도"} // 확인: 기록 탭 제목 문구
+                isBack={false}
                 onMenu={() => setDrawerOpen(true)}
                 onBack={handleBack}
-                rightAction={rightAction}
               />
-
-              <div className="san-route-content">
-                {!analysisOpen && <RouteGrid onSelect={handleSelectRoute} />}
-
-                {analysisOpen && (
-                  <AnalysisReport accessToken={session.access_token} />
-                )}
-
-                {selectedRoute && !analysisOpen && (
-                  <RouteViewer
-                    key={selectedRoute.id}
-                    route={selectedRoute}
-                    open={viewerOpen}
+            }
+            overview={<RegionOverview summary={regionSummary} />}
+            recordingControls={
+              <TrackingControls
+                status={isSaving ? "paused" : status}
+                onStart={handleStart}
+                onPause={handlePause}
+                onStop={handleStop}
+                showSavePlace={canSavePlace}
+                placeCount={places.length}
+                onSavePlace={handleOpenPlaceSheet}
+              />
+            }
+            routes={
+              tab === "routes" ? (
+                <section className="san-route-view">
+                  <TopBar
+                    title={topTitle}
+                    isBack={isBack}
+                    onMenu={() => setDrawerOpen(true)}
+                    onBack={handleBack}
+                    rightAction={rightAction}
                   />
-                )}
-              </div>
-            </section>
-          ) : null
-        }
-        onFocusCurrentLocation={focusCurrentLocation}
-      />
 
-      <SideDrawer
-        open={drawerOpen}
-        email={session.user.email ?? null}
-        onClose={() => setDrawerOpen(false)}
-        onLogout={handleLogout}
-      />
+                  <div className="san-route-content">
+                    {!analysisOpen && <RouteGrid onSelect={handleSelectRoute} />}
 
-      {toast && (
-        <div
-          role="status"
-          className="pointer-events-none fixed inset-x-0 z-[60] flex justify-center px-5"
-          style={{
-            bottom: "calc(env(safe-area-inset-bottom, 0px) + 176px)",
-          }}
-        >
-          <span className="max-w-md rounded-2xl border border-white/10 bg-neutral-950/95 px-4 py-3 text-center text-sm leading-relaxed text-white shadow-xl backdrop-blur-xl">
-            {toast}
-          </span>
-        </div>
-      )}
+                    {analysisOpen && (
+                      <AnalysisReport accessToken={session.access_token} />
+                    )}
 
-      {placeSheet && (
-        <PlaceSaveSheet
-          state={placeSheet}
-          onRetry={handleOpenPlaceSheet}
-          onSave={handleSavePlace}
-          onCancel={handleClosePlaceSheet}
+                    {selectedRoute && !analysisOpen && (
+                      <RouteViewer
+                        key={selectedRoute.id}
+                        route={selectedRoute}
+                        open={viewerOpen}
+                      />
+                    )}
+                  </div>
+                </section>
+              ) : null
+            }
+            onFocusCurrentLocation={focusCurrentLocation}
+          />
+
+          <SideDrawer
+            open={drawerOpen}
+            email={session.user.email ?? null}
+            onClose={() => setDrawerOpen(false)}
+            onLogout={handleLogout}
+          />
+
+          {toast && (
+            <div
+              role="status"
+              className="pointer-events-none fixed inset-x-0 z-[60] flex justify-center px-5"
+              style={{
+                bottom: "calc(env(safe-area-inset-bottom, 0px) + 176px)",
+              }}
+            >
+              <span className="max-w-md rounded-2xl border border-white/10 bg-neutral-950/95 px-4 py-3 text-center text-sm leading-relaxed text-white shadow-xl backdrop-blur-xl">
+                {toast}
+              </span>
+            </div>
+          )}
+
+          {placeSheet && (
+            <PlaceSaveSheet
+              state={placeSheet}
+              onRetry={handleOpenPlaceSheet}
+              onSave={handleSavePlace}
+              onCancel={handleClosePlaceSheet}
+            />
+          )}
+
+          {pendingRoute && (
+            <RouteTitleModal
+              defaultTitle={new Date(pendingRoute.startedAt).toLocaleString("ko-KR")}
+              description={
+                pendingRoute.places.length > 0
+                  ? `장소 ${pendingRoute.places.length}개가 함께 저장됩니다. 루트의 이름을 입력해 주세요.`
+                  : undefined
+              }
+              isSaving={isSaving}
+              errorMessage={saveError}
+              onConfirm={handleConfirmTitle}
+              onCancel={handleCancelTitle}
+            />
+          )}
+        </>
+      ) : (
+        <main
+          className="fixed inset-0 bg-black"
+          aria-label="로딩 중"
+          aria-busy="true"
         />
       )}
 
-      {pendingRoute && (
-        <RouteTitleModal
-          defaultTitle={`${new Date(pendingRoute.startedAt).toLocaleString(
-            "ko-KR",
-          )} 산책`}
-          description={
-            pendingRoute.places.length > 0
-              ? `장소 ${pendingRoute.places.length}개가 함께 저장됩니다. 루트의 이름을 입력해 주세요.`
-              : undefined
-          }
-          isSaving={isSaving}
-          errorMessage={saveError}
-          onConfirm={handleConfirmTitle}
-          onCancel={handleCancelTitle}
+      {/* [부트 연동] 파티클 인트로: 아래에서 지도가 미리 로드됨 */}
+      {booting && (
+        <BootIntroScreen
+          mapReady={mapReady}
+          getAvatarRect={() => mapViewRef.current?.getAvatarScreenRect() ?? null}
+          onComplete={() => setBooting(false)}
         />
       )}
     </>

@@ -17,6 +17,16 @@ export type AvatarPose = {
   speedMps: number;
 };
 
+/** 부트 화면 등에서 쓰는 아바타의 화면상 위치 (지도 캔버스 CSS px) */
+export type AvatarScreenRect = {
+  /** 발 밑 중심 x */
+  x: number;
+  /** 몸 전체의 세로 중심 y */
+  y: number;
+  /** 화면에 보이는 몸 높이 */
+  height: number;
+};
+
 const CHAR_HEIGHT = 1.78; // 모델 단위 키
 const SCREEN_HEIGHT_PX = 124; // 화면에서 보이는 캐릭터 높이(px)
 
@@ -282,9 +292,91 @@ function buildRig(): Rig {
   };
 }
 
+/**
+ * 아바타 표면에서 count개의 점을 균등 면적으로 샘플링합니다. (부트 파티클용)
+ * 반환: [x,y,z]*count, 키=1 / 중심=0 으로 정규화. heading 0(북) 기준 뒷모습, idle 자세.
+ */
+export function sampleAvatarPoints(count: number): Float32Array {
+  const rig = buildRig();
+  rig.root.rotation.y = Math.PI;
+  rig.armL.rotation.z = 0.22;
+  rig.armR.rotation.z = -0.22;
+  rig.elbowL.rotation.x = -0.1;
+  rig.elbowR.rotation.x = -0.1;
+  rig.root.updateMatrixWorld(true);
+
+  const tris: number[] = [];
+  const cum: number[] = [];
+  let total = 0;
+  const a = new THREE.Vector3();
+  const b = new THREE.Vector3();
+  const c = new THREE.Vector3();
+  const ab = new THREE.Vector3();
+  const ac = new THREE.Vector3();
+
+  rig.root.traverse((o) => {
+    const m = o as THREE.Mesh;
+    if (!m.isMesh || m.renderOrder === 10) return; // x-ray 고스트 제외
+    const skinned = o as THREE.SkinnedMesh;
+    if (skinned.isSkinnedMesh) skinned.skeleton.update();
+    const idx = m.geometry.index;
+    if (!idx) return;
+    for (let i = 0; i < idx.count; i += 3) {
+      m.getVertexPosition(idx.getX(i), a).applyMatrix4(m.matrixWorld);
+      m.getVertexPosition(idx.getX(i + 1), b).applyMatrix4(m.matrixWorld);
+      m.getVertexPosition(idx.getX(i + 2), c).applyMatrix4(m.matrixWorld);
+      const area = ab.subVectors(b, a).cross(ac.subVectors(c, a)).length() * 0.5;
+      if (area < 1e-9) continue;
+      total += area;
+      cum.push(total);
+      tris.push(a.x, a.y, a.z, b.x, b.y, b.z, c.x, c.y, c.z);
+    }
+  });
+
+  const raw = new Float32Array(count * 3);
+  let minY = Infinity;
+  let maxY = -Infinity;
+  for (let n = 0; n < count; n += 1) {
+    const r = Math.random() * total;
+    let lo = 0;
+    let hi = cum.length - 1;
+    while (lo < hi) {
+      const mid = (lo + hi) >> 1;
+      if (cum[mid] < r) lo = mid + 1;
+      else hi = mid;
+    }
+    let u = Math.random();
+    let v = Math.random();
+    if (u + v > 1) {
+      u = 1 - u;
+      v = 1 - v;
+    }
+    const t = lo * 9;
+    const w = 1 - u - v;
+    for (let k = 0; k < 3; k += 1) {
+      raw[n * 3 + k] = tris[t + k] * w + tris[t + 3 + k] * u + tris[t + 6 + k] * v;
+    }
+    const y = raw[n * 3 + 1];
+    if (y < minY) minY = y;
+    if (y > maxY) maxY = y;
+  }
+  rig.disposables.forEach((d) => d.dispose());
+
+  const h = Math.max(1e-6, maxY - minY);
+  const cy = (minY + maxY) / 2;
+  for (let n = 0; n < count; n += 1) {
+    raw[n * 3] /= h;
+    raw[n * 3 + 1] = (raw[n * 3 + 1] - cy) / h;
+    raw[n * 3 + 2] /= h;
+  }
+  return raw;
+}
+
 export type AvatarLayerHandle = {
   layer: maplibregl.CustomLayerInterface;
   update: (pose: AvatarPose) => void;
+  /** 마지막으로 그려진 아바타의 화면 위치. 아직 그려지지 않았으면 null */
+  getScreenRect: () => AvatarScreenRect | null;
 };
 
 export function createAvatarLayer(id = "san-avatar-3d"): AvatarLayerHandle {
@@ -302,6 +394,9 @@ export function createAvatarLayer(id = "san-avatar-3d"): AvatarLayerHandle {
   let runBlend = 0;
   let lastTime = performance.now();
   let clock = 0;
+
+  let screenRect: AvatarScreenRect | null = null;
+  let bounds = { minY: 0, maxY: 1 };
 
   function animate(dt: number, speed: number) {
     if (!rig) return;
@@ -383,6 +478,10 @@ export function createAvatarLayer(id = "san-avatar-3d"): AvatarLayerHandle {
       rig = buildRig();
       scene.add(rig.root);
 
+      // 화면 위치 계산용: 모델 단위에서 몸이 차지하는 세로 범위
+      const box = new THREE.Box3().setFromObject(rig.root, true);
+      bounds = { minY: box.min.y, maxY: box.max.y };
+
       // 모두 흰색 조명 (색 조명은 흰색을 탁하게 만들기 때문)
       scene.add(new THREE.HemisphereLight(0xffffff, 0xeef2fb, 2.0));
 
@@ -443,9 +542,30 @@ export function createAvatarLayer(id = "san-avatar-3d"): AvatarLayerHandle {
         .scale(new THREE.Vector3(meterUnit, -meterUnit, meterUnit))
         .multiply(rotX);
 
-      camera.projectionMatrix = new THREE.Matrix4()
-        .fromArray(Array.from(matrix))
-        .multiply(l);
+      const mainMatrix = new THREE.Matrix4().fromArray(Array.from(matrix));
+
+      // 화면상 아바타 위치: 몸의 발끝/머리끝을 같은 행렬로 투영
+      const canvas = map.getCanvas();
+      const cw = canvas.clientWidth;
+      const ch = canvas.clientHeight;
+      const proj = (yModel: number) => {
+        const p = new THREE.Vector4(
+          mc.x,
+          mc.y,
+          mc.z + yModel * unit * meterUnit,
+          1,
+        ).applyMatrix4(mainMatrix);
+        return { x: ((p.x / p.w + 1) / 2) * cw, y: ((1 - p.y / p.w) / 2) * ch };
+      };
+      const bottom = proj(bounds.minY);
+      const top = proj(bounds.maxY);
+      screenRect = {
+        x: bottom.x,
+        y: (bottom.y + top.y) / 2,
+        height: Math.abs(bottom.y - top.y),
+      };
+
+      camera.projectionMatrix = mainMatrix.clone().multiply(l);
 
       renderer.resetState();
       renderer.render(scene, camera);
@@ -458,6 +578,7 @@ export function createAvatarLayer(id = "san-avatar-3d"): AvatarLayerHandle {
       rig = null;
       renderer = null;
       map = null;
+      screenRect = null;
     },
   };
 
@@ -467,5 +588,6 @@ export function createAvatarLayer(id = "san-avatar-3d"): AvatarLayerHandle {
       pose = next;
       map?.triggerRepaint();
     },
+    getScreenRect: () => screenRect,
   };
 }

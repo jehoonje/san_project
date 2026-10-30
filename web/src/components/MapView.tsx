@@ -29,7 +29,11 @@ import {
   requestCompassPermission,
   shortestAngleDelta,
 } from "@/lib/map3d";
-import { createAvatarLayer, type AvatarLayerHandle } from "@/lib/avatar3d";
+import {
+  createAvatarLayer,
+  type AvatarLayerHandle,
+  type AvatarScreenRect, // [부트 연동]
+} from "@/lib/avatar3d";
 import { usePlaceLocation } from "@/hooks/usePlaceLocation";
 import { useDevWalk } from "@/hooks/useDevWalk";
 import { DevWalkPanel } from "@/components/DevWalkPanel";
@@ -56,6 +60,8 @@ type MapViewProps = {
   onViewportChange?: (viewport: MapViewport) => void;
   onFollowingChange?: (following: boolean) => void;
   onDevMove?: (coord: [number, number]) => void;
+  /** [부트 연동] 지도 로드 + 현재 위치 확정 후 호출 */
+  onReady?: () => void;
 };
 
 export type MapViewHandle = {
@@ -63,6 +69,8 @@ export type MapViewHandle = {
   focusCurrentLocation: (options: {
     reducedMotion: boolean;
   }) => Promise<void>;
+  /** [부트 연동] 지도 위 아바타의 현재 화면 좌표 (캔버스 CSS px) */
+  getAvatarScreenRect: () => AvatarScreenRect | null;
 };
 
 type LocationState = "loading" | "ready" | "error";
@@ -120,10 +128,11 @@ export const MapView = forwardRef<MapViewHandle, MapViewProps>(function MapView(
     onViewportChange,
     onFollowingChange,
     onDevMove,
+    onReady, // [부트 연동]
   },
   ref,
 ) {
-  const containerRef = useRef<HTMLDivElement | null>(null);
+  const containerRef = useRef<HTMLDivElement>(null);
   const mapRef = useRef<maplibregl.Map | null>(null);
   const groundMarkerRef = useRef<maplibregl.Marker | null>(null);
   const avatarLayerRef = useRef<AvatarLayerHandle | null>(null);
@@ -157,6 +166,10 @@ export const MapView = forwardRef<MapViewHandle, MapViewProps>(function MapView(
   const [, setMapLoading] = useState(true);
   const [, setMapError] = useState<string | null>(null);
 
+  // [부트 연동] 지도 load 완료 플래그 + onReady 콜백
+  const [mapReadyFlag, setMapReadyFlag] = useState(false);
+  const onReadyRef = useRef(onReady);
+
   const { requestLocation } = usePlaceLocation();
 
   const [devMock, setDevMock] = useState(false);
@@ -164,6 +177,17 @@ export const MapView = forwardRef<MapViewHandle, MapViewProps>(function MapView(
   useEffect(() => {
     setDevMock(isDevPanelEnabled());
   }, []);
+
+  useEffect(() => {
+    onReadyRef.current = onReady;
+  }, [onReady]);
+
+  // [부트 연동] 지도 로드 + 위치 확정 시 부트 스크린에 알림
+  useEffect(() => {
+    if (mapReadyFlag && locationState === "ready") {
+      onReadyRef.current?.();
+    }
+  }, [mapReadyFlag, locationState]);
 
   const centerLng = initialCenter[0];
   const centerLat = initialCenter[1];
@@ -380,6 +404,7 @@ export const MapView = forwardRef<MapViewHandle, MapViewProps>(function MapView(
     mapLoadedRef.current = false;
     hasRealLocationRef.current = false;
 
+    setMapReadyFlag(false); // [부트 연동]
     setMapLoading(true);
     setMapError(null);
 
@@ -571,6 +596,7 @@ export const MapView = forwardRef<MapViewHandle, MapViewProps>(function MapView(
         mapLoadedRef.current = true;
         setMapLoading(false);
         setMapError(null);
+        setMapReadyFlag(true); // [부트 연동]
 
         applyCoords(map, latestCoordsRef.current);
 
@@ -625,6 +651,7 @@ export const MapView = forwardRef<MapViewHandle, MapViewProps>(function MapView(
       } catch {
         /* map may already be torn down */
       }
+
       map.remove();
     };
   }, [
@@ -731,21 +758,25 @@ export const MapView = forwardRef<MapViewHandle, MapViewProps>(function MapView(
 
       await locate();
     },
+    // [부트 연동]
+    getAvatarScreenRect: () => avatarLayerRef.current?.getScreenRect() ?? null,
   }));
 
   return (
     <div className="san-map-3d relative h-full w-full">
       <div ref={containerRef} className="h-full w-full" />
+
       {devMock
-  ? createPortal(
-      <DevWalkPanel
-        auto={devWalk.auto}
-        onAutoChange={devWalk.setAuto}
-        onPress={devWalk.press}
-      />,
-      document.body,
-    )
-  : null}
+        ? createPortal(
+            <DevWalkPanel
+              auto={devWalk.auto}
+              onAutoChange={devWalk.setAuto}
+              onPress={devWalk.press}
+            />,
+            document.body,
+          )
+        : null}
     </div>
   );
-});
+}
+);
