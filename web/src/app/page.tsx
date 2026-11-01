@@ -19,7 +19,7 @@ import {
   PlaceSaveSheet,
   type PlaceSheetState,
 } from "@/components/PlaceSaveSheet";
-import BootIntroScreen from "@/components/BootIntroScreen"; // [부트 연동]
+import BootIntroScreen, { type BootMode } from "@/components/BootIntroScreen"; // [부트 연동]
 
 import { useRegionSummary } from "@/hooks/useRegionSummary";
 import { useNativeBridge } from "@/hooks/useNativeBridge";
@@ -39,6 +39,10 @@ const VIEWER_ANIM_MS = 300;
 
 // 로컬 가상 이동 시 경로에 점을 추가하는 최소 간격(m)
 const DEV_MIN_STEP_M = 3;
+
+// [부트 연동] 웹뷰 세션당 1회 재생 / 풀 버전은 최초 1회만
+const BOOT_PLAYED_KEY = "san-boot-played";
+const BOOT_FULL_SEEN_KEY = "san-boot-full-seen";
 
 type PendingRoute = {
   coords: [number, number][];
@@ -96,8 +100,8 @@ export default function Home() {
   const [viewerOpen, setViewerOpen] = useState(false);
   const [analysisOpen, setAnalysisOpen] = useState(false);
 
-  // [부트 연동] 부트 스크린 상태
-  const [booting, setBooting] = useState(true);
+  // [부트 연동] 부트 스크린 상태 (null이면 재생 안 함)
+  const [bootMode, setBootMode] = useState<BootMode | null>(null);
   const [mapReady, setMapReady] = useState(false);
 
   const [viewport, setViewport] = useState<MapViewport>({
@@ -133,6 +137,28 @@ export default function Home() {
   useEffect(() => {
     statusRef.current = status;
   }, [status]);
+
+  // [부트 연동] 재생 방식 결정: 이 웹뷰 세션에서 이미 재생했으면 생략,
+  // 처음 실행이면 full, 이후에는 quick
+  useEffect(() => {
+    try {
+      if (sessionStorage.getItem(BOOT_PLAYED_KEY)) return;
+      setBootMode(localStorage.getItem(BOOT_FULL_SEEN_KEY) ? "quick" : "full");
+    } catch {
+      setBootMode("quick");
+    }
+  }, []);
+
+  // [부트 연동] 부트 종료 시 기록
+  function handleBootComplete() {
+    try {
+      sessionStorage.setItem(BOOT_PLAYED_KEY, "1");
+      localStorage.setItem(BOOT_FULL_SEEN_KEY, "1");
+    } catch {
+      /* 저장 불가 환경은 무시 */
+    }
+    setBootMode(null);
+  }
 
   // 로컬 가상 이동: 앱의 LOCATION_UPDATE처럼 기록 중일 때만 경로에 좌표를 쌓음
   const handleDevMove = useCallback((coord: [number, number]) => {
@@ -581,7 +607,7 @@ export default function Home() {
     !isSaving &&
     pendingRoute === null;
 
-  // [부트 연동] 세션 확인 전에도 부트 스크린이 같은 위치에 유지되도록 단일 return 구조로 변경
+  // [부트 연동] 세션 확인 전에도 부트 스크린이 같은 위치에 유지되도록 단일 return 구조
   const authed = !sessionLoading && !!session;
 
   return (
@@ -723,11 +749,12 @@ export default function Home() {
       )}
 
       {/* [부트 연동] 파티클 인트로: 아래에서 지도가 미리 로드됨 */}
-      {booting && (
+      {bootMode && (
         <BootIntroScreen
+          mode={bootMode}
           mapReady={mapReady}
           getAvatarRect={() => mapViewRef.current?.getAvatarScreenRect() ?? null}
-          onComplete={() => setBooting(false)}
+          onComplete={handleBootComplete}
         />
       )}
     </>

@@ -8,7 +8,7 @@ import * as Linking from "expo-linking";
 
 WebBrowser.maybeCompleteAuthSession();
 
-const WEB_URL = "https://san-project-d325i5fto-jehoonjes-projects.vercel.app/";
+const WEB_URL = "https://san-project-22g0m81wc-jehoonjes-projects.vercel.app/";
 
 type TrackingStatus = "idle" | "recording" | "paused";
 
@@ -19,9 +19,14 @@ type RecordedPoint = {
   accuracy: number | null;
 };
 
+// react-native-webview 14.0.1 타입 버그 우회: WebView<P = undefined>가 props를 never로 만듦
+// eslint-disable-next-line @typescript-eslint/no-empty-object-type
+type WebViewRef = WebView<{}>;
+
 export default function Index() {
-  const webviewRef = useRef<WebView>(null);
-  const [status, setStatus] = useState<TrackingStatus>("idle");
+  const webviewRef = useRef<WebViewRef>(null);
+  // 상태 값은 앱에서 읽지 않고(웹에 STATUS_ACK로만 전달) setter만 사용
+  const [, setStatus] = useState<TrackingStatus>("idle");
   const recordedPointsRef = useRef<RecordedPoint[]>([]);
   const locationSubscriptionRef = useRef<Location.LocationSubscription | null>(
     null
@@ -275,18 +280,18 @@ export default function Index() {
 
   return (
     <SafeAreaView style={styles.container}>
-      <WebView
+      <WebView<{}>
         ref={webviewRef}
         source={{ uri: WEB_URL }}
         style={styles.webview}
         originWhitelist={["*"]}
         javaScriptEnabled
         domStorageEnabled
-        injectedJavaScriptBeforeContentLoaded={
-          __DEV__
-            ? `window.localStorage.setItem('san-dev-walk','1'); true;`
-            : undefined
-        }
+        injectedJavaScriptBeforeContentLoaded={`
+          window.__SAN_APP_REDIRECT__ = ${JSON.stringify(redirectUri)};
+          ${__DEV__ ? "window.localStorage.setItem('san-dev-walk','1');" : ""}
+          true;
+        `}
         onMessage={handleWebMessage}
         onLoadEnd={handleWebViewLoadEnd}
       />

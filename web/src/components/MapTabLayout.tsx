@@ -7,6 +7,8 @@ import {
   motion,
   useReducedMotion,
 } from "motion/react";
+import { LiquidGlassLayer } from "./LiquidGlassLayer";
+import { GlassTabBar } from "./GlassTabBar";
 
 export type MainTab = "map" | "record" | "routes";
 
@@ -36,6 +38,21 @@ const tabs: Array<{
   { id: "record", label: "Record", icon: "record" },
   { id: "routes", label: "My Routes", icon: "routes" },
 ];
+
+
+const GLASS_SHADOW = [
+  "inset 0 1px 0.5px rgba(255,255,255,0.5)",
+  "inset 0 -1px 0.5px rgba(255,255,255,0.08)",
+  "inset 0 0 20px rgba(255,255,255,0.05)",
+  "0 10px 34px rgba(0,0,0,0.45)",
+  "0 2px 8px rgba(0,0,0,0.3)",
+].join(", ");
+
+const PILL_SHADOW = [
+  "inset 0 1px 1px rgba(255,255,255,0.6)",
+  "inset 0 -1px 2px rgba(255,255,255,0.12)",
+  "0 2px 10px rgba(0,0,0,0.28)",
+].join(", ");
 
 function TabIcon({ type }: { type: "map" | "record" | "routes" }) {
   return (
@@ -237,7 +254,7 @@ export function MapTabLayout({
               aria-label="현재 지도 지역 정보"
               className="pointer-events-auto absolute inset-x-0 mx-auto max-w-3xl overflow-y-auto overscroll-contain px-6"
               style={{
-                bottom: "calc(env(safe-area-inset-bottom, 0px) + 104px)",
+                bottom: "calc(env(safe-area-inset-bottom, 0px) + 108px)",
                 maxHeight: "42dvh",
                 scrollbarWidth: "none",
               }}
@@ -266,7 +283,7 @@ export function MapTabLayout({
             aria-label="루트 기록"
             className="pointer-events-none absolute inset-x-0 z-20 mx-auto max-w-xl px-4"
             style={{
-              bottom: "calc(env(safe-area-inset-bottom, 0px) + 96px)",
+              bottom: "calc(env(safe-area-inset-bottom, 0px) + 100px)",
             }}
             initial={{
               opacity: reducedMotion ? 1 : 0,
@@ -302,74 +319,30 @@ export function MapTabLayout({
         aria-hidden={!isRoutes || undefined}
         inert={!isRoutes}
         style={{
-          paddingBottom: "calc(env(safe-area-inset-bottom, 0px) + 88px)",
+          paddingBottom: "calc(env(safe-area-inset-bottom, 0px) + 108px)",
         }}
       >
         {routes}
       </div>
 
+      {/* 리퀴드 글래스 플로팅 탭바 (굴절 필터 + 폴백) */}
       <nav
         aria-label="메인 메뉴"
-        className="absolute inset-x-0 bottom-0 z-50 border-t border-white/[0.07] bg-black/90 px-4 pt-2 backdrop-blur-2xl"
+        className="pointer-events-none absolute inset-x-0 bottom-0 z-50 flex justify-center px-5"
         style={{
-          paddingBottom: "calc(env(safe-area-inset-bottom, 0px) + 8px)",
+          paddingBottom: "calc(env(safe-area-inset-bottom, 0px) + 12px)",
         }}
       >
-        <LayoutGroup id={scopeId}>
-          <div className="mx-auto grid max-w-xl grid-cols-3 gap-2">
-            {tabs.map((item) => {
-              const active = item.id === tab;
-
-              return (
-                <motion.button
-                  key={item.id}
-                  type="button"
-                  aria-current={active ? "page" : undefined}
-                  onClick={() => void selectTab(item.id)}
-                  whileTap={reducedMotion ? undefined : { scale: 0.96 }}
-                  className={[
-                    "relative flex min-h-16 flex-col items-center justify-center gap-1 rounded-2xl",
-                    "transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white",
-                    active ? "text-white" : "text-neutral-500 hover:text-white",
-                  ].join(" ")}
-                >
-                  {active && (
-                    <motion.span
-                      layoutId="active-main-tab"
-                      aria-hidden="true"
-                      className="absolute inset-x-3 inset-y-1 rounded-2xl border border-white/[0.09] bg-white/[0.07]"
-                      transition={
-                        reducedMotion
-                          ? { duration: 0 }
-                          : {
-                              type: "spring",
-                              stiffness: 420,
-                              damping: 36,
-                            }
-                      }
-                    />
-                  )}
-
-                  <motion.span
-                    className="relative"
-                    initial={false}
-                    animate={{ y: active ? -1 : 0 }}
-                    transition={{
-                      duration: reducedMotion ? 0 : 0.25,
-                      ease: [0.22, 1, 0.36, 1],
-                    }}
-                  >
-                    <TabIcon type={item.icon} />
-                  </motion.span>
-
-                  <span className="relative text-xs font-medium">
-                    {item.label}
-                  </span>
-                </motion.button>
-              );
-            })}
-          </div>
-        </LayoutGroup>
+        <GlassTabBar
+          items={tabs.map((t) => ({
+            id: t.id,
+            label: t.label,
+            icon: <TabIcon type={t.icon} />,
+          }))}
+          value={tab}
+          onSelect={(id) => void selectTab(id)}
+          reducedMotion={reducedMotion}
+        />
       </nav>
     </div>
   );

@@ -6,6 +6,8 @@ import gsap from "gsap";
 import WaterRippleSpinner from "./WaterRippleSpinner";
 import { sampleAvatarPoints, type AvatarScreenRect } from "@/lib/avatar3d";
 
+export type BootMode = "full" | "quick";
+
 export interface BootIntroScreenProps {
   /** 리빌 애니메이션이 모두 끝났을 때 1회 호출 */
   onComplete: () => void;
@@ -13,6 +15,8 @@ export interface BootIntroScreenProps {
   getAvatarRect?: () => AvatarScreenRect | null;
   /** 지도·아바타 준비 완료 여부. true가 될 때까지 완성된 아바타 모양에서 대기 */
   mapReady?: boolean;
+  /** full: 최초 1회용 긴 버전(약 8초) / quick: 이후 실행용 짧은 버전(약 3초) */
+  mode?: BootMode;
 }
 
 type BootUniforms = {
@@ -39,24 +43,57 @@ const MAX_DPR = 1.5;
 const REF_HALF_H = Math.tan(THREE.MathUtils.degToRad(CAMERA_FOV / 2)) * CAMERA_Z;
 
 /** 타임라인 (초) */
-const T = {
-  spinnerEnd: 1.6,
-  ringStart: 1.4,
-  ringDuration: 1.8,
-  morphStart: 3.6,
-  morphDuration: 1.9,
-  blurStart: 3.8,
-  blurDuration: 1.5,
-  tiltStart: 3.2,
-  tiltDuration: 2.2,
-  hold: 1.6,
-  fadeDuration: 0.9,
-  bgFadeDuration: 1.1,
-  hostFadeDuration: 0.5,
-  maxMapWait: 4,
-} as const;
-const SHAPE_VISIBLE_AT = T.morphStart + T.morphDuration; // 5.5
-const REVEAL_AT = SHAPE_VISIBLE_AT + T.hold; // 7.1
+type Timings = {
+  spinnerEnd: number;
+  ringStart: number;
+  ringDuration: number;
+  morphStart: number;
+  morphDuration: number;
+  blurStart: number;
+  blurDuration: number;
+  tiltStart: number;
+  tiltDuration: number;
+  hold: number;
+  fadeDuration: number;
+  bgFadeDuration: number;
+  hostFadeDuration: number;
+  maxMapWait: number;
+};
+
+const TIMINGS: Record<BootMode, Timings> = {
+  full: {
+    spinnerEnd: 1.6,
+    ringStart: 1.4,
+    ringDuration: 1.8,
+    morphStart: 3.6,
+    morphDuration: 1.9,
+    blurStart: 3.8,
+    blurDuration: 1.5,
+    tiltStart: 3.2,
+    tiltDuration: 2.2,
+    hold: 1.6,
+    fadeDuration: 0.9,
+    bgFadeDuration: 1.1,
+    hostFadeDuration: 0.5,
+    maxMapWait: 4,
+  },
+  quick: {
+    spinnerEnd: 0.5,
+    ringStart: 0.3,
+    ringDuration: 0.8,
+    morphStart: 0.9,
+    morphDuration: 1.1,
+    blurStart: 1.0,
+    blurDuration: 0.7,
+    tiltStart: 0.6,
+    tiltDuration: 1.0,
+    hold: 0.25,
+    fadeDuration: 0.6,
+    bgFadeDuration: 0.7,
+    hostFadeDuration: 0.3,
+    maxMapWait: 3,
+  },
+};
 
 function isPortraitViewport(): boolean {
   if (typeof window === "undefined") return false;
@@ -255,6 +292,7 @@ export default function BootIntroScreen({
   onComplete,
   getAvatarRect,
   mapReady = true,
+  mode = "full",
 }: BootIntroScreenProps) {
   const [uniforms] = useState(createUniforms);
 
@@ -282,6 +320,10 @@ export default function BootIntroScreen({
   /* ---- 마스터 타임라인 ---- */
   useEffect(() => {
     if (typeof window === "undefined") return;
+
+    const T = TIMINGS[mode];
+    const SHAPE_VISIBLE_AT = T.morphStart + T.morphDuration;
+    const REVEAL_AT = SHAPE_VISIBLE_AT + T.hold;
 
     uniforms.uIntro.value = 0;
     uniforms.uMorph.value = 0;
@@ -336,7 +378,11 @@ export default function BootIntroScreen({
     tl.to(uniforms.uTilt, { value: 0, duration: T.tiltDuration, ease: "power2.inOut" }, T.tiltStart);
     tl.to(uniforms.uMorph, { value: 1, duration: T.morphDuration, ease: "power3.inOut" }, T.morphStart);
     tl.to(uniforms.uBlur, { value: 0, duration: T.blurDuration, ease: "power2.out" }, T.blurStart);
-    tl.to(uniforms.uDrift, { value: 1, duration: 1.0, ease: "sine.inOut" }, SHAPE_VISIBLE_AT - 0.6);
+    tl.to(
+      uniforms.uDrift,
+      { value: 1, duration: 1.0, ease: "sine.inOut" },
+      Math.max(0, SHAPE_VISIBLE_AT - 0.6),
+    );
 
     // ---- 리빌: 지도가 준비될 때까지 대기 -> 파티클 소멸 + 검은 배경 페이드아웃 ----
     let revealTl: gsap.core.Timeline | null = null;
@@ -349,13 +395,17 @@ export default function BootIntroScreen({
       revealTl = gsap.timeline({ onComplete: finish });
       revealTl.to(uniforms.uFade, { value: 1, duration: T.fadeDuration, ease: "power2.in" }, 0);
       revealTl.to(bg, { opacity: 0, duration: T.bgFadeDuration, ease: "power1.inOut" }, 0.1);
-      revealTl.to(host, { opacity: 0, duration: T.hostFadeDuration, ease: "power1.in" }, T.fadeDuration - 0.2);
+      revealTl.to(
+        host,
+        { opacity: 0, duration: T.hostFadeDuration, ease: "power1.in" },
+        Math.max(0, T.fadeDuration - 0.2),
+      );
     };
 
     const checkReady = () => {
       if (mapReadyRef.current) {
         // 첫 프레임에 아바타가 그려질 시간을 조금 준다
-        waitCall = gsap.delayedCall(0.3, reveal);
+        waitCall = gsap.delayedCall(mode === "quick" ? 0.15 : 0.3, reveal);
         return;
       }
       if (waited >= T.maxMapWait) {
@@ -373,7 +423,7 @@ export default function BootIntroScreen({
       waitCall?.kill();
       revealTl?.kill();
     };
-  }, [uniforms]);
+  }, [uniforms, mode]);
 
   /* ---- Three.js ---- */
   useEffect(() => {
@@ -396,7 +446,7 @@ export default function BootIntroScreen({
 
     const prepare = async () => {
       await new Promise<void>((r) => {
-        timer = window.setTimeout(r, 200);
+        timer = window.setTimeout(r, mode === "quick" ? 0 : 200);
       });
       if (disposed) return;
 
@@ -587,7 +637,7 @@ export default function BootIntroScreen({
       startLoopRef.current = null;
       teardown?.();
     };
-  }, [uniforms]);
+  }, [uniforms, mode]);
 
   return (
     <div
