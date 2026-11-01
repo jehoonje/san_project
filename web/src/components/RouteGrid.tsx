@@ -353,6 +353,7 @@ export function RouteGrid({ onSelect }: RouteGridProps) {
   return (
     <div
       className="h-full overflow-y-auto overscroll-contain"
+      style={{ paddingBottom: "calc(env(safe-area-inset-bottom, 0px) + 108px)" }}
       onClick={(event) => {
         if (editing && event.target === event.currentTarget) setEditing(false);
       }}

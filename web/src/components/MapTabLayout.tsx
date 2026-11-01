@@ -314,13 +314,10 @@ export function MapTabLayout({
 
       <div
         className={
-          isRoutes ? "absolute inset-0 z-40 overflow-y-auto" : "hidden"
+          isRoutes ? "absolute inset-0 z-40" : "hidden"
         }
         aria-hidden={!isRoutes || undefined}
         inert={!isRoutes}
-        style={{
-          paddingBottom: "calc(env(safe-area-inset-bottom, 0px) + 108px)",
-        }}
       >
         {routes}
       </div>

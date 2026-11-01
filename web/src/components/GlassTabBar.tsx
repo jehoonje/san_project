@@ -36,7 +36,7 @@ const DRAG_THRESHOLD = 10;
 const OVERSHOOT = 22;
 const PRESS_SCALE = 1.5;
 const CONTAINER_SCALE = 1.05; // 돋보기 확대 때 컨테이너가 커지는 최대 배율
-const LENS_HOLD_MS = 700;
+const LENS_HOLD_MS = 500;
 const UNMOUNT_SCALE = 1.01;
 const UNMOUNT_SAFETY_MS = 1500;
 const PAD = 6; // p-1.5
@@ -332,7 +332,7 @@ export function GlassTabBar<T extends string>({
   return (
     <motion.div
       ref={containerRef}
-      className="pointer-events-auto relative isolate w-full max-w-[400px] rounded-full border border-white/[0.14]"
+      className="pointer-events-auto relative isolate w-full max-w-[333px] rounded-full border border-white/[0.14]"
       style={{
         scale: containerScale,
         willChange: "transform",
