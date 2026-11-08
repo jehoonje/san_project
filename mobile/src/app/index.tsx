@@ -8,7 +8,12 @@ import * as Linking from "expo-linking";
 
 WebBrowser.maybeCompleteAuthSession();
 
-const WEB_URL = "https://san-project-em9ggp498-jehoonjes-projects.vercel.app/";
+const WEB_URL = "https://san-project-mc4fa4q60-jehoonjes-projects.vercel.app/";
+
+/** 이보다 부정확한(m) 좌표는 기록하지 않음 */
+const MAX_ACCURACY_M = 30;
+/** 사람 기준 이동 속도 상한(m/s). 이보다 빠르면 GPS 튐으로 보고 버림 */
+const MAX_SPEED_MPS = 12;
 
 type TrackingStatus = "idle" | "recording" | "paused";
 
@@ -22,6 +27,18 @@ type RecordedPoint = {
 // react-native-webview 14.0.1 타입 버그 우회: WebView<P = undefined>가 props를 never로 만듦
 // eslint-disable-next-line @typescript-eslint/no-empty-object-type
 type WebViewRef = WebView<{}>;
+
+/** 두 좌표 사이 거리(m) */
+function distanceM(a: RecordedPoint, b: RecordedPoint): number {
+  const R = 6371000;
+  const toRad = (d: number) => (d * Math.PI) / 180;
+  const dLat = toRad(b.lat - a.lat);
+  const dLng = toRad(b.lng - a.lng);
+  const h =
+    Math.sin(dLat / 2) ** 2 +
+    Math.cos(toRad(a.lat)) * Math.cos(toRad(b.lat)) * Math.sin(dLng / 2) ** 2;
+  return 2 * R * Math.asin(Math.sqrt(Math.min(1, Math.max(0, h))));
+}
 
 export default function Index() {
   const webviewRef = useRef<WebViewRef>(null);
@@ -193,8 +210,9 @@ export default function Index() {
     locationSubscriptionRef.current = await Location.watchPositionAsync(
       {
         accuracy: Location.Accuracy.BestForNavigation,
-        timeInterval: 2000,
-        distanceInterval: 5,
+        // timeInterval은 Android 전용. iOS는 distanceInterval 기준으로 갱신됨
+        timeInterval: 1000,
+        distanceInterval: 1,
       },
       (location) => {
         const point: RecordedPoint = {
@@ -204,13 +222,25 @@ export default function Index() {
           accuracy: location.coords.accuracy,
         };
 
-        recordedPointsRef.current.push(point);
+        // 1) 부정확한 좌표 제외
+        if (point.accuracy != null && point.accuracy > MAX_ACCURACY_M) {
+          return;
+        }
+
+        // 2) 순간이동(GPS 튐) 제외: 직전 기록 대비 비정상적으로 빠른 이동
+        const points = recordedPointsRef.current;
+        const prev = points[points.length - 1];
+        if (prev) {
+          const dtSec = Math.max((point.timestamp - prev.timestamp) / 1000, 1);
+          if (distanceM(prev, point) / dtSec > MAX_SPEED_MPS) {
+            return;
+          }
+        }
+
+        points.push(point);
         lastKnownPointRef.current = point;
 
-        console.log(
-          `[APP] 좌표 기록 #${recordedPointsRef.current.length}:`,
-          point
-        );
+        console.log(`[APP] 좌표 기록 #${points.length}:`, point);
 
         sendToWeb({
           type: "LOCATION_UPDATE",
