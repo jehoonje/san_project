@@ -292,11 +292,20 @@ function buildRig(): Rig {
   };
 }
 
+/** 샘플링 결과 캐시. 점은 면적 균등 랜덤 샘플이라 앞부분만 잘라 써도 분포가 동일합니다. */
+let cachedPoints: Float32Array | null = null;
+
 /**
  * 아바타 표면에서 count개의 점을 균등 면적으로 샘플링합니다. (부트 파티클용)
  * 반환: [x,y,z]*count, 키=1 / 중심=0 으로 정규화. heading 0(북) 기준 뒷모습, idle 자세.
+ * 결과는 캐시되므로 두 번째 호출부터는 거의 비용이 없습니다.
+ * (앱 시작 시 requestIdleCallback 등으로 미리 호출해 두면 첫 실행도 부드럽습니다.)
  */
 export function sampleAvatarPoints(count: number): Float32Array {
+  if (cachedPoints && cachedPoints.length >= count * 3) {
+    return cachedPoints.subarray(0, count * 3);
+  }
+
   const rig = buildRig();
   rig.root.rotation.y = Math.PI;
   rig.armL.rotation.z = 0.22;
@@ -308,6 +317,7 @@ export function sampleAvatarPoints(count: number): Float32Array {
   const tris: number[] = [];
   const cum: number[] = [];
   let total = 0;
+  const v = new THREE.Vector3();
   const a = new THREE.Vector3();
   const b = new THREE.Vector3();
   const c = new THREE.Vector3();
@@ -321,10 +331,24 @@ export function sampleAvatarPoints(count: number): Float32Array {
     if (skinned.isSkinnedMesh) skinned.skeleton.update();
     const idx = m.geometry.index;
     if (!idx) return;
+
+    // 정점마다 한 번만 스키닝/월드 변환 (삼각형마다 3번씩 계산하던 것을 제거)
+    const vc = m.geometry.getAttribute("position").count;
+    const verts = new Float32Array(vc * 3);
+    for (let i = 0; i < vc; i += 1) {
+      m.getVertexPosition(i, v).applyMatrix4(m.matrixWorld);
+      verts[i * 3] = v.x;
+      verts[i * 3 + 1] = v.y;
+      verts[i * 3 + 2] = v.z;
+    }
+
     for (let i = 0; i < idx.count; i += 3) {
-      m.getVertexPosition(idx.getX(i), a).applyMatrix4(m.matrixWorld);
-      m.getVertexPosition(idx.getX(i + 1), b).applyMatrix4(m.matrixWorld);
-      m.getVertexPosition(idx.getX(i + 2), c).applyMatrix4(m.matrixWorld);
+      const ia = idx.getX(i) * 3;
+      const ib = idx.getX(i + 1) * 3;
+      const ic = idx.getX(i + 2) * 3;
+      a.set(verts[ia], verts[ia + 1], verts[ia + 2]);
+      b.set(verts[ib], verts[ib + 1], verts[ib + 2]);
+      c.set(verts[ic], verts[ic + 1], verts[ic + 2]);
       const area = ab.subVectors(b, a).cross(ac.subVectors(c, a)).length() * 0.5;
       if (area < 1e-9) continue;
       total += area;
@@ -346,15 +370,15 @@ export function sampleAvatarPoints(count: number): Float32Array {
       else hi = mid;
     }
     let u = Math.random();
-    let v = Math.random();
-    if (u + v > 1) {
+    let w2 = Math.random();
+    if (u + w2 > 1) {
       u = 1 - u;
-      v = 1 - v;
+      w2 = 1 - w2;
     }
     const t = lo * 9;
-    const w = 1 - u - v;
+    const w = 1 - u - w2;
     for (let k = 0; k < 3; k += 1) {
-      raw[n * 3 + k] = tris[t + k] * w + tris[t + 3 + k] * u + tris[t + 6 + k] * v;
+      raw[n * 3 + k] = tris[t + k] * w + tris[t + 3 + k] * u + tris[t + 6 + k] * w2;
     }
     const y = raw[n * 3 + 1];
     if (y < minY) minY = y;
@@ -369,6 +393,8 @@ export function sampleAvatarPoints(count: number): Float32Array {
     raw[n * 3 + 1] = (raw[n * 3 + 1] - cy) / h;
     raw[n * 3 + 2] /= h;
   }
+
+  cachedPoints = raw;
   return raw;
 }
 
@@ -377,6 +403,8 @@ export type AvatarLayerHandle = {
   update: (pose: AvatarPose) => void;
   /** 마지막으로 그려진 아바타의 화면 위치. 아직 그려지지 않았으면 null */
   getScreenRect: () => AvatarScreenRect | null;
+  /** true면 지도 repaint를 약 30fps로 제한 (인트로처럼 지도가 가려져 있을 때 GPU 절약) */
+  setLowPower: (v: boolean) => void;
 };
 
 export function createAvatarLayer(id = "san-avatar-3d"): AvatarLayerHandle {
@@ -397,6 +425,9 @@ export function createAvatarLayer(id = "san-avatar-3d"): AvatarLayerHandle {
 
   let screenRect: AvatarScreenRect | null = null;
   let bounds = { minY: 0, maxY: 1 };
+
+  let lowPower = false;
+  let repaintTimer = 0;
 
   function animate(dt: number, speed: number) {
     if (!rig) return;
@@ -569,10 +600,25 @@ export function createAvatarLayer(id = "san-avatar-3d"): AvatarLayerHandle {
 
       renderer.resetState();
       renderer.render(scene, camera);
-      map.triggerRepaint();
+
+      // 저전력 모드: 다음 repaint를 ~30fps로 예약 (그냥 건너뛰면 루프가 끊기므로 타이머 사용)
+      if (lowPower) {
+        if (!repaintTimer) {
+          repaintTimer = window.setTimeout(() => {
+            repaintTimer = 0;
+            map?.triggerRepaint();
+          }, 33);
+        }
+      } else {
+        map.triggerRepaint();
+      }
     },
 
     onRemove() {
+      if (repaintTimer) {
+        window.clearTimeout(repaintTimer);
+        repaintTimer = 0;
+      }
       rig?.disposables.forEach((d) => d.dispose());
       renderer?.dispose();
       rig = null;
@@ -589,5 +635,9 @@ export function createAvatarLayer(id = "san-avatar-3d"): AvatarLayerHandle {
       map?.triggerRepaint();
     },
     getScreenRect: () => screenRect,
+    setLowPower(v) {
+      lowPower = v;
+      if (!v) map?.triggerRepaint();
+    },
   };
 }

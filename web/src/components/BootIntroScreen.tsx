@@ -39,8 +39,10 @@ type BootUniforms = {
 
 const CAMERA_Z = 7;
 const CAMERA_FOV = 50;
-const MAX_DPR = 1.5;
+const MAX_DPR = 1.25;
 const REF_HALF_H = Math.tan(THREE.MathUtils.degToRad(CAMERA_FOV / 2)) * CAMERA_Z;
+/** 파티클 준비가 이 시간(초)보다 늦어지면 기다리지 않고 진행 */
+const GPU_READY_TIMEOUT = 3;
 
 /** 타임라인 (초) */
 type Timings = {
@@ -101,10 +103,10 @@ function isPortraitViewport(): boolean {
 }
 
 function getParticleCount(): number {
-  if (typeof navigator === "undefined") return 18000;
-  if (isPortraitViewport() || window.innerWidth < 768) return 26000;
+  if (typeof navigator === "undefined") return 12000;
+  if (isPortraitViewport() || window.innerWidth < 768) return 16000;
   const cores = navigator.hardwareConcurrency || 4;
-  return cores <= 4 ? 18000 : 32000;
+  return cores <= 4 ? 12000 : 22000;
 }
 
 /* -------------------------------- GLSL --------------------------------- */
@@ -184,7 +186,7 @@ void main() {
     * (1.0 + 2.0 * flare * (1.0 - em));
   gl_PointSize = clamp(
     uSize * uPixelRatio * (7.0 / dz) * sizeVar * sizeMul,
-    1.0, 14.0 * uPixelRatio
+    1.0, 9.0 * uPixelRatio
   );
 
   // ---- 색상: 원반(내부 화이트골드 -> 외곽 앰버) -> 아바타(순백/연한 푸른 화이트) ----
@@ -305,6 +307,8 @@ export default function BootIntroScreen({
   const mapReadyRef = useRef(mapReady);
   const startLoopRef = useRef<(() => void) | null>(null);
   const loopRequestedRef = useRef(false);
+  const gpuReadyRef = useRef(false);
+  const resumeRef = useRef<(() => void) | null>(null);
   const pointerRef = useRef({ x: 0, y: 0 });
 
   useEffect(() => {
@@ -332,6 +336,7 @@ export default function BootIntroScreen({
     uniforms.uFade.value = 0;
     uniforms.uTilt.value = 1.05;
     loopRequestedRef.current = false;
+    gpuReadyRef.current = false;
 
     let done = false;
     const finish = () => {
@@ -349,10 +354,25 @@ export default function BootIntroScreen({
 
     const tl = gsap.timeline();
 
+    let gpuTimeout: gsap.core.Tween | null = null;
+    const resume = () => {
+      gpuTimeout?.kill();
+      gpuTimeout = null;
+      if (tl.paused()) tl.resume();
+    };
+    resumeRef.current = resume;
+
     tl.call(
       () => {
         loopRequestedRef.current = true;
-        startLoopRef.current?.();
+        if (gpuReadyRef.current) {
+          startLoopRef.current?.();
+        } else {
+          // 파티클이 준비될 때까지 스피너만 돌리고 타임라인을 멈춘다
+          // (준비 후 uIntro/uTilt 등이 갑자기 점프하는 것을 방지)
+          tl.pause();
+          gpuTimeout = gsap.delayedCall(GPU_READY_TIMEOUT, resume);
+        }
       },
       undefined,
       T.ringStart,
@@ -420,8 +440,10 @@ export default function BootIntroScreen({
 
     return () => {
       tl.kill();
+      gpuTimeout?.kill();
       waitCall?.kill();
       revealTl?.kill();
+      resumeRef.current = null;
     };
   }, [uniforms, mode]);
 
@@ -437,6 +459,13 @@ export default function BootIntroScreen({
     let running = false;
     let timer = 0;
     let teardown: (() => void) | null = null;
+
+    /** 파티클 준비 완료(또는 실패) 신호: 멈춰 있던 타임라인을 재개 */
+    const markReady = () => {
+      gpuReadyRef.current = true;
+      if (loopRequestedRef.current) startLoopRef.current?.();
+      resumeRef.current?.();
+    };
 
     const onPointer = (e: PointerEvent) => {
       pointerRef.current.x = (e.clientX / window.innerWidth) * 2 - 1;
@@ -469,6 +498,7 @@ export default function BootIntroScreen({
         });
       } catch {
         geometry.dispose();
+        markReady(); // 파티클 없이라도 지도로 넘어가게
         return;
       }
 
@@ -496,10 +526,14 @@ export default function BootIntroScreen({
       points.frustumCulled = false;
       scene.add(points);
 
+      // 호스트 크기 캐시 (매 프레임 clientWidth/Height 읽기 → 강제 레이아웃 방지)
+      let hw = 1;
+      let hh = 1;
+
       /** 실제 아바타의 화면 좌표(px) -> 파티클 월드 좌표. snap=false면 부드럽게 따라감 */
       const applyTarget = (snap: boolean) => {
-        const w = Math.max(1, host.clientWidth);
-        const h = Math.max(1, host.clientHeight);
+        const w = hw;
+        const h = hh;
         const rect = getRectRef.current?.() ?? {
           x: w / 2,
           y: h * 0.45,
@@ -518,8 +552,10 @@ export default function BootIntroScreen({
       };
 
       const applyResize = () => {
-        const w = Math.max(1, host.clientWidth);
-        const h = Math.max(1, host.clientHeight);
+        hw = Math.max(1, host.clientWidth);
+        hh = Math.max(1, host.clientHeight);
+        const w = hw;
+        const h = hh;
         renderer.setSize(w, h, false);
         camera.aspect = w / h;
         camera.updateProjectionMatrix();
@@ -571,21 +607,15 @@ export default function BootIntroScreen({
 
       const clock = new THREE.Clock();
 
-      // 적응형 품질
+      // 적응형 품질: 캔버스 재할당 없이 입자 수만 줄인다 (재할당 자체가 끊김 유발)
       let frame = 0;
       let acc = 0;
+      let samples = 0;
       let last = 0;
       let degraded = 0;
       const degrade = () => {
         degraded++;
-        if (degraded === 1) {
-          dpr = Math.min(dpr, 1);
-          renderer.setPixelRatio(dpr);
-          applyResize();
-          geometry.setDrawRange(0, Math.floor(totalCount * 0.6));
-        } else if (degraded === 2) {
-          geometry.setDrawRange(0, Math.floor(totalCount * 0.4));
-        }
+        geometry.setDrawRange(0, Math.floor(totalCount * (degraded === 1 ? 0.6 : 0.4)));
       };
 
       const loop = (now: number) => {
@@ -605,13 +635,17 @@ export default function BootIntroScreen({
 
         if (last && degraded < 2) {
           const dt = now - last;
-          if (frame > 5 && dt < 200) acc += dt;
+          if (frame > 5 && dt < 200) {
+            acc += dt;
+            samples++;
+          }
           frame++;
-          if (frame === 45 || frame === 105) {
-            const avg = acc / (frame === 45 ? 40 : 60);
+          // 약 25프레임(≈0.4초) 만에 1차 판단, 이후 70프레임에서 2차 판단
+          if (frame === 25 || frame === 70) {
+            const avg = acc / Math.max(1, samples);
             if (avg > 22) degrade();
             acc = 0;
-            if (frame === 45) frame = 46;
+            samples = 0;
           }
         }
         last = now;
@@ -624,7 +658,9 @@ export default function BootIntroScreen({
         clock.start();
         raf = requestAnimationFrame(loop);
       };
-      if (loopRequestedRef.current) startLoopRef.current();
+
+      // 준비 완료: 타임라인 재개 + (이미 요청됐다면) 루프 시작
+      markReady();
     };
 
     void prepare();
