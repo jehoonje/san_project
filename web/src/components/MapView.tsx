@@ -91,8 +91,12 @@ const MIN_FIX_ANIM_MS = 120;
 const MAX_FIX_ANIM_MS = 1500;
 /** 화면 속도(걷기/달리기 모션용) 평활화 시간 */
 const SPEED_SMOOTHING_MS = 500;
+/** 속도가 줄어들 때의 평활화 시간 (멈추면 모션이 빨리 사라지도록 더 짧게) */
+const SPEED_FALL_SMOOTHING_MS = 250;
 /** 이 시간 동안 새 좌표가 없으면 정지로 간주 */
-const SPEED_STALE_MS = 2500;
+const SPEED_STALE_MS = 1500;
+/** 로컬 가상 이동은 좌표가 프레임마다 오므로 훨씬 짧게 */
+const DEV_SPEED_STALE_MS = 200;
 /** 속도 계산에 쓰는 최근 좌표 구간 */
 const SPEED_WINDOW_MS = 4000;
 /** 이보다 느리면 정지로 판단 (m/s) */
@@ -189,6 +193,7 @@ export const MapView = forwardRef<MapViewHandle, MapViewProps>(function MapView(
   const gpsHeadingRef = useRef<number | null>(null);
   const compassHeadingRef = useRef(0);
   const devOverrideRef = useRef(false);
+  const lastDevRef = useRef<{ c: [number, number]; t: number } | null>(null);
 
   const requestTokenRef = useRef(0);
   const initialRequestStartedRef = useRef(false);
@@ -294,27 +299,35 @@ export const MapView = forwardRef<MapViewHandle, MapViewProps>(function MapView(
 
       if (isNewFix) {
         // 1) 속도: 최근 구간의 순변위로 계산 (정지 중 GPS 떨림은 서로 상쇄됨)
-        const hist = fixHistoryRef.current;
-        hist.push({ c: coord, t: now });
-        while (hist.length > 2 && now - hist[0].t > SPEED_WINDOW_MS) {
-          hist.shift();
-        }
-        if (hist.length >= 2) {
-          const first = hist[0];
-          const lastItem = hist[hist.length - 1];
-          const mps =
-            distanceMeters(first.c, lastItem.c) /
-            Math.max((lastItem.t - first.t) / 1000, 0.5);
-          targetSpeedRef.current = mps < STILL_MPS ? 0 : Math.min(mps, 8);
+        // (로컬 가상 이동은 handleDevMove에서 실제 속도를 직접 설정하므로 건너뜀)
+        if (!devOverrideRef.current) {
+          const hist = fixHistoryRef.current;
+          hist.push({ c: coord, t: now });
+          while (hist.length > 2 && now - hist[0].t > SPEED_WINDOW_MS) {
+            hist.shift();
+          }
+          if (hist.length >= 2) {
+            const first = hist[0];
+            const lastItem = hist[hist.length - 1];
+            const mps =
+              distanceMeters(first.c, lastItem.c) /
+              Math.max((lastItem.t - first.t) / 1000, 0.5);
+            targetSpeedRef.current = mps < STILL_MPS ? 0 : Math.min(mps, 8);
+          }
         }
 
         // 2) 화면 이동: 정지 중의 작은 떨림은 무시, 그 외에는 도착 간격에 맞춰 선형 보간
         const shownNow = displayCoordRef.current ?? coord;
         const skipDisplay =
+          !devOverrideRef.current &&
           targetSpeedRef.current === 0 &&
           distanceMeters(shownNow, coord) < STILL_DISPLAY_M;
 
-        if (!skipDisplay) {
+        if (devOverrideRef.current) {
+          // 가상 이동 좌표는 이미 프레임마다 부드럽게 들어오므로 보간 없이 그대로 표시
+          displayCoordRef.current = coord;
+          fixRef.current = null;
+        } else if (!skipDisplay) {
           const dtFix = lastFixTimeRef.current
             ? now - lastFixTimeRef.current
             : 1000;
@@ -383,6 +396,9 @@ export const MapView = forwardRef<MapViewHandle, MapViewProps>(function MapView(
         });
       }
 
+      // 로컬 가상 이동 중에는 가상 좌표가 위치를 결정 (실제/뒤처진 좌표로 되돌아가는 것 방지)
+      if (devOverrideRef.current) return;
+
       const latest = validCoords[validCoords.length - 1];
       if (latest) applyLocation(map, latest);
     },
@@ -398,6 +414,16 @@ export const MapView = forwardRef<MapViewHandle, MapViewProps>(function MapView(
       devOverrideRef.current = true;
       hasCompassRef.current = true;
       compassHeadingRef.current = heading;
+
+      // 실제 이동 속도를 바로 반영 (프레임 간격이 짧을 때만 추정, 멈췄다 재개한 첫 프레임은 건너뜀)
+      const nowMs = performance.now();
+      const prev = lastDevRef.current;
+      if (prev && nowMs - prev.t < 100) {
+        const dtS = Math.max((nowMs - prev.t) / 1000, 0.001);
+        const inst = Math.min(distanceMeters(prev.c, coord) / dtS, 8);
+        targetSpeedRef.current += (inst - targetSpeedRef.current) * 0.3;
+      }
+      lastDevRef.current = { c: coord, t: nowMs };
 
       applyLocation(map, coord);
       onDevMove?.(coord);
@@ -565,8 +591,14 @@ export const MapView = forwardRef<MapViewHandle, MapViewProps>(function MapView(
       if (event.originalEvent) stopFollowing();
     };
 
+    // 따라가기 중 setCenter가 매 프레임 moveend를 발생시키므로, 상태 갱신은 300ms에 한 번만
+    let viewportTimer = 0;
     const handleViewportSettled = () => {
-      if (!disposed) emitViewport(map);
+      if (disposed || viewportTimer) return;
+      viewportTimer = window.setTimeout(() => {
+        viewportTimer = 0;
+        if (!disposed) emitViewport(map);
+      }, 300);
     };
 
     map.on("dragstart", stopFollowing);
@@ -597,6 +629,7 @@ export const MapView = forwardRef<MapViewHandle, MapViewProps>(function MapView(
 
       const dt = Math.min(now - lastFrame, 100);
       lastFrame = now;
+      const clock = performance.now();
       const reduce = reducedMotion();
 
       // ---- 방향: 걷는 중엔 이동 방향(GPS), 서 있을 땐 나침반 ----
@@ -625,26 +658,39 @@ export const MapView = forwardRef<MapViewHandle, MapViewProps>(function MapView(
       groundMarkerRef.current?.setRotation(headingDisplayRef.current);
 
       // ---- 속도: 새 좌표가 오래 안 오면 정지로 수렴, 아니면 목표 속도로 부드럽게 ----
-      if (now - lastFixTimeRef.current > SPEED_STALE_MS) {
+      const staleMs = devOverrideRef.current
+        ? DEV_SPEED_STALE_MS
+        : SPEED_STALE_MS;
+      if (clock - lastFixTimeRef.current > staleMs) {
         targetSpeedRef.current = 0;
       }
-      const sk = reduce ? 1 : 1 - Math.exp(-dt / SPEED_SMOOTHING_MS);
+      const smoothMs =
+        targetSpeedRef.current < speedRef.current
+          ? SPEED_FALL_SMOOTHING_MS
+          : SPEED_SMOOTHING_MS;
+      const sk = reduce ? 1 : 1 - Math.exp(-dt / smoothMs);
       speedRef.current += (targetSpeedRef.current - speedRef.current) * sk;
       if (speedRef.current < 0.05) speedRef.current = 0;
 
       // ---- 위치: 새 좌표 도착 간격에 맞춘 선형 보간 (일정한 속도로 미끄러짐) ----
+      // 보간 중인 좌표가 없어도(정지 중 등) 현재 표시 위치로 아바타/마커는 매 프레임 갱신해야 함
+      const shown = displayCoordRef.current;
+      if (!shown) return;
+
+      let next: [number, number] = shown;
       const fix = fixRef.current;
-      if (!fix || !displayCoordRef.current) return;
 
-      const t = reduce
-        ? 1
-        : Math.min(1, Math.max(0, (now - fix.t0) / fix.dur));
-      const next: [number, number] = [
-        fix.from[0] + (fix.to[0] - fix.from[0]) * t,
-        fix.from[1] + (fix.to[1] - fix.from[1]) * t,
-      ];
+      if (fix) {
+        const t = reduce
+          ? 1
+          : Math.min(1, Math.max(0, (clock - fix.t0) / fix.dur));
+        next = [
+          fix.from[0] + (fix.to[0] - fix.from[0]) * t,
+          fix.from[1] + (fix.to[1] - fix.from[1]) * t,
+        ];
+        displayCoordRef.current = next;
+      }
 
-      displayCoordRef.current = next;
       groundMarkerRef.current?.setLngLat(next);
 
       avatarLayerRef.current?.update({
@@ -653,7 +699,7 @@ export const MapView = forwardRef<MapViewHandle, MapViewProps>(function MapView(
         speedMps: speedRef.current,
       });
 
-      if (isFollowingRef.current && now > cameraBusyUntilRef.current) {
+      if (isFollowingRef.current && clock > cameraBusyUntilRef.current) {
         map.setCenter(next);
       }
     };
@@ -720,6 +766,7 @@ export const MapView = forwardRef<MapViewHandle, MapViewProps>(function MapView(
       disposed = true;
 
       cancelAnimationFrame(raf);
+      window.clearTimeout(viewportTimer);
       stopPulse?.();
       compassCleanupRef.current?.();
       compassCleanupRef.current = null;
@@ -743,6 +790,7 @@ export const MapView = forwardRef<MapViewHandle, MapViewProps>(function MapView(
       displayCoordRef.current = null;
       fixRef.current = null;
       fixHistoryRef.current = [];
+      lastDevRef.current = null;
 
       mapLoadedRef.current = false;
       mapRef.current = null;
