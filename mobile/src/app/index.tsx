@@ -8,7 +8,7 @@ import * as Linking from "expo-linking";
 
 WebBrowser.maybeCompleteAuthSession();
 
-const WEB_URL = "https://san-project-22g0m81wc-jehoonjes-projects.vercel.app/";
+const WEB_URL = "https://san-project-em9ggp498-jehoonjes-projects.vercel.app/";
 
 type TrackingStatus = "idle" | "recording" | "paused";
 
