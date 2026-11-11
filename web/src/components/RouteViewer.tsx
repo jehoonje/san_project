@@ -321,7 +321,7 @@ export function RouteViewer({ route, open }: RouteViewerProps) {
 
   return (
     <div
-      className={`san-route-viewer absolute inset-0 z-10 h-full min-h-0 w-full overflow-hidden bg-[#050b14] transition duration-300 ease-out ${open ? "visible scale-100 opacity-100" : "pointer-events-none invisible scale-[0.985] opacity-0"}`}
+      className={`san-route-viewer absolute inset-0 z-10 h-full min-h-0 w-full overflow-hidden bg-[#050b14] transition duration-300 ease-[cubic-bezier(0.22,1,0.36,1)] ${open ? "visible scale-100 opacity-100 blur-0" : "pointer-events-none invisible scale-[0.97] opacity-0 blur-[8px]"}`}
       aria-hidden={!open}
     >
       <div

@@ -35,15 +35,16 @@ function GridIcon() {
   );
 }
 
-// git log --graph 모양: 세로 레일 위 노드와 한 줄씩 이어지는 로그
+// 목록형: 짧은 머리말 + 한 줄 텍스트가 이어지는 모양
 function LogIcon() {
   return (
     <svg width="21" height="21" viewBox="0 0 24 24" fill="none" aria-hidden="true">
-      <path d="M6 4v16" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" opacity=".55" />
-      <circle cx="6" cy="6.5" r="2" fill="currentColor" />
-      <circle cx="6" cy="12" r="1.6" stroke="currentColor" strokeWidth="1.4" fill="none" />
-      <circle cx="6" cy="17.5" r="1.6" stroke="currentColor" strokeWidth="1.4" fill="none" />
-      <path d="M11 6.5h9M11 12h6M11 17.5h8" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" />
+      <path
+        d="M4.5 7h2.5M10 7h9.5M4.5 12h2.5M10 12h6.5M4.5 17h2.5M10 17h8"
+        stroke="currentColor"
+        strokeWidth="1.7"
+        strokeLinecap="round"
+      />
     </svg>
   );
 }

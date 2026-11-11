@@ -319,7 +319,21 @@ export function MapTabLayout({
         aria-hidden={!isRoutes || undefined}
         inert={!isRoutes}
       >
-        {routes}
+        {/* 마이루트 진입: 흐림 속에서 또렷해지는 앰비언트 전환 */}
+        <motion.div
+          key={isRoutes ? "routes-on" : "routes-off"}
+          className="absolute inset-0"
+          initial={
+            reducedMotion ? false : { opacity: 0, scale: 1.015, filter: "blur(12px)" }
+          }
+          animate={{ opacity: 1, scale: 1, filter: "blur(0px)" }}
+          transition={{
+            duration: reducedMotion ? 0 : 0.5,
+            ease: [0.22, 1, 0.36, 1],
+          }}
+        >
+          {routes}
+        </motion.div>
       </div>
 
       {/* 리퀴드 글래스 플로팅 탭바 (굴절 필터 + 폴백) */}

@@ -1,450 +1,240 @@
-/* My Route 목록형 뷰: git log --oneline --graph 감성의 앰비언트 터미널 */
+/* My Route 목록형: 한 줄 텍스트로만 흐르는 앰비언트 로그 */
 
 .scroller {
   height: 100%;
   overflow-y: auto;
   overscroll-behavior: contain;
   -webkit-overflow-scrolling: touch;
+  scrollbar-width: none;
+}
+
+.scroller::-webkit-scrollbar {
+  display: none;
 }
 
 .log {
   --log-mono: ui-monospace, "SF Mono", "JetBrains Mono", Menlo, Consolas,
-    "Pretendard Variable", "Pretendard", monospace;
+    "Pretendard Variable", monospace;
+  --log-sans: "Pretendard Variable", "Pretendard", system-ui, sans-serif;
   --log-accent: var(--san-accent, #00bfff);
   --log-text: var(--san-text, #fff);
   --log-muted: var(--san-text-muted, #8fa3b8);
   --log-faint: var(--san-text-faint, #5f7387);
-  --log-rail: color-mix(in oklab, var(--log-accent) 32%, transparent);
-  --log-row-h: 30px;
-  --log-graph-w: 30px;
 
-  position: relative;
-  max-width: 720px;
+  max-width: 640px;
   margin: 0 auto;
-  padding: 8px 14px 0 10px;
-  font-family: var(--log-mono);
-  font-size: 12px;
-  font-variant-numeric: tabular-nums;
-  line-height: 1;
+  padding: 18px 18px 0;
   color: var(--log-text);
-}
-
-/* 은은한 주변광: 상단에서 흐르는 액센트 빛 */
-.log::before {
-  position: absolute;
-  z-index: -1;
-  top: -40px;
-  left: 0;
-  width: 70%;
-  height: 220px;
-  background: radial-gradient(
-    60% 60% at 10% 30%,
-    color-mix(in oklab, var(--log-accent) 14%, transparent),
-    transparent 70%
-  );
-  content: "";
-  filter: blur(8px);
-  pointer-events: none;
-}
-
-.prompt,
-.eof {
-  display: flex;
-  align-items: center;
-  gap: 7px;
-  height: 28px;
-  margin: 0;
-  padding-left: 6px;
-  color: var(--log-muted);
-}
-
-.promptPath {
-  color: var(--log-accent);
-}
-
-.promptSign {
-  color: var(--log-faint);
+  font-variant-numeric: tabular-nums;
 }
 
 .summary {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 6px;
-  margin: 0 0 14px;
-  padding-left: 6px;
+  margin: 0 0 22px;
+  padding: 0 10px;
   color: var(--log-faint);
-  font-size: 11px;
+  font-family: var(--log-mono);
+  font-size: 10.5px;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
 }
 
-.summary b {
-  color: var(--log-text);
-  font-weight: 600;
+.dot {
+  margin: 0 4px;
+  opacity: 0.5;
 }
 
-.sep {
-  opacity: 0.6;
+.list {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.routeEnd {
+  margin-bottom: 26px;
 }
 
 /* ── 한 줄 ─────────────────────────────── */
 
-.row {
-  position: relative;
-  display: flex;
+.line {
+  display: grid;
+  grid-template-columns: 9.5ch minmax(0, 1fr) auto;
+  column-gap: 14px;
   align-items: center;
-  gap: 9px;
   width: 100%;
-  height: var(--log-row-h);
-  padding: 0 6px 0 0;
-  overflow: hidden;
+  height: 34px;
+  padding: 0 10px;
   color: inherit;
   font: inherit;
   text-align: left;
   white-space: nowrap;
   background: transparent;
   border: 0;
-  border-radius: 10px;
+  border-radius: 12px;
   cursor: pointer;
   -webkit-tap-highlight-color: transparent;
-  transition: background-color 220ms cubic-bezier(0.16, 1, 0.3, 1);
+  transition:
+    background-color 360ms cubic-bezier(0.22, 1, 0.36, 1),
+    color 360ms cubic-bezier(0.22, 1, 0.36, 1);
 }
 
-.row::after {
-  position: absolute;
-  inset: 0;
-  background: linear-gradient(
-    90deg,
-    color-mix(in oklab, var(--log-accent) 13%, transparent),
-    transparent 75%
-  );
-  border-radius: inherit;
-  content: "";
-  opacity: 0;
-  transition: opacity 220ms cubic-bezier(0.16, 1, 0.3, 1);
-  pointer-events: none;
+.line:hover {
+  background: color-mix(in oklab, var(--log-text) 4%, transparent);
 }
 
-.row:hover::after,
-.row:focus-visible::after {
-  opacity: 1;
+.line:active {
+  background: color-mix(in oklab, var(--log-accent) 9%, transparent);
+  transition-duration: 80ms;
 }
 
-.row:active::after {
-  opacity: 1;
-  background: linear-gradient(
-    90deg,
-    color-mix(in oklab, var(--log-accent) 22%, transparent),
-    transparent 85%
-  );
-}
-
-.row:focus-visible {
-  outline: 1px solid color-mix(in oklab, var(--log-accent) 60%, transparent);
+.line:focus-visible {
+  outline: 1px solid color-mix(in oklab, var(--log-accent) 55%, transparent);
   outline-offset: -1px;
 }
 
-/* ── 그래프 레일과 노드 ───────────────── */
-
-.graph {
-  position: relative;
-  flex: 0 0 var(--log-graph-w);
-  align-self: stretch;
-}
-
-.rail,
-.railUpper,
-.railLower,
-.railFaint {
-  position: absolute;
-  left: 50%;
-  width: 1px;
-  background: var(--log-rail);
-  transform: translateX(-50%);
-}
-
-.rail {
-  top: 0;
-  bottom: 0;
-}
-
-.railUpper {
-  top: 0;
-  height: 50%;
-}
-
-.railLower {
-  top: 50%;
-  bottom: 0;
-}
-
-.railFaint {
-  top: 0;
-  bottom: 0;
-  background: transparent;
-  border-left: 1px dashed color-mix(in oklab, var(--log-faint) 35%, transparent);
-}
-
-.nodeEnd,
-.nodeStart,
-.nodePlace {
-  position: absolute;
-  top: 50%;
-  left: 50%;
-  transform: translate(-50%, -50%);
-  transition:
-    box-shadow 260ms cubic-bezier(0.16, 1, 0.3, 1),
-    transform 260ms cubic-bezier(0.16, 1, 0.3, 1);
-}
-
-.nodeEnd {
-  width: 9px;
-  height: 9px;
-  background: var(--log-accent);
-  border-radius: 50%;
-  box-shadow: 0 0 10px color-mix(in oklab, var(--log-accent) 60%, transparent);
-}
-
-.nodeStart {
-  width: 9px;
-  height: 9px;
-  background: var(--san-background, #050b14);
-  border: 1.5px solid var(--log-accent);
-  border-radius: 50%;
-}
-
-.nodePlace {
-  --node: var(--log-muted);
-  width: 7px;
-  height: 7px;
-  background: var(--san-background, #050b14);
-  border: 1.5px solid var(--node);
-  border-radius: 1.5px;
-  transform: translate(-50%, -50%) rotate(45deg);
-}
-
-.row:hover .nodeEnd,
-.row:active .nodeEnd {
-  box-shadow: 0 0 18px var(--log-accent);
-}
-
-.row:hover .nodePlace,
-.row:active .nodePlace {
-  background: var(--node);
-  box-shadow: 0 0 10px var(--node);
-  transform: translate(-50%, -50%) rotate(45deg) scale(1.15);
-}
-
-/* 카테고리별 노드 색: 채도 낮은 앰비언트 톤 */
-.placeRow[data-category="cafe"] .nodePlace { --node: oklch(0.8 0.11 75); }
-.placeRow[data-category="restaurant"] .nodePlace { --node: oklch(0.74 0.13 35); }
-.placeRow[data-category="bar"] .nodePlace { --node: oklch(0.72 0.13 300); }
-.placeRow[data-category="park"] .nodePlace { --node: oklch(0.78 0.12 150); }
-.placeRow[data-category="shop"] .nodePlace { --node: oklch(0.76 0.11 350); }
-.placeRow[data-category="culture"] .nodePlace { --node: oklch(0.76 0.1 250); }
-
-/* ── 필드 ─────────────────────────────── */
-
-.hash {
-  flex: none;
-  color: var(--log-accent);
+.lead {
+  color: var(--log-muted);
+  font-family: var(--log-mono);
+  font-size: 11.5px;
   letter-spacing: 0.02em;
 }
 
-.head {
-  flex: none;
-  padding: 3px 5px;
-  color: var(--log-accent);
-  font-size: 9.5px;
-  font-weight: 600;
-  letter-spacing: 0.08em;
-  border: 1px solid color-mix(in oklab, var(--log-accent) 45%, transparent);
-  border-radius: 6px;
-  box-shadow: 0 0 12px color-mix(in oklab, var(--log-accent) 22%, transparent);
-}
-
-.startTag {
-  flex: none;
-  width: 7ch;
+.leadTime {
   color: var(--log-faint);
+  text-align: right;
 }
 
-.date {
-  flex: none;
-  color: var(--log-muted);
-}
-
-.time {
-  flex: none;
-  color: var(--log-text);
-}
-
-.endRow .time,
-.startRow .time {
-  color: var(--log-muted);
-}
-
-.region {
-  flex: 1 1 auto;
+.main {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
   min-width: 0;
   overflow: hidden;
-  color: var(--log-faint);
-  text-overflow: ellipsis;
 }
 
-.placeRow .region {
-  flex: 0 1 auto;
-  max-width: 6.5em;
+.clock {
+  flex: none;
+  font-family: var(--log-mono);
+  font-size: 11.5px;
 }
 
 .name {
-  flex: 1 1 auto;
-  min-width: 0;
+  flex: 0 1 auto;
+  min-width: 3em;
   overflow: hidden;
-  color: var(--log-text);
-  font-family: "Pretendard Variable", "Pretendard", system-ui, sans-serif;
-  font-size: 13px;
-  font-weight: 550;
+  font-family: var(--log-sans);
+  font-size: 13.5px;
+  font-weight: 450;
   letter-spacing: -0.01em;
   text-overflow: ellipsis;
 }
 
-.cat {
-  flex: none;
-  color: var(--log-muted);
-  font-family: "Pretendard Variable", "Pretendard", system-ui, sans-serif;
-  font-size: 11.5px;
-}
-
-.badge,
-.badgeNew {
-  flex: none;
-  font-size: 10.5px;
-}
-
-.badge {
-  color: var(--log-faint);
-}
-
-.badgeNew {
-  padding: 2px 5px;
-  color: var(--san-accent-text, #04121c);
-  font-weight: 700;
-  letter-spacing: 0.04em;
-  background: var(--log-accent);
-  border-radius: 5px;
-  box-shadow: 0 0 10px color-mix(in oklab, var(--log-accent) 45%, transparent);
-}
-
-.num {
-  flex: none;
-  margin-left: auto;
-  color: var(--log-text);
-}
-
-.numDim {
-  flex: none;
-  color: var(--log-faint);
-}
-
-.endRow .num {
-  margin-left: 0;
-}
-
-.startRow .numDim {
-  margin-left: auto;
-}
-
-.titleRow {
-  height: 24px;
-}
-
-.comment {
+.region {
+  /* 공간이 모자라면 행정동이 가장 먼저 줄어듦 */
+  flex: 0 1000 auto;
   min-width: 0;
   overflow: hidden;
-  color: var(--log-muted);
-  font-family: "Pretendard Variable", "Pretendard", system-ui, sans-serif;
-  font-size: 12.5px;
-  font-style: italic;
+  color: var(--log-faint);
+  font-family: var(--log-sans);
+  font-size: 12px;
   text-overflow: ellipsis;
 }
 
-.hashMark {
+.faint {
+  flex: none;
   color: var(--log-faint);
+  font-family: var(--log-sans);
+  font-size: 12px;
+}
+
+.meta {
+  display: flex;
+  gap: 8px;
+  color: var(--log-muted);
   font-family: var(--log-mono);
-  font-style: normal;
+  font-size: 11.5px;
+}
+
+.meta .faint {
+  font-family: var(--log-mono);
+  font-size: 11.5px;
+}
+
+.new {
+  flex: none;
+  color: var(--log-accent);
+  font-family: var(--log-mono);
+  font-size: 9.5px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  text-shadow: 0 0 10px color-mix(in oklab, var(--log-accent) 60%, transparent);
+}
+
+/* 루트 종료 줄은 또렷하게, 시작 줄은 한 톤 낮게 */
+.endLine .lead,
+.endLine .clock {
+  color: var(--log-text);
+}
+
+.endLine .meta {
+  color: var(--log-text);
+}
+
+.startLine {
+  opacity: 0.5;
+}
+
+.startLine:hover,
+.startLine:active {
+  opacity: 0.8;
+}
+
+/* 가장 최근 루트: 시각에만 은은한 빛 */
+.latest .clock {
+  color: var(--log-accent);
+  text-shadow: 0 0 12px color-mix(in oklab, var(--log-accent) 55%, transparent);
 }
 
 .pending {
-  color: var(--log-faint);
-  animation: pulse 1.2s ease-in-out infinite;
+  animation: breathe 1.6s ease-in-out infinite;
 }
 
-.gap {
-  position: relative;
-  height: 18px;
-  width: var(--log-graph-w);
-}
-
-.eof {
-  margin-top: 14px;
-}
-
-.cursor {
-  display: inline-block;
-  width: 7px;
-  height: 14px;
-  background: var(--log-accent);
-  box-shadow: 0 0 10px var(--log-accent);
-  animation: blink 1.1s steps(1, end) infinite;
-}
-
-@keyframes blink {
+@keyframes breathe {
   50% {
-    opacity: 0;
+    opacity: 0.3;
   }
 }
 
-@keyframes pulse {
-  50% {
-    opacity: 0.35;
-  }
-}
-
-/* 좁은 화면: 장소줄의 행정동은 생략 */
+/* 좁은 화면: 장소 줄의 행정동은 생략 */
 @media (max-width: 360px) {
-  .placeRow .region {
+  .placeLine .region {
     display: none;
   }
 }
 
 @media (hover: none) {
-  .row:hover::after {
-    opacity: 0;
-  }
-  .row:active::after {
-    opacity: 1;
+  .line:hover {
+    background: transparent;
   }
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .cursor,
   .pending {
     animation: none;
   }
 }
 
-/* 불러오는 중: 로그 줄 모양의 스켈레톤 */
+/* 불러오는 중: 줄 모양 스켈레톤 */
 .skeleton {
   display: grid;
-  gap: 12px;
-  max-width: 720px;
+  gap: 18px;
+  max-width: 640px;
   margin: 0 auto;
-  padding: 18px 20px;
+  padding: 58px 28px;
 }
 
 .skeletonLine {
-  height: 10px;
-  background: color-mix(in oklab, var(--san-text, #fff) 7%, transparent);
+  height: 8px;
+  background: color-mix(in oklab, var(--san-text, #fff) 6%, transparent);
   border-radius: 4px;
-  animation: pulse 1.4s ease-in-out infinite;
+  animation: breathe 1.8s ease-in-out infinite;
 }

@@ -4,6 +4,7 @@ import "./map-home.css";
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
+import { AnimatePresence, motion, useReducedMotion } from "motion/react";
 
 import { MapTabLayout, type MainTab } from "@/components/MapTabLayout";
 import { AnalysisReport } from "@/components/AnalysisReport";
@@ -29,6 +30,7 @@ import { useSession } from "@/hooks/useSession";
 import { makePlaceKey } from "@/lib/placeKey";
 import { supabase } from "@/lib/supabaseClient";
 import { postToNative } from "@/lib/nativeBridge";
+import { screenMotion, toastMotion } from "@/lib/motion";
 
 import type { AppToWebMessage, TrackingStatus } from "@/types/tracking";
 import type { SavedRoute } from "@/types/route";
@@ -101,6 +103,7 @@ export default function Home() {
   const [viewerOpen, setViewerOpen] = useState(false);
   const [analysisOpen, setAnalysisOpen] = useState(false);
   const [routeView, setRouteView] = useState<RouteViewMode>("grid");
+  const reduceMotion = useReducedMotion();
 
   // 마지막으로 고른 보기 방식(카드형/목록형) 복원
   useEffect(() => {
@@ -706,13 +709,28 @@ export default function Home() {
                   />
 
                   <div className="san-route-content">
-                    {!analysisOpen && (
-                      <RouteGrid onSelect={handleSelectRoute} view={routeView} />
-                    )}
-
-                    {analysisOpen && (
-                      <AnalysisReport accessToken={session.access_token} />
-                    )}
+                    <AnimatePresence mode="wait" initial={false}>
+                      {analysisOpen ? (
+                        <motion.div
+                          key="analysis"
+                          className="h-full"
+                          {...screenMotion(reduceMotion)}
+                        >
+                          <AnalysisReport accessToken={session.access_token} />
+                        </motion.div>
+                      ) : (
+                        <motion.div
+                          key="routes"
+                          className="h-full"
+                          {...screenMotion(reduceMotion)}
+                        >
+                          <RouteGrid
+                            onSelect={handleSelectRoute}
+                            view={routeView}
+                          />
+                        </motion.div>
+                      )}
+                    </AnimatePresence>
 
                     {selectedRoute && !analysisOpen && (
                       <RouteViewer
@@ -735,31 +753,40 @@ export default function Home() {
             onLogout={handleLogout}
           />
 
+          <AnimatePresence>
           {toast && (
-            <div
+            <motion.div
+              key="toast"
+              {...toastMotion(reduceMotion)}
               role="status"
               className="pointer-events-none fixed inset-x-0 z-[60] flex justify-center px-5"
               style={{
                 bottom: "calc(env(safe-area-inset-bottom, 0px) + 176px)",
               }}
             >
-              <span className="max-w-md rounded-2xl border border-white/10 bg-neutral-950/95 px-4 py-3 text-center text-sm leading-relaxed text-white shadow-xl backdrop-blur-xl">
+              <span className="max-w-md rounded-full border border-white/10 bg-[rgba(8,12,18,0.72)] px-4 py-2.5 text-center text-[13px] leading-relaxed tracking-[-0.01em] text-white/90 shadow-[0_12px_40px_rgba(0,0,0,0.4),inset_0_1px_0_rgba(255,255,255,0.08)] backdrop-blur-2xl backdrop-saturate-150">
                 {toast}
               </span>
-            </div>
+            </motion.div>
           )}
+          </AnimatePresence>
 
+          <AnimatePresence>
           {placeSheet && (
             <PlaceSaveSheet
+              key="place-sheet"
               state={placeSheet}
               onRetry={handleOpenPlaceSheet}
               onSave={handleSavePlace}
               onCancel={handleClosePlaceSheet}
             />
           )}
+          </AnimatePresence>
 
+          <AnimatePresence>
           {pendingRoute && (
             <RouteTitleModal
+              key="route-title"
               defaultTitle={new Date(pendingRoute.startedAt).toLocaleString("ko-KR")}
               description={
                 pendingRoute.places.length > 0
@@ -772,6 +799,7 @@ export default function Home() {
               onCancel={handleCancelTitle}
             />
           )}
+          </AnimatePresence>
         </>
       ) : (
         <main

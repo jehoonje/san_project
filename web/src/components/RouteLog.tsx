@@ -13,7 +13,6 @@ import {
   formatKm,
   formatLogDate,
   formatLogTime,
-  shortHash,
   type VisitMark,
 } from "@/lib/routeLog";
 import styles from "./RouteLog.module.css";
@@ -25,9 +24,9 @@ type RouteLogProps = {
 
 const REGION_CACHE_KEY = "san-region-cache-v1";
 const REGION_CONCURRENCY = 3;
-// 처음 화면을 채우는 줄까지만 순서대로 출력하는 연출, 그 뒤는 즉시
-const STAGGER_ROWS = 36;
-const STAGGER_S = 0.018;
+// 처음 화면을 채우는 줄까지만 차례로 떠오르는 연출, 그 뒤는 즉시
+const STAGGER_ROWS = 28;
+const STAGGER_S = 0.028;
 
 function categoryLabel(category: PlaceCategory) {
   return (
@@ -116,8 +115,7 @@ function useEndpointRegions(routes: SavedRoute[]) {
 }
 
 type Row =
-  | { kind: "end"; route: SavedRoute; isHead: boolean }
-  | { kind: "title"; route: SavedRoute; isHead: boolean }
+  | { kind: "end"; route: SavedRoute; isLatest: boolean }
   | {
       kind: "place";
       route: SavedRoute;
@@ -125,13 +123,10 @@ type Row =
       mark: VisitMark | undefined;
       cumulative: number | null;
     }
-  | { kind: "start"; route: SavedRoute }
-  | { kind: "gap"; route: SavedRoute };
+  | { kind: "start"; route: SavedRoute; isLast: boolean };
 
-function RegionText({ value }: { value: string | null | undefined }) {
-  if (value === undefined) {
-    return <span className={styles.pending}>···</span>;
-  }
+function Region({ value }: { value: string | null | undefined }) {
+  if (value === undefined) return <span className={styles.pending}>…</span>;
   return <>{value ?? "—"}</>;
 }
 
@@ -140,7 +135,7 @@ export function RouteLog({ routes, onSelect }: RouteLogProps) {
   const regionOf = useEndpointRegions(routes);
 
   const { rows, stats } = useMemo(() => {
-    const { marks, uniqueCount, totalCount } = computeVisitMarks(routes);
+    const { marks, uniqueCount } = computeVisitMarks(routes);
     const out: Row[] = [];
     let totalMeters = 0;
 
@@ -152,8 +147,7 @@ export function RouteLog({ routes, onSelect }: RouteLogProps) {
           new Date(b.saved_at).getTime() - new Date(a.saved_at).getTime(),
       );
 
-      out.push({ kind: "end", route, isHead: index === 0 });
-      out.push({ kind: "title", route, isHead: index === 0 });
+      out.push({ kind: "end", route, isLatest: index === 0 });
       for (const place of places) {
         out.push({
           kind: "place",
@@ -163,15 +157,13 @@ export function RouteLog({ routes, onSelect }: RouteLogProps) {
           cumulative: cumulativeDistanceTo(coords, [place.lng, place.lat]),
         });
       }
-      out.push({ kind: "start", route });
-      if (index < routes.length - 1) out.push({ kind: "gap", route });
+      out.push({ kind: "start", route, isLast: index === routes.length - 1 });
     });
 
     return {
       rows: out,
       stats: {
         routes: routes.length,
-        places: totalCount,
         unique: uniqueCount,
         meters: totalMeters,
       },
@@ -180,11 +172,11 @@ export function RouteLog({ routes, onSelect }: RouteLogProps) {
 
   function rowMotion(index: number) {
     if (reduceMotion) return {};
-    const delay = index < STAGGER_ROWS ? 0.12 + index * STAGGER_S : 0;
+    const delay = index < STAGGER_ROWS ? 0.08 + index * STAGGER_S : 0;
     return {
-      initial: { opacity: 0, x: -6, filter: "blur(3px)" },
-      animate: { opacity: 1, x: 0, filter: "blur(0px)" },
-      transition: { duration: 0.28, delay, ease: [0.16, 1, 0.3, 1] as const },
+      initial: { opacity: 0, y: 4, filter: "blur(6px)" },
+      animate: { opacity: 1, y: 0, filter: "blur(0px)" },
+      transition: { duration: 0.6, delay, ease: [0.22, 1, 0.36, 1] as const },
     };
   }
 
@@ -195,182 +187,110 @@ export function RouteLog({ routes, onSelect }: RouteLogProps) {
         paddingBottom: "calc(env(safe-area-inset-bottom, 0px) + 120px)",
       }}
     >
-      <div className={styles.log} role="list" aria-label="루트 기록 로그">
-        <motion.p
-          className={styles.prompt}
-          aria-hidden="true"
-          {...(reduceMotion
-            ? {}
-            : {
-                initial: { opacity: 0 },
-                animate: { opacity: 1 },
-                transition: { duration: 0.3 },
-              })}
-        >
-          <span className={styles.promptPath}>~/san</span>
-          <span className={styles.promptSign}>$</span> log --oneline --graph
-        </motion.p>
-
+      <div className={styles.log}>
         <p className={styles.summary}>
-          <span>
-            <b>{stats.routes}</b> routes
-          </span>
-          <span className={styles.sep}>·</span>
-          <span>
-            <b>{stats.unique}</b> places collected
-          </span>
-          <span className={styles.sep}>·</span>
-          <span>
-            <b>{formatKm(stats.meters)}</b>
-          </span>
+          {stats.routes} routes <span className={styles.dot}>·</span>{" "}
+          {stats.unique} places <span className={styles.dot}>·</span>{" "}
+          {formatKm(stats.meters)}
         </p>
 
-        {rows.map((row, index) => {
-          const key = `${row.kind}-${row.route.id}-${
-            row.kind === "place" ? row.place.id : ""
-          }`;
-          const open = () => onSelect(row.route);
-          const coords = (row.route.coordinates ?? []) as LngLat[];
+        <ol className={styles.list} aria-label="루트 기록">
+          {rows.map((row, index) => {
+            const open = () => onSelect(row.route);
+            const coords = (row.route.coordinates ?? []) as LngLat[];
 
-          if (row.kind === "gap") {
-            return (
-              <div key={key} className={styles.gap} aria-hidden="true">
-                <span className={styles.railFaint} />
-              </div>
-            );
-          }
+            if (row.kind === "end") {
+              return (
+                <motion.li key={`end-${row.route.id}`} {...rowMotion(index)}>
+                  <button
+                    type="button"
+                    onClick={open}
+                    className={`${styles.line} ${styles.endLine} ${
+                      row.isLatest ? styles.latest : ""
+                    }`}
+                    aria-label={`${row.route.title} 루트 열기`}
+                  >
+                    <span className={styles.lead}>
+                      {formatLogDate(row.route.ended_at)}
+                    </span>
+                    <span className={styles.main}>
+                      <span className={styles.clock}>
+                        {formatLogTime(row.route.ended_at)}
+                      </span>
+                      <span className={styles.region}>
+                        <Region value={regionOf(coords[coords.length - 1])} />
+                      </span>
+                    </span>
+                    <span className={styles.meta}>
+                      {formatKm(row.route.distance_meters)}
+                      <span className={styles.faint}>
+                        {formatDuration(row.route.duration_seconds)}
+                      </span>
+                    </span>
+                  </button>
+                </motion.li>
+              );
+            }
 
-          if (row.kind === "title") {
-            return (
-              <motion.button
-                key={key}
-                type="button"
-                role="listitem"
-                onClick={open}
-                className={`${styles.row} ${styles.titleRow}`}
-                {...rowMotion(index)}
-              >
-                <span className={styles.graph} aria-hidden="true">
-                  <span className={styles.rail} />
-                </span>
-                <span className={styles.comment}>
-                  <span className={styles.hashMark}>#</span> {row.route.title}
-                </span>
-                {row.isHead && <span className={styles.head}>HEAD</span>}
-              </motion.button>
-            );
-          }
-
-          if (row.kind === "end") {
-            const end = coords[coords.length - 1];
-            return (
-                <motion.button
-                  key={key}
-                  type="button"
-                  role="listitem"
-                  onClick={open}
-                  className={`${styles.row} ${styles.endRow}`}
-                  aria-label={`${row.route.title} 루트 열기`}
+            if (row.kind === "start") {
+              return (
+                <motion.li
+                  key={`start-${row.route.id}`}
+                  className={row.isLast ? undefined : styles.routeEnd}
                   {...rowMotion(index)}
                 >
-                  <span className={styles.graph} aria-hidden="true">
-                    <span className={styles.railLower} />
-                    <span className={styles.nodeEnd} />
-                  </span>
-                  <span className={styles.hash}>
-                    {shortHash(row.route.id)}
-                  </span>
-                  <span className={styles.date}>
-                    {formatLogDate(row.route.ended_at)}
-                  </span>
-                  <span className={styles.time}>
-                    {formatLogTime(row.route.ended_at)}
-                  </span>
-                  <span className={styles.region}>
-                    <RegionText value={regionOf(end)} />
-                  </span>
-                  <span className={styles.num}>
-                    {formatKm(row.route.distance_meters)}
-                  </span>
-                  <span className={styles.numDim}>
-                    {formatDuration(row.route.duration_seconds)}
-                  </span>
-                </motion.button>
-            );
-          }
+                  <button
+                    type="button"
+                    onClick={open}
+                    className={`${styles.line} ${styles.startLine}`}
+                  >
+                    <span className={styles.lead}>
+                      {formatLogDate(row.route.started_at)}
+                    </span>
+                    <span className={styles.main}>
+                      <span className={styles.clock}>
+                        {formatLogTime(row.route.started_at)}
+                      </span>
+                      <span className={styles.region}>
+                        <Region value={regionOf(coords[0])} />
+                      </span>
+                    </span>
+                    <span className={styles.meta}>0.0km</span>
+                  </button>
+                </motion.li>
+              );
+            }
 
-          if (row.kind === "start") {
-            const start = coords[0];
+            const { place, mark, cumulative } = row;
             return (
-              <motion.button
-                key={key}
-                type="button"
-                role="listitem"
-                onClick={open}
-                className={`${styles.row} ${styles.startRow}`}
-                {...rowMotion(index)}
-              >
-                <span className={styles.graph} aria-hidden="true">
-                  <span className={styles.railUpper} />
-                  <span className={styles.nodeStart} />
-                </span>
-                <span className={styles.startTag}>start</span>
-                <span className={styles.date}>
-                  {formatLogDate(row.route.started_at)}
-                </span>
-                <span className={styles.time}>
-                  {formatLogTime(row.route.started_at)}
-                </span>
-                <span className={styles.region}>
-                  <RegionText value={regionOf(start)} />
-                </span>
-                <span className={styles.numDim}>0.0km</span>
-              </motion.button>
+              <motion.li key={`place-${place.id}`} {...rowMotion(index)}>
+                <button
+                  type="button"
+                  onClick={open}
+                  className={`${styles.line} ${styles.placeLine}`}
+                  aria-label={`${place.name}, ${categoryLabel(place.category)}`}
+                >
+                  <span className={`${styles.lead} ${styles.leadTime}`}>
+                    {formatLogTime(place.saved_at)}
+                  </span>
+                  <span className={styles.main}>
+                    <span className={styles.name}>{place.name}</span>
+                    {mark?.isNew && <span className={styles.new}>new</span>}
+                    <span className={styles.faint}>
+                      {categoryLabel(place.category)}
+                    </span>
+                    <span className={styles.region}>
+                      {place.region_dong ?? ""}
+                    </span>
+                  </span>
+                  <span className={styles.meta}>
+                    {cumulative == null ? "" : `+${formatKm(cumulative)}`}
+                  </span>
+                </button>
+              </motion.li>
             );
-          }
-
-          const { place, mark, cumulative } = row;
-          return (
-            <motion.button
-              key={key}
-              type="button"
-              role="listitem"
-              onClick={open}
-              className={`${styles.row} ${styles.placeRow}`}
-              data-category={place.category}
-              aria-label={`${place.name}, ${categoryLabel(place.category)}`}
-              {...rowMotion(index)}
-            >
-              <span className={styles.graph} aria-hidden="true">
-                <span className={styles.rail} />
-                <span className={styles.nodePlace} />
-              </span>
-              <span className={styles.time}>
-                {formatLogTime(place.saved_at)}
-              </span>
-              <span className={styles.name}>{place.name}</span>
-              <span className={styles.cat}>
-                {categoryLabel(place.category)}
-              </span>
-              {mark &&
-                (mark.isNew ? (
-                  <span className={styles.badgeNew}>new</span>
-                ) : (
-                  <span className={styles.badge}>×{mark.nth}</span>
-                ))}
-              <span className={styles.region}>{place.region_dong ?? "—"}</span>
-              <span className={styles.num}>
-                {cumulative == null ? "" : `+${formatKm(cumulative)}`}
-              </span>
-            </motion.button>
-          );
-        })}
-
-        <p className={styles.eof} aria-hidden="true">
-          <span className={styles.promptPath}>~/san</span>
-          <span className={styles.promptSign}>$</span>
-          <span className={styles.cursor} />
-        </p>
+          })}
+        </ol>
       </div>
     </div>
   );

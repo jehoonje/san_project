@@ -2,6 +2,7 @@
 
 import { useEffect, useId, useState } from "react";
 import { motion, useReducedMotion } from "motion/react";
+import { EASE_EXIT, scrimMotion } from "@/lib/motion";
 import { PLACE_CATEGORIES, type PlaceCategory } from "@/types/place";
 import {
   useNearbyPlaces,
@@ -193,10 +194,7 @@ export function PlaceSaveSheet({
     <motion.div
       className="fixed inset-0 z-[60] flex items-end justify-center bg-black/70 backdrop-blur-md sm:items-center sm:p-4"
       role="presentation"
-      initial={{ opacity: reducedMotion ? 1 : 0 }}
-      animate={{ opacity: 1 }}
-      exit={{ opacity: reducedMotion ? 1 : 0 }}
-      transition={{ duration: reducedMotion ? 0 : 0.22 }}
+      {...scrimMotion(reducedMotion)}
       onMouseDown={(event) => {
         if (event.target === event.currentTarget) onCancel();
       }}
@@ -207,14 +205,24 @@ export function PlaceSaveSheet({
         aria-modal="true"
         aria-labelledby={titleId}
         className="relative flex max-h-[min(86dvh,760px)] w-full max-w-none flex-col overflow-hidden rounded-t-[28px] border border-b-0 border-white/10 bg-[linear-gradient(145deg,rgba(14,23,34,.97),rgba(5,11,20,.99))] text-white shadow-[0_-24px_80px_rgba(0,0,0,0.55)] backdrop-blur-2xl sm:max-w-[480px] sm:rounded-[28px] sm:border-b"
-        initial={{ y: reducedMotion ? 0 : "100%" }}
-        animate={{ y: 0 }}
-        exit={{ y: reducedMotion ? 0 : "100%" }}
-        transition={
-          reducedMotion
-            ? { duration: 0 }
-            : { type: "spring", stiffness: 300, damping: 31, mass: 0.9 }
+        initial={
+          reducedMotion ? { opacity: 0 } : { y: "100%", filter: "blur(6px)" }
         }
+        animate={{
+          y: 0,
+          opacity: 1,
+          filter: "blur(0px)",
+          transition: reducedMotion
+            ? { duration: 0 }
+            : { type: "spring", stiffness: 240, damping: 32, mass: 1 },
+        }}
+        exit={{
+          y: reducedMotion ? 0 : "100%",
+          opacity: reducedMotion ? 0 : 1,
+          transition: reducedMotion
+            ? { duration: 0 }
+            : { duration: 0.3, ease: EASE_EXIT },
+        }}
         drag={reducedMotion ? false : "y"}
         dragConstraints={{ top: 0, bottom: 0 }}
         dragElastic={{ top: 0, bottom: 0.35 }}

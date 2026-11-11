@@ -1,6 +1,8 @@
 "use client";
 
 import { useEffect, useId, useRef, useState } from "react";
+import { motion, useReducedMotion } from "motion/react";
+import { dialogMotion, scrimMotion } from "@/lib/motion";
 
 type RouteTitleModalProps = {
   defaultTitle: string;
@@ -28,6 +30,7 @@ export function RouteTitleModal({
   const descriptionId = useId();
   const errorId = useId();
   const trimmed = title.trim();
+  const reducedMotion = useReducedMotion();
 
   const onCancelRef = useRef(onCancel);
   onCancelRef.current = onCancel;
@@ -47,19 +50,21 @@ export function RouteTitleModal({
   }
 
   return (
-    <div
-      className="fixed inset-0 z-[100] grid place-items-end bg-black/60 p-4 backdrop-blur-sm sm:place-items-center"
+    <motion.div
+      className="fixed inset-0 z-[100] grid place-items-end bg-black/60 p-4 backdrop-blur-md sm:place-items-center"
+      {...scrimMotion(reducedMotion)}
       onMouseDown={(e) => {
         if (e.target === e.currentTarget && !isSaving) onCancel();
       }}
     >
-      <form
+      <motion.form
+        {...dialogMotion(reducedMotion, "bottom")}
         onSubmit={handleSubmit}
         role="dialog"
         aria-modal="true"
         aria-labelledby={titleId}
         aria-describedby={descriptionId}
-        className="w-full max-w-md rounded-[28px] border border-white/[0.08] bg-[#0e1722] p-6 shadow-[0_24px_60px_rgba(0,0,0,.5)]"
+        className="w-full max-w-md rounded-[28px] border border-white/[0.08] bg-[linear-gradient(160deg,rgba(16,26,38,.94),rgba(6,12,20,.97))] p-6 shadow-[0_24px_70px_rgba(0,0,0,.55),inset_0_1px_0_rgba(255,255,255,.06)] backdrop-blur-2xl"
       >
         <p className="text-[11px] font-bold uppercase tracking-[0.2em] text-[#00bfff]">Route</p>
         <h2 id={titleId} className="mt-1 text-2xl font-extrabold tracking-tight text-white">{heading}</h2>
@@ -90,7 +95,7 @@ export function RouteTitleModal({
             {isSaving ? "저장 중…" : confirmLabel}
           </button>
         </div>
-      </form>
-    </div>
+      </motion.form>
+    </motion.div>
   );
 }

@@ -2,6 +2,8 @@
 
 import { useCallback, useEffect, useId, useRef, useState } from "react";
 import { createPortal } from "react-dom";
+import { AnimatePresence, motion, useReducedMotion } from "motion/react";
+import { dialogMotion, screenMotion, scrimMotion } from "@/lib/motion";
 import { supabase } from "@/lib/supabaseClient";
 import { RouteTitleModal } from "@/components/RouteTitleModal";
 import { RouteLog } from "@/components/RouteLog";
@@ -85,6 +87,7 @@ function DeleteRouteModal({
   onCancel,
 }: DeleteRouteModalProps) {
   const headingId = useId();
+  const reducedMotion = useReducedMotion();
   const cancelRef = useRef<HTMLButtonElement>(null);
   const onCancelRef = useRef(onCancel);
   onCancelRef.current = onCancel;
@@ -102,14 +105,16 @@ function DeleteRouteModal({
   }, [isBusy]);
 
   return (
-    <div
+    <motion.div
       className="fixed inset-0 z-[60] flex items-center justify-center bg-black/70 px-5 backdrop-blur-md"
       role="presentation"
+      {...scrimMotion(reducedMotion)}
       onMouseDown={(event) => {
         if (event.target === event.currentTarget) onCancel();
       }}
     >
-      <section
+      <motion.section
+        {...dialogMotion(reducedMotion)}
         role="alertdialog"
         aria-modal="true"
         aria-labelledby={headingId}
@@ -147,12 +152,13 @@ function DeleteRouteModal({
             {isBusy ? "삭제 중…" : "삭제"}
           </button>
         </div>
-      </section>
-    </div>
+      </motion.section>
+    </motion.div>
   );
 }
 
 export function RouteGrid({ onSelect, view = "grid" }: RouteGridProps) {
+  const reducedMotion = useReducedMotion();
   const [routes, setRoutes] = useState<SavedRoute[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -370,11 +376,21 @@ export function RouteGrid({ onSelect, view = "grid" }: RouteGridProps) {
   }
 
   if (view === "log") {
-    return <RouteLog routes={routes} onSelect={onSelect} />;
+    return (
+      <motion.div
+        key="log"
+        className="h-full"
+        {...screenMotion(reducedMotion)}
+      >
+        <RouteLog routes={routes} onSelect={onSelect} />
+      </motion.div>
+    );
   }
 
   return (
-    <div
+    <motion.div
+      key="grid"
+      {...screenMotion(reducedMotion)}
       className="h-full overflow-y-auto overscroll-contain"
       style={{ paddingBottom: "calc(env(safe-area-inset-bottom, 0px) + 108px)" }}
       onClick={(event) => {
@@ -404,8 +420,20 @@ export function RouteGrid({ onSelect, view = "grid" }: RouteGridProps) {
 
       <div className="grid grid-cols-2 content-start gap-3 p-4 sm:grid-cols-3 md:gap-4 md:p-6">
         {routes.map((route, index) => (
-          <article
+          <motion.article
             key={route.id}
+            initial={reducedMotion ? false : { opacity: 0, filter: "blur(8px)" }}
+            animate={{
+              opacity: 1,
+              filter: "blur(0px)",
+              transition: reducedMotion
+                ? { duration: 0 }
+                : {
+                    duration: 0.6,
+                    delay: 0.06 + Math.min(index, 12) * 0.04,
+                    ease: [0.22, 1, 0.36, 1],
+                  },
+            }}
             className={`relative ${editing ? "route-jiggle" : ""}`}
             style={
               editing
@@ -477,15 +505,17 @@ export function RouteGrid({ onSelect, view = "grid" }: RouteGridProps) {
                 </button>
               </div>
             )}
-          </article>
+          </motion.article>
         ))}
       </div>
 
       {typeof document !== "undefined" &&
         createPortal(
           <>
+            <AnimatePresence>
             {editTarget && (
               <RouteTitleModal
+                key="edit-route"
                 defaultTitle={editTarget.title}
                 heading="루트 이름 수정"
                 description="새로운 루트 이름을 입력해 주세요."
@@ -496,8 +526,11 @@ export function RouteGrid({ onSelect, view = "grid" }: RouteGridProps) {
                 onCancel={closeModals}
               />
             )}
+            </AnimatePresence>
+            <AnimatePresence>
             {deleteTarget && (
               <DeleteRouteModal
+                key="delete-route"
                 title={deleteTarget.title}
                 isBusy={isBusy}
                 errorMessage={actionError}
@@ -505,9 +538,10 @@ export function RouteGrid({ onSelect, view = "grid" }: RouteGridProps) {
                 onCancel={closeModals}
               />
             )}
+            </AnimatePresence>
           </>,
           document.body,
         )}
-    </div>
+    </motion.div>
   );
 }
