@@ -1,6 +1,6 @@
 // mobile/src/app/index.tsx
 import { useEffect, useRef, useState } from "react";
-import { Alert, StyleSheet } from "react-native";
+import { Alert, StyleSheet, Vibration } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { WebView, WebViewMessageEvent } from "react-native-webview";
 import * as Location from "expo-location";
@@ -409,6 +409,12 @@ export default function Index() {
 
       if (data.type === "STOP_TRACKING") {
         stopTracking();
+        return;
+      }
+
+      if (data.type === "DWELL_DETECTED") {
+        // 한 곳에 오래 머물러 웹이 장소 저장을 제안할 때 진동으로 알림
+        Vibration.vibrate([0, 300, 150, 300]);
         return;
       }
 

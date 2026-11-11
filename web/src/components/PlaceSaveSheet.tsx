@@ -10,7 +10,14 @@ import {
 
 export type PlaceSheetState =
   | { status: "locating" }
-  | { status: "ready"; lat: number; lng: number; accuracy: number | null }
+  | {
+      status: "ready";
+      lat: number;
+      lng: number;
+      accuracy: number | null;
+      // 체류 감지로 연 경우: 머문 구간 정보
+      dwell?: { clusterId: number; startedAt: number; minutes: number };
+    }
   | { status: "error"; message: string };
 
 type PlaceSaveSheetProps = {
@@ -45,6 +52,7 @@ export function PlaceSaveSheet({
     state.status === "ready" ? state.lng : null,
   );
 
+  const isDwell = state.status === "ready" && Boolean(state.dwell);
   const trimmed = name.trim();
   const canSave =
     state.status === "ready" && trimmed.length > 0 && category !== null;
@@ -80,7 +88,9 @@ export function PlaceSaveSheet({
         className="flex max-h-[80vh] w-full max-w-sm flex-col rounded-2xl bg-white p-5 shadow-xl"
         style={{ animation: "sheetIn 0.25s ease-out both" }}
       >
-        <h2 className="text-base font-semibold text-neutral-900">장소 저장</h2>
+        <h2 className="text-base font-semibold text-neutral-900">
+          {isDwell ? "머문 장소 저장" : "장소 저장"}
+        </h2>
 
         <div className="mt-2 min-h-5 text-sm">
           {state.status === "locating" && (
@@ -89,7 +99,12 @@ export function PlaceSaveSheet({
               현재 위치를 확인하는 중...
             </p>
           )}
-          {state.status === "ready" && (
+          {state.status === "ready" && state.dwell && (
+            <p className="text-green-600">
+              약 {state.dwell.minutes}분 머무른 곳이에요 · 어디였나요?
+            </p>
+          )}
+          {state.status === "ready" && !state.dwell && (
             <p
               className={
                 state.accuracy !== null && state.accuracy > 50
