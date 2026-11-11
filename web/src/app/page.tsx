@@ -12,7 +12,7 @@ import { TrackingControls } from "@/components/TrackingControls";
 import { TopBar } from "@/components/TopBar";
 import { SideDrawer } from "@/components/SideDrawer";
 import { RegionOverview } from "@/components/RegionOverview";
-import { RouteGrid } from "@/components/RouteGrid";
+import { RouteGrid, type RouteViewMode } from "@/components/RouteGrid";
 import { RouteViewer } from "@/components/RouteViewer";
 import { RouteTitleModal } from "@/components/RouteTitleModal";
 import {
@@ -36,6 +36,7 @@ import type { PlaceCategory, PlaceDraft } from "@/types/place";
 
 const INITIAL_CENTER: [number, number] = [126.978, 37.5665];
 const VIEWER_ANIM_MS = 300;
+const ROUTE_VIEW_KEY = "san-route-view";
 
 // 로컬 가상 이동 시 경로에 점을 추가하는 최소 간격(m)
 const DEV_MIN_STEP_M = 3;
@@ -99,6 +100,31 @@ export default function Home() {
   const [selectedRoute, setSelectedRoute] = useState<SavedRoute | null>(null);
   const [viewerOpen, setViewerOpen] = useState(false);
   const [analysisOpen, setAnalysisOpen] = useState(false);
+  const [routeView, setRouteView] = useState<RouteViewMode>("grid");
+
+  // 마지막으로 고른 보기 방식(카드형/목록형) 복원
+  useEffect(() => {
+    try {
+      const saved = window.localStorage.getItem(ROUTE_VIEW_KEY);
+      if (saved === "log" || saved === "grid") {
+        queueMicrotask(() => setRouteView(saved));
+      }
+    } catch {
+      // 저장소 접근 불가 시 기본값(카드형)
+    }
+  }, []);
+
+  function handleToggleRouteView() {
+    setRouteView((prev) => {
+      const next = prev === "grid" ? "log" : "grid";
+      try {
+        window.localStorage.setItem(ROUTE_VIEW_KEY, next);
+      } catch {
+        // 무시
+      }
+      return next;
+    });
+  }
 
   // [부트 연동] 부트 스크린 상태 (null이면 재생 안 함)
   const [bootMode, setBootMode] = useState<BootMode | null>(null);
@@ -672,10 +698,17 @@ export default function Home() {
                     onMenu={() => setDrawerOpen(true)}
                     onBack={handleBack}
                     rightAction={rightAction}
+                    viewToggle={
+                      rightAction
+                        ? { mode: routeView, onToggle: handleToggleRouteView }
+                        : null
+                    }
                   />
 
                   <div className="san-route-content">
-                    {!analysisOpen && <RouteGrid onSelect={handleSelectRoute} />}
+                    {!analysisOpen && (
+                      <RouteGrid onSelect={handleSelectRoute} view={routeView} />
+                    )}
 
                     {analysisOpen && (
                       <AnalysisReport accessToken={session.access_token} />

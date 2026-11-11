@@ -4,10 +4,15 @@ import { useCallback, useEffect, useId, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { supabase } from "@/lib/supabaseClient";
 import { RouteTitleModal } from "@/components/RouteTitleModal";
+import { RouteLog } from "@/components/RouteLog";
+import logStyles from "@/components/RouteLog.module.css";
 import type { SavedRoute } from "@/types/route";
+
+export type RouteViewMode = "grid" | "log";
 
 type RouteGridProps = {
   onSelect: (route: SavedRoute) => void;
+  view?: RouteViewMode;
 };
 
 const LONG_PRESS_MS = 600;
@@ -147,7 +152,7 @@ function DeleteRouteModal({
   );
 }
 
-export function RouteGrid({ onSelect }: RouteGridProps) {
+export function RouteGrid({ onSelect, view = "grid" }: RouteGridProps) {
   const [routes, setRoutes] = useState<SavedRoute[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -310,6 +315,20 @@ export function RouteGrid({ onSelect }: RouteGridProps) {
     setActionError(null);
   }, [isBusy]);
 
+  if (loading && view === "log") {
+    return (
+      <div className={logStyles.skeleton} aria-label="루트 불러오는 중">
+        {Array.from({ length: 12 }, (_, index) => (
+          <span
+            key={index}
+            className={logStyles.skeletonLine}
+            style={{ width: `${[78, 42, 64, 58, 70, 36][index % 6]}%` }}
+          />
+        ))}
+      </div>
+    );
+  }
+
   if (loading) {
     return (
       <div
@@ -348,6 +367,10 @@ export function RouteGrid({ onSelect }: RouteGridProps) {
         </p>
       </div>
     );
+  }
+
+  if (view === "log") {
+    return <RouteLog routes={routes} onSelect={onSelect} />;
   }
 
   return (
