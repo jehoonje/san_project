@@ -1,6 +1,6 @@
 // mobile/src/app/index.tsx
 import { useEffect, useRef, useState } from "react";
-import { StyleSheet, SafeAreaView, Alert } from "react-native";
+import { StyleSheet, SafeAreaView, Alert, Vibration } from "react-native";
 import { WebView, WebViewMessageEvent } from "react-native-webview";
 import * as Location from "expo-location";
 import * as WebBrowser from "expo-web-browser";
@@ -291,6 +291,17 @@ export default function Index() {
 
       if (data.type === "WEB_READY") {
         handleWebReady();
+      }
+
+      // 근처 신호: 손 흔들기·교차를 진동으로 알림
+      if (data.type === "HAPTIC") {
+        Vibration.vibrate(
+          data.style === "crossing"
+            ? [0, 60, 90, 60, 90, 180]
+            : data.style === "wave"
+              ? [0, 40, 80, 40]
+              : 25,
+        );
       }
 
       if (

@@ -37,6 +37,7 @@ import {
 import { usePlaceLocation } from "@/hooks/usePlaceLocation";
 import { useDevWalk } from "@/hooks/useDevWalk";
 import { DevWalkPanel } from "@/components/DevWalkPanel";
+import "@/styles/signal-map.css";
 import { getMockStart, isDevPanelEnabled } from "@/lib/devLocation";
 import type { PlaceMapItem } from "@/types/place";
 
@@ -52,6 +53,14 @@ export type MapViewport = {
   bounds: MapBounds;
 };
 
+/** 근처 신호(다른 산책자) 표시용 */
+export type PeerMarker = {
+  id: string;
+  label: string;
+  lngLat: [number, number];
+  state: "idle" | "waved" | "waving" | "crossed";
+};
+
 type MapViewProps = {
   coords: [number, number][];
   places: PlaceMapItem[];
@@ -62,7 +71,36 @@ type MapViewProps = {
   onDevMove?: (coord: [number, number]) => void;
   /** [부트 연동] 지도 로드 + 현재 위치 확정 후 호출 */
   onReady?: () => void;
+  peers?: PeerMarker[];
+  selectedPeerId?: string | null;
+  onPeerSelect?: (id: string) => void;
+  /** 새 위치를 받을 때마다 호출 (기록·가상 이동·1회 조회 모두) */
+  onLocation?: (coord: [number, number]) => void;
 };
+
+type PeerMarkerEntry = {
+  marker: maplibregl.Marker;
+  element: HTMLButtonElement;
+  label: HTMLSpanElement;
+};
+
+function createPeerElement(id: string, onSelect: (id: string) => void) {
+  const element = document.createElement("button");
+  element.type = "button";
+  element.className = "san-peer";
+  const halo = document.createElement("span");
+  halo.className = "san-peer-halo";
+  const dot = document.createElement("span");
+  dot.className = "san-peer-dot";
+  const label = document.createElement("span");
+  label.className = "san-peer-label";
+  element.append(halo, dot, label);
+  element.addEventListener("click", (event) => {
+    event.stopPropagation();
+    onSelect(id);
+  });
+  return { element, label };
+}
 
 export type MapViewHandle = {
   recenter: () => void;
@@ -158,6 +196,10 @@ export const MapView = forwardRef<MapViewHandle, MapViewProps>(function MapView(
     onFollowingChange,
     onDevMove,
     onReady, // [부트 연동]
+    peers = [],
+    selectedPeerId = null,
+    onPeerSelect,
+    onLocation,
   },
   ref,
 ) {
@@ -197,6 +239,51 @@ export const MapView = forwardRef<MapViewHandle, MapViewProps>(function MapView(
 
   const requestTokenRef = useRef(0);
   const initialRequestStartedRef = useRef(false);
+
+  // 근처 신호 마커
+  const peerMarkersRef = useRef(new Map<string, PeerMarkerEntry>());
+  const latestPeersRef = useRef<PeerMarker[]>(peers);
+  const selectedPeerRef = useRef<string | null>(selectedPeerId);
+  const onPeerSelectRef = useRef(onPeerSelect);
+  const onLocationRef = useRef(onLocation);
+
+  useEffect(() => {
+    onPeerSelectRef.current = onPeerSelect;
+    onLocationRef.current = onLocation;
+  }, [onPeerSelect, onLocation]);
+
+  const syncPeerMarkers = useCallback((map: maplibregl.Map) => {
+    const entries = peerMarkersRef.current;
+    const next = latestPeersRef.current;
+    const ids = new Set(next.map((peer) => peer.id));
+
+    for (const [id, entry] of entries) {
+      if (!ids.has(id)) {
+        entry.marker.remove();
+        entries.delete(id);
+      }
+    }
+
+    for (const peer of next) {
+      let entry = entries.get(peer.id);
+      if (!entry) {
+        const { element, label } = createPeerElement(peer.id, (id) =>
+          onPeerSelectRef.current?.(id),
+        );
+        const marker = new maplibregl.Marker({ element, anchor: "center" })
+          .setLngLat(peer.lngLat)
+          .addTo(map);
+        entry = { marker, element, label };
+        entries.set(peer.id, entry);
+      } else {
+        entry.marker.setLngLat(peer.lngLat);
+      }
+      entry.label.textContent = peer.label;
+      entry.element.dataset.state = peer.state;
+      entry.element.dataset.selected = String(selectedPeerRef.current === peer.id);
+      entry.element.setAttribute("aria-label", `근처 신호 ${peer.label}`);
+    }
+  }, []);
 
   const [isFollowing, setIsFollowing] = useState(true);
   const [locationState, setLocationState] =
@@ -293,6 +380,7 @@ export const MapView = forwardRef<MapViewHandle, MapViewProps>(function MapView(
         !previous || previous[0] !== coord[0] || previous[1] !== coord[1];
 
       latestCoordRef.current = coord;
+      if (isNewFix) onLocationRef.current?.(coord);
 
       if (!displayCoordRef.current) displayCoordRef.current = coord;
       ensureGroundMarker(map, displayCoordRef.current);
@@ -516,6 +604,7 @@ export const MapView = forwardRef<MapViewHandle, MapViewProps>(function MapView(
     setMapError(null);
 
     let disposed = false;
+    const peerEntries = peerMarkersRef.current;
     let map: maplibregl.Map;
     let stopPulse: (() => void) | null = null;
     let raf = 0;
@@ -549,6 +638,7 @@ export const MapView = forwardRef<MapViewHandle, MapViewProps>(function MapView(
     }
 
     mapRef.current = map;
+    syncPeerMarkers(map);
 
     map.addControl(
       new maplibregl.AttributionControl({ compact: true }),
@@ -786,6 +876,8 @@ export const MapView = forwardRef<MapViewHandle, MapViewProps>(function MapView(
 
       groundMarkerRef.current?.remove();
       groundMarkerRef.current = null;
+      for (const entry of peerEntries.values()) entry.marker.remove();
+      peerEntries.clear();
       avatarLayerRef.current = null;
       displayCoordRef.current = null;
       fixRef.current = null;
@@ -810,7 +902,15 @@ export const MapView = forwardRef<MapViewHandle, MapViewProps>(function MapView(
     applyLocation,
     emitViewport,
     reducedMotion,
+    syncPeerMarkers,
   ]);
+
+  useEffect(() => {
+    latestPeersRef.current = peers;
+    selectedPeerRef.current = selectedPeerId;
+    const map = mapRef.current;
+    if (map) syncPeerMarkers(map);
+  }, [peers, selectedPeerId, syncPeerMarkers]);
 
   useEffect(() => {
     latestCoordsRef.current = coords;

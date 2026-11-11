@@ -1,0 +1,132 @@
+/* 지도 위 근처 신호: 숨 쉬듯 번지는 빛 점 */
+
+.san-peer {
+  position: relative;
+  width: 48px;
+  height: 48px;
+  padding: 0;
+  background: transparent;
+  border: 0;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.san-peer:focus-visible {
+  outline: 1px solid rgba(0, 191, 255, 0.7);
+  outline-offset: 2px;
+  border-radius: 50%;
+}
+
+.san-peer-dot,
+.san-peer-halo {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  border-radius: 50%;
+  pointer-events: none;
+}
+
+.san-peer-dot {
+  width: 10px;
+  height: 10px;
+  margin: -5px 0 0 -5px;
+  background: #e9f8ff;
+  box-shadow:
+    0 0 10px #00bfff,
+    0 0 28px rgba(0, 191, 255, 0.55);
+  transition:
+    background-color 400ms ease,
+    box-shadow 400ms ease;
+}
+
+.san-peer-halo {
+  width: 46px;
+  height: 46px;
+  margin: -23px 0 0 -23px;
+  border: 1px solid rgba(0, 191, 255, 0.55);
+  animation: san-peer-breathe 3.4s ease-in-out infinite;
+}
+
+.san-peer-label {
+  position: absolute;
+  top: calc(50% + 15px);
+  left: 50%;
+  color: rgba(233, 248, 255, 0.82);
+  font:
+    500 9.5px/1 ui-monospace,
+    "SF Mono",
+    Menlo,
+    monospace;
+  letter-spacing: 0.1em;
+  white-space: nowrap;
+  text-shadow: 0 1px 8px rgba(0, 0, 0, 0.9);
+  transform: translateX(-50%);
+  pointer-events: none;
+  transition: color 300ms ease;
+}
+
+.san-peer[data-selected="true"] .san-peer-label {
+  color: #00bfff;
+}
+
+.san-peer[data-selected="true"] .san-peer-dot {
+  box-shadow:
+    0 0 0 4px rgba(0, 191, 255, 0.18),
+    0 0 14px #00bfff,
+    0 0 36px rgba(0, 191, 255, 0.7);
+}
+
+/* 상대가 나에게 손을 흔드는 중 */
+.san-peer[data-state="waving"] .san-peer-halo {
+  border-color: #00bfff;
+  animation: san-peer-wave 1.2s ease-out infinite;
+}
+
+/* 내가 손을 흔들어 둔 상대 */
+.san-peer[data-state="waved"] .san-peer-dot {
+  background: #9fe6ff;
+}
+
+/* 교차한 상대 */
+.san-peer[data-state="crossed"] .san-peer-dot {
+  background: #00bfff;
+  box-shadow:
+    0 0 16px #00bfff,
+    0 0 44px rgba(0, 191, 255, 0.85);
+}
+
+.san-peer[data-state="crossed"] .san-peer-halo {
+  border-style: dashed;
+  animation-duration: 6s;
+}
+
+@keyframes san-peer-breathe {
+  0%,
+  100% {
+    opacity: 0;
+    transform: scale(0.45);
+  }
+  50% {
+    opacity: 0.65;
+    transform: scale(1);
+  }
+}
+
+@keyframes san-peer-wave {
+  from {
+    opacity: 0.95;
+    transform: scale(0.35);
+  }
+  to {
+    opacity: 0;
+    transform: scale(1.7);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .san-peer-halo,
+  .san-peer[data-state="waving"] .san-peer-halo {
+    animation: none;
+    opacity: 0.35;
+  }
+}

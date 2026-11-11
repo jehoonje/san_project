@@ -88,6 +88,7 @@ function BackIcon() {
   );
 }
 
+// 취향 컬렉션: 궤도 위의 별
 function AnalysisIcon() {
   return (
     <svg
@@ -97,12 +98,10 @@ function AnalysisIcon() {
       fill="none"
       aria-hidden="true"
     >
-      <path
-        d="M5 19V9M12 19V5M19 19v-7"
-        stroke="currentColor"
-        strokeWidth="1.8"
-        strokeLinecap="round"
-      />
+      <circle cx="12" cy="12" r="7.5" stroke="currentColor" strokeWidth="1.5" opacity=".55" />
+      <circle cx="12" cy="12" r="2.2" fill="currentColor" />
+      <circle cx="17.3" cy="6.7" r="1.7" fill="currentColor" />
+      <circle cx="5.4" cy="15.6" r="1.2" fill="currentColor" opacity=".8" />
     </svg>
   );
 }

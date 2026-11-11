@@ -357,6 +357,13 @@ const RULES: readonly TraitRule[] = [
   },
 ];
 
+// 취향 컬렉션(도감)의 칸: 규칙에 등록된 모든 특징
+export const TRAIT_CATALOG: readonly {
+  key: string;
+  label: string;
+  group: TraitGroup;
+}[] = RULES.map(({ key, label, group }) => ({ key, label, group }));
+
 const SOURCES: readonly TraitSource[] = [
   "keywords",
   "moods",

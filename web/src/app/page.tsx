@@ -2,13 +2,25 @@
 
 import "./map-home.css";
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { AnimatePresence, motion, useReducedMotion } from "motion/react";
 
 import { MapTabLayout, type MainTab } from "@/components/MapTabLayout";
-import { AnalysisReport } from "@/components/AnalysisReport";
-import { MapView, LocationIcon, type MapViewHandle, type MapViewport } from "@/components/MapView";
+import { TasteCollection } from "@/components/TasteCollection";
+import {
+  MapView,
+  LocationIcon,
+  type MapViewHandle,
+  type MapViewport,
+  type PeerMarker,
+} from "@/components/MapView";
+import { SignalButton } from "@/components/signal/SignalButton";
+import { SignalConsent } from "@/components/signal/SignalConsent";
+import { PeerSheet } from "@/components/signal/PeerSheet";
+import { SignalNoticeBanner } from "@/components/signal/SignalNoticeBanner";
+import { CrossingSheet } from "@/components/signal/CrossingSheet";
+import { CrossingLog } from "@/components/signal/CrossingLog";
 import { TrackingControls } from "@/components/TrackingControls";
 import { TopBar } from "@/components/TopBar";
 import { SideDrawer } from "@/components/SideDrawer";
@@ -26,6 +38,9 @@ import { useRegionSummary } from "@/hooks/useRegionSummary";
 import { useNativeBridge } from "@/hooks/useNativeBridge";
 import { usePlaceLocation } from "@/hooks/usePlaceLocation";
 import { useSession } from "@/hooks/useSession";
+import { useSignal } from "@/hooks/useSignal";
+import { useTasteCard } from "@/hooks/useTasteCard";
+import { isDevPanelEnabled } from "@/lib/devLocation";
 
 import { makePlaceKey } from "@/lib/placeKey";
 import { supabase } from "@/lib/supabaseClient";
@@ -39,6 +54,11 @@ import type { PlaceCategory, PlaceDraft } from "@/types/place";
 const INITIAL_CENTER: [number, number] = [126.978, 37.5665];
 const VIEWER_ANIM_MS = 300;
 const ROUTE_VIEW_KEY = "san-route-view";
+const SIGNAL_KEY = "san-signal-on";
+const SIGNAL_CONSENT_KEY = "san-signal-consent";
+// 신호 위치 갱신: 이만큼 움직였거나 이 시간이 지나면 새 위치로
+const SIGNAL_MOVE_M = 25;
+const SIGNAL_REFRESH_MS = 40_000;
 
 // 로컬 가상 이동 시 경로에 점을 추가하는 최소 간격(m)
 const DEV_MIN_STEP_M = 3;
@@ -129,6 +149,91 @@ export default function Home() {
     });
   }
 
+  // ── 근처 신호 ─────────────────────────────
+  const [signalOn, setSignalOn] = useState(false);
+  const [signalConsentOpen, setSignalConsentOpen] = useState(false);
+  const [selectedPeerId, setSelectedPeerId] = useState<string | null>(null);
+  const [selfPosition, setSelfPosition] = useState<[number, number] | null>(
+    null,
+  );
+  const [devGhost, setDevGhost] = useState(false);
+  const lastSelfRef = useRef<{ coord: [number, number]; at: number } | null>(
+    null,
+  );
+
+  // 신호 켜짐 여부 복원 + 개발용 가상 산책자 (?mock=1, 끄기 ?ghost=0)
+  useEffect(() => {
+    let on = false;
+    try {
+      on =
+        window.localStorage.getItem(SIGNAL_KEY) === "1" &&
+        window.localStorage.getItem(SIGNAL_CONSENT_KEY) === "1";
+    } catch {
+      on = false;
+    }
+    const ghost =
+      isDevPanelEnabled() &&
+      new URLSearchParams(window.location.search).get("ghost") !== "0";
+    queueMicrotask(() => {
+      setSignalOn(on);
+      setDevGhost(ghost);
+    });
+  }, []);
+
+  const handleSelfLocation = useCallback((coord: [number, number]) => {
+    const last = lastSelfRef.current;
+    const now = Date.now();
+    if (
+      last &&
+      haversineMeters(last.coord, coord) < SIGNAL_MOVE_M &&
+      now - last.at < SIGNAL_REFRESH_MS
+    ) {
+      return;
+    }
+    lastSelfRef.current = { coord, at: now };
+    setSelfPosition(coord);
+  }, []);
+
+  function persistSignal(on: boolean) {
+    try {
+      window.localStorage.setItem(SIGNAL_KEY, on ? "1" : "0");
+    } catch {
+      // 무시
+    }
+  }
+
+  function handleToggleSignal() {
+    if (signalOn) {
+      setSignalOn(false);
+      setSelectedPeerId(null);
+      persistSignal(false);
+      return;
+    }
+    let consented = false;
+    try {
+      consented = window.localStorage.getItem(SIGNAL_CONSENT_KEY) === "1";
+    } catch {
+      consented = false;
+    }
+    if (!consented) {
+      setSignalConsentOpen(true);
+      return;
+    }
+    setSignalOn(true);
+    persistSignal(true);
+  }
+
+  function handleConfirmSignal() {
+    try {
+      window.localStorage.setItem(SIGNAL_CONSENT_KEY, "1");
+    } catch {
+      // 무시
+    }
+    setSignalConsentOpen(false);
+    setSignalOn(true);
+    persistSignal(true);
+  }
+
   // [부트 연동] 부트 스크린 상태 (null이면 재생 안 함)
   const [bootMode, setBootMode] = useState<BootMode | null>(null);
   const [mapReady, setMapReady] = useState(false);
@@ -216,6 +321,55 @@ export default function Home() {
 
   const { sendToApp } = useNativeBridge(handleNativeMessage);
   const { requestLocation } = usePlaceLocation();
+
+  const signalActive = signalOn && !sessionLoading && Boolean(session);
+  const taste = useTasteCard(session?.access_token ?? null, signalActive);
+  const signal = useSignal({
+    userId,
+    enabled: signalActive,
+    position: selfPosition,
+    card: taste?.card ?? null,
+    region: regionSummary.displayName || null,
+    ghost: devGhost,
+  });
+
+  // 신호가 켜져 있는 동안 기록 중이 아니어도 위치를 가끔 새로 받음
+  useEffect(() => {
+    if (!signalActive) return;
+    let cancelled = false;
+    const tick = async () => {
+      const result = await requestLocation();
+      if (!cancelled && result.ok) handleSelfLocation([result.lng, result.lat]);
+    };
+    void tick();
+    const timer = window.setInterval(() => {
+      if (document.visibilityState === "visible") void tick();
+    }, SIGNAL_REFRESH_MS);
+    return () => {
+      cancelled = true;
+      window.clearInterval(timer);
+    };
+  }, [signalActive, requestLocation, handleSelfLocation]);
+
+  const peerMarkers = useMemo<PeerMarker[]>(
+    () =>
+      signal.peers.map((peer) => {
+        const relation = signal.relations[peer.sid];
+        const state: PeerMarker["state"] = relation?.crossed
+          ? "crossed"
+          : relation?.iWaved
+            ? "waved"
+            : relation?.theyWaved
+              ? "waving"
+              : "idle";
+        return { id: peer.sid, label: peer.cs, lngLat: peer.pos, state };
+      }),
+    [signal.peers, signal.relations],
+  );
+
+  const selectedPeer = selectedPeerId
+    ? (signal.peers.find((peer) => peer.sid === selectedPeerId) ?? null)
+    : null;
 
   useEffect(() => {
     if (!sessionLoading && !session) {
@@ -618,7 +772,7 @@ export default function Home() {
     (analysisOpen || (selectedRoute !== null && viewerOpen));
 
   const topTitle = analysisOpen
-    ? "My Analysis"
+    ? "Collection"
     : selectedRoute
       ? selectedRoute.title
       : "My Route";
@@ -626,7 +780,7 @@ export default function Home() {
   const rightAction =
     tab === "routes" && !analysisOpen && !selectedRoute
       ? {
-          label: "장소 분석 리포트",
+          label: "취향 컬렉션",
           onClick: handleOpenAnalysis,
         }
       : null;
@@ -657,9 +811,19 @@ export default function Home() {
                 onFollowingChange={setIsFollowing}
                 onDevMove={handleDevMove}
                 onReady={() => setMapReady(true)} // [부트 연동]
+                peers={tab === "routes" ? [] : peerMarkers}
+                selectedPeerId={selectedPeerId}
+                onPeerSelect={setSelectedPeerId}
+                onLocation={handleSelfLocation}
               />
             }
             mapControls={
+              <div className="flex flex-col items-center gap-2.5">
+              <SignalButton
+                status={signal.status}
+                count={signal.peers.length}
+                onToggle={handleToggleSignal}
+              />
               <button
                 type="button"
                 onClick={() => mapViewRef.current?.recenter()}
@@ -671,6 +835,7 @@ export default function Home() {
               >
                 <LocationIcon />
               </button>
+              </div>
             }
             topBar={
               <TopBar
@@ -716,7 +881,10 @@ export default function Home() {
                           className="h-full"
                           {...screenMotion(reduceMotion)}
                         >
-                          <AnalysisReport accessToken={session.access_token} />
+                          <TasteCollection
+                            accessToken={session.access_token}
+                            footer={<CrossingLog userId={session.user.id} />}
+                          />
                         </motion.div>
                       ) : (
                         <motion.div
@@ -752,6 +920,54 @@ export default function Home() {
             onClose={() => setDrawerOpen(false)}
             onLogout={handleLogout}
           />
+
+          <AnimatePresence>
+            {selectedPeer && tab !== "routes" && !signal.crossing && (
+              <PeerSheet
+                key={`peer-${selectedPeer.sid}`}
+                peer={selectedPeer}
+                relation={signal.relations[selectedPeer.sid]}
+                onWave={() => signal.wave(selectedPeer.sid)}
+                onClose={() => setSelectedPeerId(null)}
+              />
+            )}
+          </AnimatePresence>
+
+          <SignalNoticeBanner
+            notice={signal.notices[0] ?? null}
+            onWaveBack={signal.wave}
+            onDismiss={signal.dismissNotice}
+          />
+
+          <AnimatePresence>
+            {signal.crossing && (
+              <CrossingSheet
+                key={`crossing-${signal.crossing.encounterId}`}
+                crossing={signal.crossing}
+                myCallSign={signal.callSign}
+                giftSent={signal.relations[signal.crossing.sid]?.giftSent ?? null}
+                giftReceived={
+                  signal.relations[signal.crossing.sid]?.giftReceived ?? null
+                }
+                giftOptions={taste?.gifts ?? []}
+                onGift={(place) =>
+                  signal.crossing && signal.sendGift(signal.crossing.sid, place)
+                }
+                onClose={signal.closeCrossing}
+              />
+            )}
+          </AnimatePresence>
+
+          <AnimatePresence>
+            {signalConsentOpen && (
+              <SignalConsent
+                key="signal-consent"
+                callSign={signal.callSign}
+                onConfirm={handleConfirmSignal}
+                onCancel={() => setSignalConsentOpen(false)}
+              />
+            )}
+          </AnimatePresence>
 
           <AnimatePresence>
           {toast && (
