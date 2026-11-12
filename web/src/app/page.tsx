@@ -24,6 +24,7 @@ import { TopBar } from "@/components/TopBar";
 import { SideDrawer } from "@/components/SideDrawer";
 import { RegionOverview } from "@/components/RegionOverview";
 import { RouteGrid, type RouteViewMode } from "@/components/RouteGrid";
+import { GlobeView } from "@/components/GlobeView";
 import { RouteViewer } from "@/components/RouteViewer";
 import { RouteTitleModal } from "@/components/RouteTitleModal";
 import {
@@ -157,6 +158,7 @@ export default function Home() {
   const [toast, setToast] = useState<string | null>(null);
 
   const [drawerOpen, setDrawerOpen] = useState(false);
+  const [globeOpen, setGlobeOpen] = useState(false);
   const [selectedRoute, setSelectedRoute] = useState<SavedRoute | null>(null);
   const [viewerOpen, setViewerOpen] = useState(false);
   const [analysisOpen, setAnalysisOpen] = useState(false);
@@ -1037,6 +1039,18 @@ export default function Home() {
                 isBack={false}
                 onMenu={() => setDrawerOpen(true)}
                 onBack={handleBack}
+                rightAction={
+                  tab === "map"
+                    ? {
+                        label: "방문한 곳 지구본",
+                        icon: "globe",
+                        onClick: () => {
+                          handleClosePeer();
+                          setGlobeOpen(true);
+                        },
+                      }
+                    : null
+                }
               />
             }
             overview={<RegionOverview summary={regionSummary} />}
@@ -1145,6 +1159,16 @@ export default function Home() {
             }}
             ownerId={ownerId}
           />
+
+          <AnimatePresence>
+            {globeOpen && (
+              <GlobeView
+                key="globe"
+                owner={owner}
+                onClose={() => setGlobeOpen(false)}
+              />
+            )}
+          </AnimatePresence>
 
           <AnimatePresence>
             {selectedPeer && tab !== "routes" && (

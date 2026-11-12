@@ -75,6 +75,14 @@
   --san-map-label: #5f6774;
   --san-map-route: #2e3440;
 
+  /* 방문 빈도: 한 가지 호박색(창밖 도시 불빛)의 밝음 → 짙음 */
+  --san-heat-1: #cc9f66;
+  --san-heat-2: #b9874b;
+  --san-heat-3: #a37034;
+  --san-heat-4: #855826;
+  --san-heat-5: #603c18;
+  --san-sky: #e4e7ec;
+
   /* 아바타 · 부트 파티클 */
   --san-avatar: #2e3440;
   --san-avatar-peer: #9aa0a8;
@@ -129,6 +137,14 @@
   --san-map-building-top: #1f2530;
   --san-map-label: #8a93a3;
   --san-map-route: #d8dce3;
+
+  /* 방문 빈도: 어둠 속에서 많이 머문 곳일수록 밝게 켜짐 */
+  --san-heat-1: #6e5433;
+  --san-heat-2: #94693a;
+  --san-heat-3: #bd8a48;
+  --san-heat-4: #dfa862;
+  --san-heat-5: #f6d39b;
+  --san-sky: #07090d;
 
   --san-avatar: #d8dce3;
   --san-avatar-peer: #6a7385;

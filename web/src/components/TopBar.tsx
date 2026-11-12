@@ -11,6 +11,8 @@ type TopBarProps = {
   rightAction?: {
     label: string;
     onClick: () => void;
+    /** 기본은 분석 아이콘 */
+    icon?: "analysis" | "globe";
   } | null;
   // 카드형 ↔ 목록형 전환 토글 (분석 버튼 왼쪽)
   viewToggle?: {
@@ -55,7 +57,17 @@ function BackIcon() {
   );
 }
 
-// 취향 읽기: 겹쳐 번지는 두 개의 타원
+// 지구본: 원 하나와 기울어진 궤도선
+function GlobeIcon() {
+  return (
+    <svg className="san-icon" viewBox="0 0 24 24" aria-hidden="true">
+      <circle cx="12" cy="12" r="7.5" />
+      <path d="M4.5 12h15M12 4.5c2.3 2.1 3.3 4.6 3.3 7.5s-1 5.4-3.3 7.5c-2.3-2.1-3.3-4.6-3.3-7.5s1-5.4 3.3-7.5Z" />
+    </svg>
+  );
+}
+
+// 기록의 잔향: 겹쳐 번지는 두 개의 타원
 function AnalysisIcon() {
   return (
     <svg className="san-icon" viewBox="0 0 24 24" aria-hidden="true">
@@ -152,7 +164,7 @@ export function TopBar({
             aria-label={rightAction.label}
             title={rightAction.label}
           >
-            <AnalysisIcon />
+            {rightAction.icon === "globe" ? <GlobeIcon /> : <AnalysisIcon />}
           </button>
         ) : (
           <span className="h-12 w-12" aria-hidden="true" />

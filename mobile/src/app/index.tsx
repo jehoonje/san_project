@@ -8,6 +8,7 @@ import {
   useColorScheme,
 } from "react-native";
 import { WebView, WebViewMessageEvent } from "react-native-webview";
+import * as Haptics from "expo-haptics";
 import * as Location from "expo-location";
 import * as WebBrowser from "expo-web-browser";
 import * as Linking from "expo-linking";
@@ -302,13 +303,22 @@ export default function Index() {
 
       // 근처 신호: 손 흔들기·교차를 진동으로 알림
       if (data.type === "HAPTIC") {
-        Vibration.vibrate(
-          data.style === "crossing"
-            ? [0, 60, 90, 60, 90, 180]
-            : data.style === "wave"
-              ? [0, 40, 80, 40]
-              : 25,
-        );
+        // 지구본을 돌릴 때의 짧은 틱 / 구역 단계가 바뀔 때의 가벼운 탭
+        if (data.style === "tick") {
+          void Haptics.selectionAsync().catch(() => undefined);
+        } else if (data.style === "level") {
+          void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(
+            () => undefined,
+          );
+        } else {
+          Vibration.vibrate(
+            data.style === "crossing"
+              ? [0, 60, 90, 60, 90, 180]
+              : data.style === "wave"
+                ? [0, 40, 80, 40]
+                : 25,
+          );
+        }
       }
 
       // 한 곳에 오래 머물러 웹이 장소 저장을 제안할 때: 약하게 두 번
