@@ -1,35 +1,491 @@
-/* cadenz-theme.css — globals.css 맨 아래에 @import "./cadenz-theme.css"; 추가 */
-:root,[data-theme="dark"]{
---san-background:#050b14;--san-background-soft:#0a121c;
---san-surface:rgba(14,23,34,.9);--san-surface-strong:#0e1722;
---san-surface-soft:rgba(255,255,255,.05);--san-surface-hover:rgba(0,191,255,.10);
---san-border:rgba(255,255,255,.08);--san-border-strong:rgba(0,191,255,.30);
---san-text:#ffffff;--san-text-muted:#8fa3b8;--san-text-faint:#5f7387;
---san-input:#0a121c;
---san-accent:#00bfff;--san-accent-hover:#33ccff;--san-accent-text:#04121c;
---san-error:#ff9c8d;--san-icon-fill:rgba(5,11,20,.6);
---san-shadow:0 16px 40px rgba(0,0,0,.35);
---san-gradient-base-start:#0b3a52;--san-gradient-base-end:#050b14;
+/*
+ * cadenz-theme.css — 잉크 & 종이 공용 형태 언어.
+ * 색은 globals.css 의 --san-* 토큰만 참조한다. (여기서 색 값을 직접 쓰지 않는다)
+ *
+ * 원칙
+ *  - 구분은 선·그림자 대신 여백, 투명도, 블러로.
+ *  - 버튼은 평평한 알약, 카드는 테두리 없이 한 톤 다른 면.
+ *  - 장식은 헤어라인 곡선·타원(파문, 궤도)만.
+ */
+
+/* ── 타이포 ─────────────────────────────── */
+
+/* 숫자·좌표·거리·날짜: 작고 또렷한 모노스페이스 라벨 */
+.san-eyebrow {
+  margin: 0;
+  color: var(--san-text);
+  font-family: var(--san-font-mono);
+  font-size: var(--san-text-eyebrow);
+  font-weight: 500;
+  line-height: 1.5;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  font-variant-numeric: tabular-nums;
 }
-html,body{background:#050b14 radial-gradient(circle at 85% 0%,#0b3a52 0%,transparent 55%) no-repeat}
-.san-entry{--san-accent:#00bfff;--san-accent-hover:#33ccff;--san-accent-text:#04121c;
-background:radial-gradient(circle at 85% 0%,#0b3a52 0%,transparent 55%),#050b14}
-.san-entry::after,.san-ambient{display:none}
-.san-card{border:1px solid rgba(255,255,255,.08);border-radius:28px;background:#0e1722;
-box-shadow:0 24px 60px rgba(0,0,0,.5);backdrop-filter:blur(20px);-webkit-backdrop-filter:blur(20px)}
-.san-input,.san-field input{height:56px;border-radius:999px;padding:0 22px;background:#0a121c;
-box-shadow:inset 0 0 0 1px rgba(255,255,255,.10);color:#fff;caret-color:#00bfff}
-.san-input::placeholder,.san-field input::placeholder{color:#5f7387}
-.san-input:focus,.san-field input:focus{background:#0a121c;
-box-shadow:inset 0 0 0 1px rgba(0,191,255,.6),0 0 0 4px rgba(0,191,255,.15)}
-.san-primary{min-height:56px;border-radius:999px;color:#04121c;background:#00bfff;
-font-weight:800;letter-spacing:.04em;box-shadow:0 10px 28px rgba(0,191,255,.25)}
-.san-secondary,.san-text-button{min-height:56px;border-radius:999px;color:#fff;
-background:rgba(255,255,255,.05);box-shadow:inset 0 0 0 1px rgba(255,255,255,.10)}
-.san-theme-option{border-radius:24px;background:#0e1722}
-.san-theme-option.is-active{background:#0a2233;box-shadow:inset 0 0 0 1px rgba(0,191,255,.3)}
-.san-progress span.is-on{background:#00bfff}
-.san-notice{background:rgba(14,23,34,.7);border:1px solid rgba(255,255,255,.1)}
-.san-scrim{background:rgba(0,0,0,.6)}
-.cz-card{background:#0e1722;border:1px solid rgba(255,255,255,.08);border-radius:24px}
-.cz-label{font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.2em;color:#00bfff}
+
+.san-data {
+  color: var(--san-text);
+  font-family: var(--san-font-mono);
+  font-size: var(--san-text-data);
+  letter-spacing: 0.04em;
+  font-variant-numeric: tabular-nums;
+}
+
+/* 화면 상단의 큰 문구: 얇게, 넉넉하게, 2줄 이내 */
+.san-display {
+  margin: 0;
+  color: var(--san-text);
+  font-size: var(--san-text-display);
+  font-weight: 300;
+  line-height: 1.42;
+  letter-spacing: 0.01em;
+  word-break: keep-all;
+  text-wrap: balance;
+}
+
+.san-title {
+  margin: 0;
+  color: var(--san-text);
+  font-size: var(--san-text-title);
+  font-weight: 300;
+  line-height: 1.5;
+  letter-spacing: 0.005em;
+  word-break: keep-all;
+}
+
+.san-body {
+  margin: 0;
+  color: var(--san-text);
+  font-size: var(--san-text-body);
+  font-weight: 400;
+  line-height: 1.8;
+  word-break: keep-all;
+}
+
+/* 본문 마지막 줄이 흐려지며 사라지는 여운 */
+.san-fade-tail {
+  position: relative;
+  -webkit-mask-image: linear-gradient(
+    to bottom,
+    #000 calc(100% - 2.1em),
+    rgba(0, 0, 0, 0.42) 100%
+  );
+  mask-image: linear-gradient(
+    to bottom,
+    #000 calc(100% - 2.1em),
+    rgba(0, 0, 0, 0.42) 100%
+  );
+}
+
+.san-fade-tail::after {
+  position: absolute;
+  right: 0;
+  bottom: 0;
+  left: 0;
+  height: 1.7em;
+  content: "";
+  pointer-events: none;
+  -webkit-backdrop-filter: blur(1.4px);
+  backdrop-filter: blur(1.4px);
+  -webkit-mask-image: linear-gradient(to bottom, transparent, #000);
+  mask-image: linear-gradient(to bottom, transparent, #000);
+}
+
+/* ── 면 ─────────────────────────────────── */
+
+.cz-card {
+  border: 0;
+  border-radius: var(--san-radius-md);
+  background: var(--san-surface);
+  box-shadow: none;
+}
+
+.cz-label {
+  color: var(--san-text);
+  font-family: var(--san-font-mono);
+  font-size: var(--san-text-eyebrow);
+  font-weight: 500;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+}
+
+/* 지도 위에 얹는 읽기용 면: 유리가 아니라 종이 한 겹 */
+.san-veil {
+  color: var(--san-text);
+  background: var(--san-veil);
+  -webkit-backdrop-filter: blur(14px);
+  backdrop-filter: blur(14px);
+}
+
+.san-scrim-layer {
+  background: var(--san-scrim);
+}
+
+/* 아래에서 떠오르는 시트 */
+.san-sheet {
+  color: var(--san-text);
+  background: var(--san-background);
+  border: 0;
+  border-radius: var(--san-radius-lg) var(--san-radius-lg) 0 0;
+  box-shadow: none;
+}
+
+.san-grabber {
+  display: block;
+  width: 34px;
+  height: 3px;
+  margin: 0 auto;
+  border-radius: var(--san-radius-pill);
+  background: var(--san-border-strong);
+  opacity: 0.6;
+}
+
+/* ── 알약 버튼 ───────────────────────────── */
+
+.san-pill {
+  display: inline-flex;
+  min-height: 48px;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 0 22px;
+  border: 0;
+  border-radius: var(--san-radius-pill);
+  color: var(--san-text);
+  background: var(--san-surface);
+  font-size: 14px;
+  font-weight: 400;
+  letter-spacing: 0.01em;
+  white-space: nowrap;
+  cursor: pointer;
+  box-shadow: none;
+  transition:
+    background-color var(--san-dur) var(--san-ease),
+    color var(--san-dur) var(--san-ease),
+    opacity var(--san-dur) var(--san-ease);
+}
+
+.san-pill:active {
+  background: var(--san-surface-strong);
+  transition-duration: 80ms;
+}
+
+.san-pill:disabled {
+  opacity: 0.4;
+  cursor: default;
+}
+
+/* 선택·확정: 면이 잉크로 채워진다 */
+.san-pill-fill,
+.san-pill[aria-pressed="true"],
+.san-pill[aria-current="true"] {
+  color: var(--san-accent-text);
+  background: var(--san-accent);
+}
+
+.san-pill-fill:active {
+  background: var(--san-accent-hover);
+}
+
+.san-pill-quiet {
+  background: transparent;
+}
+
+.san-pill-quiet:active {
+  background: var(--san-surface-soft);
+}
+
+.san-pill-danger {
+  color: var(--san-error);
+}
+
+/* 원형 아이콘 버튼 (터치 44pt 이상) */
+.san-icon-btn {
+  display: grid;
+  width: 48px;
+  height: 48px;
+  flex: none;
+  place-items: center;
+  padding: 0;
+  border: 0;
+  border-radius: var(--san-radius-pill);
+  color: var(--san-text);
+  background: var(--san-veil);
+  -webkit-backdrop-filter: blur(14px);
+  backdrop-filter: blur(14px);
+  cursor: pointer;
+  transition:
+    background-color var(--san-dur) var(--san-ease),
+    opacity var(--san-dur) var(--san-ease);
+}
+
+.san-icon-btn:active {
+  background: var(--san-surface-strong);
+  transition-duration: 80ms;
+}
+
+.san-icon-btn-plain {
+  background: transparent;
+  -webkit-backdrop-filter: none;
+  backdrop-filter: none;
+}
+
+.san-icon-btn-plain:active {
+  background: var(--san-surface-soft);
+}
+
+/* 1.25pt 라인 아이콘 */
+.san-icon {
+  width: 20px;
+  height: 20px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.25;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+/* 입력 */
+.san-field-input {
+  display: block;
+  width: 100%;
+  height: 54px;
+  padding: 0 22px;
+  border: 0;
+  border-radius: var(--san-radius-pill);
+  outline: none;
+  color: var(--san-text);
+  background: var(--san-input);
+  font-size: 16px;
+  font-weight: 400;
+  caret-color: var(--san-text);
+  transition: background-color var(--san-dur) var(--san-ease);
+}
+
+.san-field-input::placeholder {
+  color: var(--san-text-muted);
+  font-weight: 300;
+}
+
+.san-field-input:focus {
+  background: var(--san-surface-strong);
+}
+
+.san-field-input:disabled {
+  opacity: 0.5;
+}
+
+/* ── 상태 점 · 파문 ──────────────────────── */
+
+.san-dot {
+  display: inline-block;
+  width: 6px;
+  height: 6px;
+  flex: none;
+  border-radius: 50%;
+  background: var(--san-text);
+}
+
+.san-dot-faint {
+  background: var(--san-text-faint);
+}
+
+.san-dot-star {
+  background: var(--san-star);
+}
+
+/* 기록 중 / 신호 켜짐: 3초 주기로 숨 쉬는 점 */
+.san-dot-live {
+  position: relative;
+  background: var(--san-live);
+}
+
+.san-dot-live::after {
+  position: absolute;
+  inset: -1px;
+  border: 1px solid var(--san-live);
+  border-radius: 50%;
+  content: "";
+  animation: san-ripple var(--san-breath) var(--san-ease) infinite;
+}
+
+/* 로딩·빈 상태: 곡선 파문 */
+.san-ripples {
+  position: relative;
+  display: block;
+  width: var(--size, 72px);
+  height: var(--size, 72px);
+  flex: none;
+}
+
+.san-ripples > i {
+  position: absolute;
+  inset: 0;
+  border: 0.75px solid var(--san-text);
+  border-radius: 50%;
+  opacity: 0;
+  animation: san-ripple-wide var(--san-breath) var(--san-ease) infinite;
+}
+
+.san-ripples > i:nth-child(2) {
+  animation-delay: calc(var(--san-breath) / 3);
+}
+
+.san-ripples > i:nth-child(3) {
+  animation-delay: calc(var(--san-breath) / 3 * 2);
+}
+
+.san-ripples::after {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 4px;
+  height: 4px;
+  margin: -2px 0 0 -2px;
+  border-radius: 50%;
+  background: var(--san-text);
+  content: "";
+}
+
+/* 버튼 둘레의 파문: 가운데 점 없이 선만, 버튼 중심에 정확히 겹침 */
+.san-ripples-bare::after {
+  display: none;
+}
+
+.san-ripples-overlay {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  margin: calc(var(--size, 72px) / -2) 0 0 calc(var(--size, 72px) / -2);
+  pointer-events: none;
+}
+
+/* 버튼 안 아이콘: 한눈에 읽히는 크기 */
+/* 글자 없는 원형 알약 버튼 */
+.san-pill-icon {
+  padding: 0;
+}
+
+.san-icon {
+  flex: none;
+}
+
+.san-icon-lg {
+  width: 30px;
+  height: 30px;
+  stroke-width: 1.4;
+}
+
+.san-icon-md {
+  width: 28px;
+  height: 28px;
+  stroke-width: 1.35;
+}
+
+.san-pill-fill .san-ripples-bare > i {
+  border-color: var(--san-accent);
+}
+
+/* 큰 블러 오브젝트: 색과 온도만 남긴 원 */
+.san-orb {
+  position: absolute;
+  border-radius: 50%;
+  background:
+    radial-gradient(circle at 34% 30%, var(--san-orb-warm), transparent 62%),
+    radial-gradient(circle at 70% 72%, var(--san-orb-cool), transparent 64%),
+    var(--san-surface);
+  filter: blur(26px);
+  opacity: 0.78;
+  pointer-events: none;
+  animation: san-breathe calc(var(--san-breath) * 2) ease-in-out infinite;
+}
+
+/* 헤어라인 타원 (궤도) */
+.san-orbit-line {
+  position: absolute;
+  border: 0.75px solid var(--san-border-strong);
+  border-radius: 50%;
+  pointer-events: none;
+}
+
+@keyframes san-ripple {
+  0% {
+    opacity: 0.7;
+    transform: scale(1);
+  }
+  70%,
+  100% {
+    opacity: 0;
+    transform: scale(3.4);
+  }
+}
+
+@keyframes san-ripple-wide {
+  0% {
+    opacity: 0;
+    transform: scale(0.12);
+  }
+  18% {
+    opacity: 0.6;
+  }
+  100% {
+    opacity: 0;
+    transform: scale(1);
+  }
+}
+
+@keyframes san-breathe {
+  0%,
+  100% {
+    opacity: 0.62;
+    transform: scale(0.97);
+  }
+  50% {
+    opacity: 0.86;
+    transform: scale(1.03);
+  }
+}
+
+@keyframes san-pulse-soft {
+  50% {
+    opacity: 0.35;
+  }
+}
+
+.san-skeleton {
+  border-radius: var(--san-radius-md);
+  background: var(--san-surface);
+  animation: san-pulse-soft 2.4s ease-in-out infinite;
+}
+
+.san-no-scrollbar {
+  scrollbar-width: none;
+}
+
+.san-no-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .san-dot-live::after,
+  .san-ripples > i,
+  .san-orb,
+  .san-skeleton {
+    animation: none;
+  }
+
+  .san-ripples > i {
+    opacity: 0.35;
+    transform: scale(0.7);
+  }
+
+  .san-ripples > i:nth-child(3) {
+    transform: scale(1);
+  }
+
+  .san-pill,
+  .san-icon-btn,
+  .san-field-input {
+    transition: none;
+  }
+}

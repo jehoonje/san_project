@@ -1,0 +1,236 @@
+/* My Route 목록형: 한 줄 텍스트로만 흐르는 앰비언트 로그 */
+
+.scroller {
+  height: 100%;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: none;
+}
+
+.scroller::-webkit-scrollbar {
+  display: none;
+}
+
+.log {
+  --log-mono: ui-monospace, "SF Mono", "JetBrains Mono", Menlo, Consolas,
+    "Pretendard Variable", monospace;
+  --log-sans: "Pretendard Variable", "Pretendard", system-ui, sans-serif;
+  /* 작은 글씨는 대비를 우선: 데이터는 잉크 그대로, 보조만 한 톤 낮춤 */
+  --log-accent: var(--san-text);
+  --log-text: var(--san-text);
+  --log-muted: var(--san-text);
+  --log-faint: var(--san-text-muted);
+
+  max-width: 640px;
+  margin: 0 auto;
+  padding: 18px 18px 0;
+  color: var(--log-text);
+  font-variant-numeric: tabular-nums;
+}
+
+.summary {
+  margin: 0 0 22px;
+  padding: 0 10px;
+  color: var(--log-text);
+  font-family: var(--log-mono);
+  font-size: 10.5px;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+}
+
+.dot {
+  margin: 0 4px;
+  opacity: 0.5;
+}
+
+.list {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.routeEnd {
+  margin-bottom: 30px;
+}
+
+/* ── 한 줄 ─────────────────────────────── */
+
+.line {
+  display: grid;
+  grid-template-columns: 9.5ch minmax(0, 1fr) auto;
+  column-gap: 14px;
+  align-items: center;
+  width: 100%;
+  /* 구분선 없이 넉넉한 행 간격으로만 나눔 (터치 44pt) */
+  height: 44px;
+  padding: 0 10px;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  white-space: nowrap;
+  background: transparent;
+  border: 0;
+  border-radius: 12px;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+  transition:
+    background-color 360ms cubic-bezier(0.22, 1, 0.36, 1),
+    color 360ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.line:hover {
+  background: color-mix(in oklab, var(--log-text) 4%, transparent);
+}
+
+.line:active {
+  background: var(--san-surface);
+  transition-duration: 80ms;
+}
+
+.line:focus-visible {
+  outline: 1px solid color-mix(in oklab, var(--log-accent) 55%, transparent);
+  outline-offset: -1px;
+}
+
+.lead {
+  color: var(--log-muted);
+  font-family: var(--log-mono);
+  font-size: 11.5px;
+  letter-spacing: 0.02em;
+}
+
+.leadTime {
+  color: var(--log-faint);
+  text-align: right;
+}
+
+.main {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  min-width: 0;
+  overflow: hidden;
+}
+
+.clock {
+  flex: none;
+  font-family: var(--log-mono);
+  font-size: 11.5px;
+}
+
+.name {
+  flex: 0 1 auto;
+  min-width: 3em;
+  overflow: hidden;
+  font-family: var(--log-sans);
+  font-size: 13.5px;
+  font-weight: 400;
+  letter-spacing: 0;
+  text-overflow: ellipsis;
+}
+
+.region {
+  /* 공간이 모자라면 행정동이 가장 먼저 줄어듦 */
+  flex: 0 1000 auto;
+  min-width: 0;
+  overflow: hidden;
+  color: var(--log-faint);
+  font-family: var(--log-sans);
+  font-size: 12px;
+  text-overflow: ellipsis;
+}
+
+.faint {
+  flex: none;
+  color: var(--log-faint);
+  font-family: var(--log-sans);
+  font-size: 12px;
+}
+
+.meta {
+  display: flex;
+  gap: 8px;
+  color: var(--log-muted);
+  font-family: var(--log-mono);
+  font-size: 11.5px;
+}
+
+.meta .faint {
+  font-family: var(--log-mono);
+  font-size: 11.5px;
+}
+
+.new {
+  flex: none;
+  color: var(--log-accent);
+  font-family: var(--log-mono);
+  font-size: 9.5px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+}
+
+/* 처음 남긴 장소: 별빛 점 하나 */
+.new::before {
+  display: inline-block;
+  width: 5px;
+  height: 5px;
+  margin-right: 5px;
+  border-radius: 50%;
+  background: var(--san-star);
+  vertical-align: 1px;
+  content: "";
+}
+
+/* 루트 종료 줄은 또렷하게, 시작 줄은 한 톤 낮게 */
+.endLine .lead,
+.endLine .clock {
+  color: var(--log-text);
+}
+
+.endLine .meta {
+  color: var(--log-text);
+}
+
+.startLine {
+  opacity: 0.72;
+}
+
+.startLine:hover,
+.startLine:active {
+  opacity: 1;
+}
+
+/* 가장 최근 루트: 시각만 한 단계 또렷하게 */
+.latest .clock {
+  font-weight: 600;
+}
+
+.pending {
+  animation: breathe 1.6s ease-in-out infinite;
+}
+
+@keyframes breathe {
+  50% {
+    opacity: 0.3;
+  }
+}
+
+/* 좁은 화면: 장소 줄의 행정동은 생략 */
+@media (max-width: 360px) {
+  .placeLine .region {
+    display: none;
+  }
+}
+
+@media (hover: none) {
+  .line:hover {
+    background: transparent;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .pending {
+    animation: none;
+  }
+}

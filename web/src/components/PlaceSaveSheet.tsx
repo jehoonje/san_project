@@ -1,16 +1,25 @@
 "use client";
 
 import { useEffect, useId, useState } from "react";
-import { motion, useReducedMotion } from "motion/react";
+import { motion, useDragControls, useReducedMotion } from "motion/react";
+import { DURATION, EASE_AMBIENT, EASE_EXIT, scrimMotion } from "@/lib/motion";
 import { PLACE_CATEGORIES, type PlaceCategory } from "@/types/place";
 import {
   useNearbyPlaces,
   type NearbyPlaceCandidate,
 } from "@/hooks/useNearbyPlaces";
+import { WheelPicker, type WheelOption } from "@/components/WheelPicker";
 
 export type PlaceSheetState =
   | { status: "locating" }
-  | { status: "ready"; lat: number; lng: number; accuracy: number | null }
+  | {
+      status: "ready";
+      lat: number;
+      lng: number;
+      accuracy: number | null;
+      // 체류 감지로 연 경우: 머문 구간 정보
+      dwell?: { clusterId: number; startedAt: number; minutes: number };
+    }
   | { status: "error"; message: string };
 
 type PlaceSaveSheetProps = {
@@ -24,112 +33,21 @@ type PlaceSaveSheetProps = {
   onCancel: () => void;
 };
 
-const focusOutlineClass =
-  "focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#00bfff]";
-
-function CategoryIcon({ category }: { category: PlaceCategory }) {
-  const common = {
-    width: 21,
-    height: 21,
-    viewBox: "0 0 24 24",
-    fill: "none",
-    stroke: "currentColor",
-    strokeWidth: 1.7,
-    strokeLinecap: "round" as const,
-    strokeLinejoin: "round" as const,
-    "aria-hidden": true,
-  };
-
-  if (category === "cafe") {
-    return (
-      <svg {...common}>
-        <path d="M5 8h11v7a4 4 0 0 1-4 4H9a4 4 0 0 1-4-4V8Z" />
-        <path d="M16 10h1.5a2.5 2.5 0 0 1 0 5H16M4 22h15" />
-      </svg>
-    );
-  }
-
-  if (category === "restaurant") {
-    return (
-      <svg {...common}>
-        <path d="M6 3v7M3.5 3v4.5A2.5 2.5 0 0 0 6 10a2.5 2.5 0 0 0 2.5-2.5V3M6 10v11M15 3v18M15 3c4 2 5 7 0 10" />
-      </svg>
-    );
-  }
-
-  if (category === "bar") {
-    return (
-      <svg {...common}>
-        <path d="M4 4h16l-6.5 7.5V20M8 20h9M7 8h10" />
-      </svg>
-    );
-  }
-
-  if (category === "park") {
-    return (
-      <svg {...common}>
-        <path d="M12 22v-8M12 18l-4-4M12 16l4-4" />
-        <circle cx="12" cy="8" r="6" />
-      </svg>
-    );
-  }
-
-  if (category === "shop") {
-    return (
-      <svg {...common}>
-        <path d="M4 9h16v12H4V9ZM3 9l2-6h14l2 6M8 3 7 0M9 13h6" />
-      </svg>
-    );
-  }
-
-  if (category === "culture") {
-    return (
-      <svg {...common}>
-        <path d="M3 5c4-2 7-2 9 0v12c-2-2-5-2-9 0V5ZM21 5c-4-2-7-2-9 0v12c2-2 5-2 9 0V5Z" />
-        <path d="M6 9h3M15 9h3" />
-      </svg>
-    );
-  }
-
-  return (
-    <svg {...common}>
-      <circle cx="12" cy="12" r="7" />
-      <circle cx="12" cy="12" r="2" fill="currentColor" stroke="none" />
-    </svg>
-  );
-}
+const CATEGORY_OPTIONS: readonly WheelOption<PlaceCategory>[] =
+  PLACE_CATEGORIES.map((item) => ({ value: item.key, label: item.label }));
 
 function CloseIcon() {
   return (
-    <svg
-      width="20"
-      height="20"
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="1.8"
-      strokeLinecap="round"
-      aria-hidden="true"
-    >
-      <path d="m6 6 12 12M18 6 6 18" />
+    <svg className="san-icon" viewBox="0 0 24 24" aria-hidden="true">
+      <path d="m6.5 6.5 11 11M17.5 6.5l-11 11" />
     </svg>
   );
 }
 
 function CheckIcon() {
   return (
-    <svg
-      width="16"
-      height="16"
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="2.2"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      aria-hidden="true"
-    >
-      <path d="m5 12 4 4L19 6" />
+    <svg className="san-icon" viewBox="0 0 24 24" aria-hidden="true">
+      <path d="m6 12.5 4 4 8-9" />
     </svg>
   );
 }
@@ -144,7 +62,9 @@ export function PlaceSaveSheet({
   const titleId = useId();
   const inputId = useId();
   const [name, setName] = useState("");
-  const [category, setCategory] = useState<PlaceCategory | null>(null);
+  // 휠은 늘 한 줄을 가리키므로, 중립적인 "기타"에서 시작
+  const [category, setCategory] = useState<PlaceCategory>("etc");
+  const dragControls = useDragControls();
   const [selectedId, setSelectedId] = useState<string | null>(null);
 
   const nearby = useNearbyPlaces(
@@ -153,8 +73,8 @@ export function PlaceSaveSheet({
   );
 
   const trimmed = name.trim();
-  const canSave =
-    state.status === "ready" && trimmed.length > 0 && category !== null;
+  const canSave = state.status === "ready" && trimmed.length > 0;
+  const dwell = state.status === "ready" ? (state.dwell ?? null) : null;
 
   useEffect(() => {
     function onKeyDown(event: KeyboardEvent) {
@@ -167,7 +87,7 @@ export function PlaceSaveSheet({
 
   function handleSubmit(event: React.FormEvent) {
     event.preventDefault();
-    if (!canSave || category === null) return;
+    if (!canSave) return;
     onSave(trimmed, category, selectedId);
   }
 
@@ -182,21 +102,11 @@ export function PlaceSaveSheet({
     setSelectedId(null);
   }
 
-  const locationTone =
-    state.status === "ready" && state.accuracy !== null && state.accuracy > 50
-      ? "bg-[#f1a447]"
-      : state.status === "error"
-        ? "bg-[#ff715c]"
-        : "bg-[#71d08c]";
-
   return (
     <motion.div
-      className="fixed inset-0 z-[60] flex items-end justify-center bg-black/70 backdrop-blur-md sm:items-center sm:p-4"
+      className="san-scrim-layer fixed inset-0 z-[60] flex items-end justify-center sm:items-center sm:p-4"
       role="presentation"
-      initial={{ opacity: reducedMotion ? 1 : 0 }}
-      animate={{ opacity: 1 }}
-      exit={{ opacity: reducedMotion ? 1 : 0 }}
-      transition={{ duration: reducedMotion ? 0 : 0.22 }}
+      {...scrimMotion(reducedMotion)}
       onMouseDown={(event) => {
         if (event.target === event.currentTarget) onCancel();
       }}
@@ -206,132 +116,128 @@ export function PlaceSaveSheet({
         role="dialog"
         aria-modal="true"
         aria-labelledby={titleId}
-        className="relative flex max-h-[min(86dvh,760px)] w-full max-w-none flex-col overflow-hidden rounded-t-[28px] border border-b-0 border-white/10 bg-[linear-gradient(145deg,rgba(14,23,34,.97),rgba(5,11,20,.99))] text-white shadow-[0_-24px_80px_rgba(0,0,0,0.55)] backdrop-blur-2xl sm:max-w-[480px] sm:rounded-[28px] sm:border-b"
-        initial={{ y: reducedMotion ? 0 : "100%" }}
-        animate={{ y: 0 }}
-        exit={{ y: reducedMotion ? 0 : "100%" }}
-        transition={
+        className="san-sheet relative flex max-h-[min(90dvh,780px)] w-full max-w-none flex-col overflow-hidden sm:max-w-[480px] sm:rounded-[28px]"
+        initial={
           reducedMotion
+            ? { opacity: 0 }
+            : { opacity: 0, y: 48, filter: "blur(12px)" }
+        }
+        animate={{
+          y: 0,
+          opacity: 1,
+          filter: "blur(0px)",
+          transition: reducedMotion
             ? { duration: 0 }
-            : { type: "spring", stiffness: 300, damping: 31, mass: 0.9 }
+            : { duration: DURATION.enter + 0.06, ease: EASE_AMBIENT },
+        }}
+        exit={
+          reducedMotion
+            ? { opacity: 0, transition: { duration: 0 } }
+            : {
+                opacity: 0,
+                y: 28,
+                filter: "blur(8px)",
+                transition: { duration: 0.26, ease: EASE_EXIT },
+              }
         }
         drag={reducedMotion ? false : "y"}
+        dragControls={dragControls}
+        dragListener={false}
         dragConstraints={{ top: 0, bottom: 0 }}
         dragElastic={{ top: 0, bottom: 0.35 }}
         onDragEnd={(_, info) => {
           if (info.offset.y > 110 || info.velocity.y > 850) onCancel();
         }}
       >
-        <div className="flex justify-center pb-1 pt-3" aria-hidden="true">
-          <span className="h-1 w-9 rounded-full bg-white/20" />
-        </div>
-
-        <header className="flex items-start justify-between px-5 pb-4 pt-2">
-          <div>
-            <div
-              className="mb-3 h-px w-10 bg-[#00bfff]/70"
-              aria-hidden="true"
-            />
-            <p className="mb-1 text-[11px] font-bold uppercase tracking-[0.2em] text-[#00bfff]">
-              PLACE
-            </p>
-            <h2
-              id={titleId}
-              className="text-[22px] font-semibold tracking-[-0.025em]"
-            >
-              이 장소를 기억할까요?
-            </h2>
+        {/* 손잡이와 머리말을 잡고 내리면 닫힘 (휠 스크롤과 겹치지 않게) */}
+        <div
+          className="touch-none"
+          onPointerDown={(event) => dragControls.start(event)}
+        >
+          <div className="pb-1 pt-3" aria-hidden="true">
+            <span className="san-grabber" />
           </div>
 
-          <button
-            type="button"
-            onClick={onCancel}
-            aria-label="장소 저장 닫기"
-            className={`grid h-11 w-11 shrink-0 place-items-center rounded-full text-[#8fa3b8] transition-colors hover:bg-[#00bfff]/10 hover:text-white active:scale-90 ${focusOutlineClass}`}
-          >
-            <CloseIcon />
-          </button>
-        </header>
-
-        <div className="min-h-0 flex-1 overflow-x-hidden overflow-y-auto overscroll-contain px-5 pb-5 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
-          <section
-            aria-label="위치 상태"
-            className="flex min-h-12 items-center gap-3 border-y border-white/[0.08] py-3"
-          >
-            {state.status === "locating" ? (
-              <span className="relative h-2.5 w-2.5 shrink-0">
-                <span className="absolute inset-0 animate-ping rounded-full bg-[#00bfff]/60" />
-                <span className="absolute inset-[2px] rounded-full bg-[#00bfff]" />
-              </span>
-            ) : (
-              <span
-                className={`h-2 w-2 shrink-0 rounded-full ${locationTone}`}
-              />
-            )}
-
-            <div className="min-w-0 flex-1">
-              {state.status === "locating" && (
-                <p className="text-[13px] text-[#8fa3b8]">
-                  현재 위치를 확인하고 있어요
-                </p>
-              )}
-              {state.status === "ready" && (
-                <p className="text-[13px] text-[#8fa3b8]">
-                  위치 확인됨
-                  {state.accuracy !== null && (
-                    <span className="ml-2 text-[#5f7387]">
-                      오차 약 {Math.round(state.accuracy)}m
-                    </span>
-                  )}
-                </p>
-              )}
-              {state.status === "error" && (
-                <p className="truncate text-[13px] text-[#ff9c8d]">
-                  {state.message}
-                </p>
-              )}
+          <header className="flex items-start justify-between px-6 pb-5 pt-3">
+            <div>
+              <p className="san-eyebrow flex items-center gap-2">
+                <span className="san-dot san-dot-star" aria-hidden="true" />
+                {dwell ? `STAY · ${dwell.minutes} MIN` : "PLACE"}
+              </p>
+              <h2 id={titleId} className="san-title mt-2 text-[22px]">
+                장소 저장
+              </h2>
             </div>
 
+            <button
+              type="button"
+              onClick={onCancel}
+              onPointerDown={(event) => event.stopPropagation()}
+              aria-label="장소 저장 닫기"
+              className="san-icon-btn san-icon-btn-plain -mr-2 -mt-1"
+            >
+              <CloseIcon />
+            </button>
+          </header>
+        </div>
+
+        <div className="san-no-scrollbar min-h-0 flex-1 overflow-y-auto overflow-x-hidden overscroll-contain px-6 pb-6">
+          <section
+            aria-label="위치 상태"
+            className={`flex items-center gap-3 ${state.status === "ready" ? "" : "min-h-11"}`}
+          >
+            {state.status === "locating" && (
+              <>
+                <span className="san-dot san-dot-live" aria-hidden="true" />
+                <p className="m-0 text-[13px] text-san-text">
+                  위치 확인 중
+                </p>
+              </>
+            )}
+
             {state.status === "error" && (
-              <button
-                type="button"
-                onClick={onRetry}
-                className={`min-h-11 shrink-0 rounded-full px-3 text-[13px] font-semibold text-[#00bfff] transition-colors hover:text-[#33ccff] active:opacity-60 ${focusOutlineClass}`}
-              >
-                다시 시도
-              </button>
+              <>
+                <span className="san-dot bg-san-error" aria-hidden="true" />
+                <p className="m-0 min-w-0 flex-1 truncate text-[13px] text-san-error">
+                  {state.message}
+                </p>
+                <button
+                  type="button"
+                  onClick={onRetry}
+                  className="san-pill min-h-11 px-4 text-[13px]"
+                >
+                  다시 찾기
+                </button>
+              </>
             )}
           </section>
 
           {state.status === "ready" && nearby.status === "loading" && (
-            <div className="mt-5" role="status" aria-label="주변 장소 검색 중">
-              <div className="mb-3 h-3 w-20 animate-pulse rounded-full bg-white/[0.08]" />
-              <div className="space-y-2">
-                {[0, 1].map((item) => (
-                  <div
-                    key={item}
-                    className="h-14 animate-pulse rounded-[20px] border border-white/[0.06] bg-white/[0.04]"
-                  />
-                ))}
-              </div>
+            <div
+              className="mt-6 flex items-center gap-4"
+              role="status"
+              aria-label="주변 장소 검색 중"
+            >
+              <span className="san-ripples" style={{ ["--size" as string]: "40px" }}>
+                <i />
+                <i />
+                <i />
+              </span>
+              <p className="m-0 text-[13px] text-san-text">주변 장소 검색 중</p>
             </div>
           )}
 
           {nearby.status === "done" && nearby.places.length > 0 && (
-            <section className="mt-5" aria-labelledby={`${titleId}-nearby`}>
-              <div className="mb-2.5 flex items-center justify-between">
-                <h3
-                  id={`${titleId}-nearby`}
-                  className="text-[12px] font-medium tracking-[0.08em] text-[#5f7387]"
-                >
-                  가까운 장소
+            <section className="mt-6" aria-labelledby={`${titleId}-nearby`}>
+              <div className="mb-2 flex items-center justify-between">
+                <h3 id={`${titleId}-nearby`} className="san-eyebrow">
+                  NEARBY
                 </h3>
-                <span className="text-[12px] tabular-nums text-[#5f7387]">
-                  200m
-                </span>
+                <span className="san-data">200 m</span>
               </div>
 
-              <ul className="divide-y divide-white/[0.07]">
+              {/* 구분선 없이 넉넉한 행 간격으로만 */}
+              <ul className="m-0 list-none space-y-1 p-0">
                 {nearby.places.slice(0, 4).map((place) => {
                   const selected = selectedId === place.providerId;
 
@@ -341,44 +247,27 @@ export function PlaceSaveSheet({
                         type="button"
                         onClick={() => handlePickCandidate(place)}
                         aria-pressed={selected}
-                        className={`group flex min-h-[58px] w-full items-center gap-3 rounded-xl text-left active:opacity-65 ${focusOutlineClass}`}
+                        className={`flex min-h-[56px] w-full items-center gap-3 rounded-[22px] border-0 px-4 text-left transition-colors duration-500 ease-ambient ${
+                          selected ? "bg-san-surface" : "bg-transparent"
+                        }`}
                       >
-                        <span
-                          className={[
-                            "grid h-9 w-9 shrink-0 place-items-center rounded-full transition-colors",
-                            selected
-                              ? "bg-[#00bfff] text-[#04121c]"
-                              : "bg-white/[0.05] text-[#8fa3b8] group-hover:bg-[#00bfff]/10 group-hover:text-[#33ccff]",
-                          ].join(" ")}
-                        >
-                          <CategoryIcon category={place.category} />
-                        </span>
-
                         <span className="min-w-0 flex-1">
-                          <span
-                            className={[
-                              "block truncate text-[14px] font-medium",
-                              selected ? "text-white" : "text-neutral-200",
-                            ].join(" ")}
-                          >
+                          <span className="block truncate text-[15px] text-san-text">
                             {place.name}
                           </span>
-                          <span className="mt-0.5 block truncate text-[12px] text-[#5f7387]">
+                          <span className="mt-0.5 block truncate text-[12px] text-san-text opacity-80">
                             {place.categoryName.split(" > ").slice(-1)[0]}
                           </span>
                         </span>
 
-                        <span className="shrink-0 text-[12px] tabular-nums text-[#5f7387]">
-                          {place.distanceMeters}m
+                        <span className="san-data shrink-0">
+                          {place.distanceMeters} m
                         </span>
 
                         <span
-                          className={[
-                            "grid h-5 w-5 shrink-0 place-items-center rounded-full border transition-colors",
-                            selected
-                              ? "border-[#00bfff] bg-[#00bfff] text-[#04121c]"
-                              : "border-white/15 text-transparent",
-                          ].join(" ")}
+                          className={`grid h-5 w-5 shrink-0 place-items-center text-san-text transition-opacity duration-300 ${
+                            selected ? "opacity-100" : "opacity-0"
+                          }`}
                           aria-hidden="true"
                         >
                           <CheckIcon />
@@ -392,18 +281,18 @@ export function PlaceSaveSheet({
           )}
 
           {nearby.status === "done" && nearby.places.length === 0 && (
-            <p className="mt-5 text-[13px] leading-relaxed text-[#5f7387]">
-              가까운 추천 장소가 없어요. 이름을 직접 입력해 주세요.
+            <p className="mt-6 text-[13px] leading-relaxed text-san-text">
+              주변 장소가 없어요. 이름을 직접 입력해 주세요.
             </p>
           )}
 
           {nearby.status === "error" && (
-            <p className="mt-5 text-[13px] leading-relaxed text-[#5f7387]">
-              주변 장소를 불러오지 못했어요. 직접 입력은 계속할 수 있어요.
+            <p className="mt-6 text-[13px] leading-relaxed text-san-text">
+              주변 장소를 불러오지 못했어요. 이름을 직접 입력해 주세요.
             </p>
           )}
 
-          <div className="mt-5">
+          <div className="mt-6">
             <label htmlFor={inputId} className="sr-only">
               장소 이름
             </label>
@@ -414,54 +303,30 @@ export function PlaceSaveSheet({
               maxLength={60}
               placeholder="장소 이름"
               autoComplete="off"
-              className="h-14 w-full rounded-full bg-[#0a121c] px-[22px] text-[16px] font-medium text-white caret-[#00bfff] shadow-[inset_0_0_0_1px_rgba(255,255,255,0.10)] outline-none transition placeholder:text-[#5f7387] focus:bg-[#0a121c] focus:shadow-[inset_0_0_0_1px_rgba(0,191,255,0.6),0_0_0_4px_rgba(0,191,255,0.15)]"
+              className="san-field-input"
             />
           </div>
 
-          <fieldset className="mt-5 min-w-0">
-            <legend className="mb-3 text-[12px] font-medium tracking-[0.08em] text-[#5f7387]">
-              카테고리
-            </legend>
-
-            <div className="grid grid-cols-4 gap-2">
-              {PLACE_CATEGORIES.map((item) => {
-                const selected = category === item.key;
-
-                return (
-                  <motion.button
-                    key={item.key}
-                    type="button"
-                    aria-pressed={selected}
-                    onClick={() => setCategory(item.key)}
-                    whileTap={reducedMotion ? undefined : { scale: 0.94 }}
-                    className={[
-                      "flex min-h-[68px] min-w-0 flex-col items-center justify-center gap-1.5 rounded-[20px] border px-1 text-[12px] font-medium transition-colors",
-                      focusOutlineClass,
-                      selected
-                        ? "border-[#00bfff] bg-[#00bfff] font-semibold text-[#04121c] shadow-[0_10px_28px_rgba(0,191,255,0.25)]"
-                        : "border-white/[0.08] bg-[#0e1722] text-[#8fa3b8] hover:border-[#00bfff]/30 hover:bg-[#00bfff]/10 hover:text-white",
-                    ].join(" ")}
-                  >
-                    <CategoryIcon category={item.key} />
-                    <span className="w-full truncate text-center">
-                      {item.label}
-                    </span>
-                  </motion.button>
-                );
-              })}
-            </div>
+          <fieldset className="m-0 mt-7 min-w-0 border-0 p-0">
+            <legend className="san-eyebrow mb-3 p-0">CATEGORY</legend>
+            <WheelPicker
+              label="장소 카테고리"
+              options={CATEGORY_OPTIONS}
+              value={category}
+              onChange={setCategory}
+              rows={3}
+            />
           </fieldset>
         </div>
 
-        <footer className="border-t border-white/[0.08] bg-[#050b14]/40 px-5 pb-[max(20px,env(safe-area-inset-bottom))] pt-4 backdrop-blur-xl">
-          <motion.button
+        <footer className="px-6 pb-[max(22px,env(safe-area-inset-bottom))] pt-2">
+          <button
             type="submit"
             disabled={!canSave}
-            whileTap={canSave && !reducedMotion ? { scale: 0.98 } : undefined}
-            className={`flex h-14 w-full items-center justify-center rounded-full bg-[#00bfff] text-[15px] font-extrabold tracking-[0.04em] text-[#04121c] shadow-[0_10px_28px_rgba(0,191,255,0.25)] transition hover:bg-[#33ccff] disabled:cursor-not-allowed disabled:bg-white/[0.06] disabled:text-[#5f7387] disabled:shadow-none ${focusOutlineClass}`}
+            className="san-pill san-pill-fill h-14 w-full text-[15px]"
           >
-            장소 저장
-          </motion.button>
+            저장
+          </button>
         </footer>
       </motion.form>
     </motion.div>

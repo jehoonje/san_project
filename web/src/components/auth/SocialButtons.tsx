@@ -12,30 +12,19 @@ type SocialButtonsProps = {
   ) => void;
 };
 
+// 브랜드 색 대신 잉크 한 색의 라인 마크만 둡니다.
 function GoogleIcon() {
   return (
-    <span
-      className="san-google-mark"
-      aria-hidden="true"
-    >
-      G
-    </span>
+    <svg className="san-icon" viewBox="0 0 24 24" aria-hidden="true">
+      <path d="M20 12.2H12.4M20 12.2a8 8 0 1 1-2.5-6" />
+    </svg>
   );
 }
 
 function KakaoIcon() {
   return (
-    <svg
-      className="san-kakao-mark"
-      width="21"
-      height="21"
-      viewBox="0 0 24 24"
-      aria-hidden="true"
-    >
-      <path
-        fill="currentColor"
-        d="M12 3C6.5 3 2 6.5 2 10.8c0 2.8 1.9 5.3 4.8 6.7l-1.2 4.1c-.1.4.3.7.6.5l4.8-3.3c.3 0 .7.1 1 .1 5.5 0 10-3.5 10-8.1S17.5 3 12 3Z"
-      />
+    <svg className="san-icon" viewBox="0 0 24 24" aria-hidden="true">
+      <path d="M12 4.5c-4.7 0-8.5 2.9-8.5 6.6 0 2.3 1.5 4.3 3.8 5.5l-.9 3.4 3.9-2.5c.5.1 1.1.1 1.7.1 4.7 0 8.5-2.9 8.5-6.5S16.7 4.5 12 4.500Z" />
     </svg>
   );
 }

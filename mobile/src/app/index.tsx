@@ -1,14 +1,26 @@
 // mobile/src/app/index.tsx
 import { useEffect, useRef, useState } from "react";
-import { StyleSheet, SafeAreaView, Alert } from "react-native";
+import {
+  StyleSheet,
+  SafeAreaView,
+  Alert,
+  Vibration,
+  useColorScheme,
+} from "react-native";
 import { WebView, WebViewMessageEvent } from "react-native-webview";
+import * as Haptics from "expo-haptics";
 import * as Location from "expo-location";
 import * as WebBrowser from "expo-web-browser";
 import * as Linking from "expo-linking";
 
 WebBrowser.maybeCompleteAuthSession();
 
-const WEB_URL = "https://san-project-80vfbfqlh-jehoonjes-projects.vercel.app/";
+const WEB_URL = "https://san-project-mc4fa4q60-jehoonjes-projects.vercel.app/";
+
+/** 이보다 부정확한(m) 좌표는 기록하지 않음 */
+const MAX_ACCURACY_M = 30;
+/** 사람 기준 이동 속도 상한(m/s). 이보다 빠르면 GPS 튐으로 보고 버림 */
+const MAX_SPEED_MPS = 12;
 
 type TrackingStatus = "idle" | "recording" | "paused";
 
@@ -19,9 +31,27 @@ type RecordedPoint = {
   accuracy: number | null;
 };
 
+// react-native-webview 14.0.1 타입 버그 우회: WebView<P = undefined>가 props를 never로 만듦
+// eslint-disable-next-line @typescript-eslint/no-empty-object-type
+type WebViewRef = WebView<{}>;
+
+/** 두 좌표 사이 거리(m) */
+function distanceM(a: RecordedPoint, b: RecordedPoint): number {
+  const R = 6371000;
+  const toRad = (d: number) => (d * Math.PI) / 180;
+  const dLat = toRad(b.lat - a.lat);
+  const dLng = toRad(b.lng - a.lng);
+  const h =
+    Math.sin(dLat / 2) ** 2 +
+    Math.cos(toRad(a.lat)) * Math.cos(toRad(b.lat)) * Math.sin(dLng / 2) ** 2;
+  return 2 * R * Math.asin(Math.sqrt(Math.min(1, Math.max(0, h))));
+}
+
 export default function Index() {
-  const webviewRef = useRef<WebView>(null);
-  const [status, setStatus] = useState<TrackingStatus>("idle");
+  const colorScheme = useColorScheme();
+  const webviewRef = useRef<WebViewRef>(null);
+  // 상태 값은 앱에서 읽지 않고(웹에 STATUS_ACK로만 전달) setter만 사용
+  const [, setStatus] = useState<TrackingStatus>("idle");
   const recordedPointsRef = useRef<RecordedPoint[]>([]);
   const locationSubscriptionRef = useRef<Location.LocationSubscription | null>(
     null
@@ -188,8 +218,9 @@ export default function Index() {
     locationSubscriptionRef.current = await Location.watchPositionAsync(
       {
         accuracy: Location.Accuracy.BestForNavigation,
-        timeInterval: 2000,
-        distanceInterval: 5,
+        // timeInterval은 Android 전용. iOS는 distanceInterval 기준으로 갱신됨
+        timeInterval: 1000,
+        distanceInterval: 1,
       },
       (location) => {
         const point: RecordedPoint = {
@@ -199,13 +230,25 @@ export default function Index() {
           accuracy: location.coords.accuracy,
         };
 
-        recordedPointsRef.current.push(point);
+        // 1) 부정확한 좌표 제외
+        if (point.accuracy != null && point.accuracy > MAX_ACCURACY_M) {
+          return;
+        }
+
+        // 2) 순간이동(GPS 튐) 제외: 직전 기록 대비 비정상적으로 빠른 이동
+        const points = recordedPointsRef.current;
+        const prev = points[points.length - 1];
+        if (prev) {
+          const dtSec = Math.max((point.timestamp - prev.timestamp) / 1000, 1);
+          if (distanceM(prev, point) / dtSec > MAX_SPEED_MPS) {
+            return;
+          }
+        }
+
+        points.push(point);
         lastKnownPointRef.current = point;
 
-        console.log(
-          `[APP] 좌표 기록 #${recordedPointsRef.current.length}:`,
-          point
-        );
+        console.log(`[APP] 좌표 기록 #${points.length}:`, point);
 
         sendToWeb({
           type: "LOCATION_UPDATE",
@@ -258,6 +301,31 @@ export default function Index() {
         handleWebReady();
       }
 
+      // 근처 신호: 손 흔들기·교차를 진동으로 알림
+      if (data.type === "HAPTIC") {
+        // 지구본을 돌릴 때의 짧은 틱 / 구역 단계가 바뀔 때의 가벼운 탭
+        if (data.style === "tick") {
+          void Haptics.selectionAsync().catch(() => undefined);
+        } else if (data.style === "level") {
+          void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(
+            () => undefined,
+          );
+        } else {
+          Vibration.vibrate(
+            data.style === "crossing"
+              ? [0, 60, 90, 60, 90, 180]
+              : data.style === "wave"
+                ? [0, 40, 80, 40]
+                : 25,
+          );
+        }
+      }
+
+      // 한 곳에 오래 머물러 웹이 장소 저장을 제안할 때: 약하게 두 번
+      if (data.type === "DWELL_DETECTED") {
+        Vibration.vibrate([0, 30, 120, 30]);
+      }
+
       if (
         data.type === "PLACE_LOCATION_REQUEST" &&
         typeof data.requestId === "string"
@@ -274,25 +342,38 @@ export default function Index() {
   }
 
   return (
-    <SafeAreaView style={styles.container}>
-      <WebView
+    <SafeAreaView
+      style={[
+        styles.container,
+        { backgroundColor: colorScheme === "dark" ? INK : PAPER },
+      ]}
+    >
+      <WebView<{}>
         ref={webviewRef}
         source={{ uri: WEB_URL }}
-        style={styles.webview}
+        style={[
+          styles.webview,
+          { backgroundColor: colorScheme === "dark" ? INK : PAPER },
+        ]}
         originWhitelist={["*"]}
         javaScriptEnabled
         domStorageEnabled
-        injectedJavaScriptBeforeContentLoaded={
-          __DEV__
-            ? `window.localStorage.setItem('san-dev-walk','1'); true;`
-            : undefined
-        }
+        injectedJavaScriptBeforeContentLoaded={`
+          window.__SAN_APP_REDIRECT__ = ${JSON.stringify(redirectUri)};
+          ${__DEV__ ? "window.localStorage.setItem('san-dev-walk','1');" : ""}
+          true;
+        `}
         onMessage={handleWebMessage}
         onLoadEnd={handleWebViewLoadEnd}
       />
     </SafeAreaView>
   );
 }
+
+// 웹(globals.css)의 --san-background 와 같은 라이트/다크 바탕색.
+// 웹뷰가 뜨기 전이나 가장자리에 흰 여백이 비치지 않게 합니다.
+const PAPER = "#F2F2EF";
+const INK = "#0E1117";
 
 const styles = StyleSheet.create({
   container: {

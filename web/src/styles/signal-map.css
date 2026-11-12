@@ -1,0 +1,122 @@
+/*
+ * 지도 위 근처 산책자: 흐릿한 아바타 아래로 번지는 파문.
+ * 버튼 자체는 투명한 터치 영역이고, 아바타는 three.js 레이어가 그립니다.
+ */
+
+.san-peer {
+  position: relative;
+  display: block;
+  width: 72px;
+  height: 148px;
+  padding: 0;
+  background: transparent;
+  border: 0;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+  transition: opacity 900ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.san-peer[data-leaving="true"] {
+  opacity: 0;
+  pointer-events: none;
+}
+
+.san-peer:focus-visible {
+  outline: 1px solid var(--san-border-strong);
+  outline-offset: -6px;
+  border-radius: 36px;
+}
+
+.san-peer-halo,
+.san-peer-halo::after {
+  position: absolute;
+  bottom: 0;
+  left: 50%;
+  width: 56px;
+  height: 22px;
+  margin-left: -28px;
+  border: 0.75px solid var(--san-text);
+  border-radius: 50%;
+  pointer-events: none;
+}
+
+/* 발밑에서 번지는 타원 파문 (기울어진 지도 평면처럼 납작하게) */
+.san-peer-halo {
+  opacity: 0;
+  animation: san-peer-ripple calc(var(--san-breath, 3s) * 1.2)
+    cubic-bezier(0.22, 1, 0.36, 1) infinite;
+}
+
+.san-peer-halo::after {
+  bottom: -0.75px;
+  content: "";
+  animation: inherit;
+  animation-delay: calc(var(--san-breath, 3s) * 0.6);
+}
+
+.san-peer-label {
+  position: absolute;
+  top: 100%;
+  left: 50%;
+  margin-top: 6px;
+  padding: 3px 9px;
+  border-radius: 999px;
+  color: var(--san-text);
+  background: var(--san-veil);
+  font:
+    500 9.5px/1.4 ui-monospace,
+    "SF Mono",
+    Menlo,
+    monospace;
+  letter-spacing: 0.16em;
+  white-space: nowrap;
+  transform: translateX(-50%);
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 500ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+/* 이름표는 고른 상대나 방금 인사를 건넨 상대에게만 */
+.san-peer[data-selected="true"] .san-peer-label,
+.san-peer[data-state="greeting"] .san-peer-label,
+.san-peer[data-state="crossed"] .san-peer-label {
+  opacity: 1;
+}
+
+/* 상대가 나에게 인사하는 중: 파문이 조금 더 잦아진다 */
+.san-peer[data-state="greeting"] .san-peer-halo {
+  animation-duration: 1.6s;
+}
+
+/* 서로 인사를 나눈 상대: 파문 대신 고요한 타원 하나 */
+.san-peer[data-state="crossed"] .san-peer-halo {
+  animation: none;
+  opacity: 0.45;
+}
+
+.san-peer[data-state="crossed"] .san-peer-halo::after {
+  display: none;
+}
+
+@keyframes san-peer-ripple {
+  0% {
+    opacity: 0.7;
+    transform: scale(0.3);
+  }
+  100% {
+    opacity: 0;
+    transform: scale(1.5);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .san-peer-halo,
+  .san-peer-halo::after {
+    animation: none;
+    opacity: 0.35;
+  }
+
+  .san-peer {
+    transition: none;
+  }
+}

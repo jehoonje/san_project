@@ -23,7 +23,7 @@ function AvatarInner({ url, name, size = 40 }: AvatarProps) {
         height={size}
         referrerPolicy="no-referrer"
         onError={() => setFailed(true)}
-        className="rounded-full bg-neutral-200 object-cover"
+        className="rounded-full bg-san-surface object-cover"
         style={{ width: size, height: size }}
       />
     );
@@ -31,7 +31,7 @@ function AvatarInner({ url, name, size = 40 }: AvatarProps) {
 
   return (
     <div
-      className="flex items-center justify-center rounded-full bg-[#ff5a36] font-semibold text-white"
+      className="flex items-center justify-center rounded-full bg-san-surface font-light text-san-text"
       style={{ width: size, height: size, fontSize: size * 0.42 }}
       aria-label={name}
     >

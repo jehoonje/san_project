@@ -1,180 +1,335 @@
 import { NextResponse } from "next/server";
-import { GoogleGenAI } from "@google/genai";
-import { createClient } from "@supabase/supabase-js";
+
+import {
+  createClient,
+  type SupabaseClient,
+} from "@supabase/supabase-js";
+
 import {
   analysisFingerprint,
   analyzePlaces,
   findMissingInsights,
   placeKeyOf,
-  type PlaceInsightRow,
   type RoutePlaceRow,
+  type PlaceInsightRow,
 } from "@/lib/server/placeAnalysis";
-import type { PersonalReport } from "@/types/analysis";
+
+import {
+  buildComparison,
+  reportFingerprint,
+} from "@/lib/server/tasteComparison";
+
+import {
+  generateReport,
+  sanitizeReport,
+  ReportGenerationError,
+} from "@/lib/server/reportGenerator";
+
+import {
+  fetchRecommendationFeedback,
+  type FeedbackAwareAnalysis,
+} from "@/lib/server/recommendationFeedback";
+
+import type {
+  CohortSnapshot,
+  ComparisonData,
+} from "@/types/comparison";
+
+import type {
+  PersonalReport,
+} from "@/types/analysis";
 
 export const runtime = "nodejs";
 export const maxDuration = 60;
 
-const MODEL = process.env.GEMINI_MODEL ?? "gemini-3.5-flash-lite";
+const MODEL =
+  process.env.GEMINI_MODEL ??
+  "gemini-3.5-flash-lite";
 
-const REPORT_SCHEMA = {
-  type: "object",
-  properties: {
-    title: { type: "string" },
-    summary: { type: "string" },
-    identity: { type: "string" },
-    categoryPreference: { type: "string" },
-    areaPreference: { type: "string" },
-    timePattern: { type: "string" },
-    moodAndSpending: { type: "string" },
-    favoriteMenus: { type: "string" },
-    recommendations: {
-      type: "array",
-      items: { type: "string" },
-    },
-    caveat: { type: "string" },
-  },
-  required: [
-    "title",
-    "summary",
-    "identity",
-    "categoryPreference",
-    "areaPreference",
-    "timePattern",
-    "moodAndSpending",
-    "favoriteMenus",
-    "recommendations",
-    "caveat",
-  ],
+const VERSION =
+  "comparison-v6-trace-observation";
+
+const PLACE_PAGE_SIZE = 1000;
+const INSIGHT_BATCH_SIZE = 500;
+
+type RequestOptions = {
+  force: boolean;
+  allowPartial: boolean;
 };
 
-function createAdminClient() {
-  const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
-  const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
-
-  if (!url || !serviceRoleKey) {
-    throw new Error("Supabase server environment variables are missing");
-  }
-
-  return createClient(url, serviceRoleKey, {
-    auth: { persistSession: false, autoRefreshToken: false },
+function jsonResponse(
+  body: unknown,
+  status = 200,
+) {
+  return NextResponse.json(body, {
+    status,
+    headers: {
+      "Cache-Control": "private, no-store",
+      Vary: "Authorization",
+    },
   });
 }
 
-function text(value: unknown, max: number) {
-  return typeof value === "string" ? value.trim().slice(0, max) : "";
+function adminClient(): SupabaseClient {
+  const url =
+    process.env.NEXT_PUBLIC_SUPABASE_URL;
+
+  const key =
+    process.env.SUPABASE_SERVICE_ROLE_KEY;
+
+  if (!url || !key) {
+    throw new Error(
+      "Supabase server configuration missing",
+    );
+  }
+
+  return createClient(url, key, {
+    auth: {
+      persistSession: false,
+      autoRefreshToken: false,
+    },
+  });
 }
 
-function sanitizeReport(raw: unknown): PersonalReport {
-  const value = raw as Record<string, unknown>;
+async function readOptions(
+  request: Request,
+): Promise<RequestOptions> {
+  const input: unknown = await request
+    .json()
+    .catch(() => null);
+
+  const body =
+    input &&
+    typeof input === "object" &&
+    !Array.isArray(input)
+      ? (input as Record<string, unknown>)
+      : {};
+
   return {
-    title: text(value?.title, 60),
-    summary: text(value?.summary, 500),
-    identity: text(value?.identity, 300),
-    categoryPreference: text(value?.categoryPreference, 300),
-    areaPreference: text(value?.areaPreference, 300),
-    timePattern: text(value?.timePattern, 300),
-    moodAndSpending: text(value?.moodAndSpending, 300),
-    favoriteMenus: text(value?.favoriteMenus, 300),
-    recommendations: Array.isArray(value?.recommendations)
-      ? value.recommendations
-          .filter((item): item is string => typeof item === "string")
-          .map((item) => item.trim().slice(0, 180))
-          .filter(Boolean)
-          .slice(0, 4)
-      : [],
-    caveat: text(value?.caveat, 300),
+    force: body.force === true,
+    allowPartial:
+      body.allowPartial === true,
   };
 }
 
-function emptyReportMessage(totalVisits: number) {
-  return totalVisits < 3
-    ? "저장된 방문이 3개 미만이라 아직 취향을 단정하기 어렵습니다."
-    : "일부 장소의 상세 정보가 없어 확인 가능한 기록만으로 분석했습니다.";
-}
+async function fetchPlaces(
+  admin: SupabaseClient,
+  userId: string,
+): Promise<RoutePlaceRow[]> {
+  const places: RoutePlaceRow[] = [];
 
-export async function POST(request: Request) {
-  try {
-    const supabaseAdmin = createAdminClient();
-    const token = request.headers
-      .get("authorization")
-      ?.replace(/^Bearer\s+/i, "");
-
-    if (!token) {
-      return NextResponse.json({ error: "unauthorized" }, { status: 401 });
-    }
-
-    const { data: auth, error: authError } =
-      await supabaseAdmin.auth.getUser(token);
-
-    if (authError || !auth.user) {
-      return NextResponse.json({ error: "unauthorized" }, { status: 401 });
-    }
-
-    const body = await request.json().catch(() => ({}));
-    const force = body?.force === true;
-    const allowPartial = body?.allowPartial === true;
-
-    const { data: rawPlaces, error: placesError } = await supabaseAdmin
+  for (
+    let offset = 0;
+    ;
+    offset += PLACE_PAGE_SIZE
+  ) {
+    const { data, error } = await admin
       .from("route_places")
       .select(
-        "id, route_id, name, category, lat, lng, dwell_minutes, saved_at, place_id, region_dong",
+        [
+          "id",
+          "route_id",
+          "name",
+          "category",
+          "lat",
+          "lng",
+          "dwell_minutes",
+          "saved_at",
+          "place_id",
+          "region_dong",
+        ].join(", "),
       )
-      .eq("user_id", auth.user.id)
-      .order("saved_at", { ascending: true });
+      .eq("user_id", userId)
+      .order("id", {
+        ascending: true,
+      })
+      .range(
+        offset,
+        offset + PLACE_PAGE_SIZE - 1,
+      );
 
-    if (placesError) throw placesError;
-    const places = (rawPlaces ?? []) as RoutePlaceRow[];
+    if (error) throw error;
 
-    const placeIds = [...new Set(places.map(placeKeyOf))];
-    let insights: PlaceInsightRow[] = [];
+    const rows =
+      (data ?? []) as unknown as RoutePlaceRow[];
 
-    if (placeIds.length > 0) {
-      const { data, error } = await supabaseAdmin
-        .from("place_insights")
-        .select("place_id, keywords, moods, signature_menus, fetched_at")
-        .in("place_id", placeIds);
+    places.push(...rows);
 
-      if (error) throw error;
-      insights = (data ?? []) as PlaceInsightRow[];
+    if (
+      rows.length < PLACE_PAGE_SIZE
+    ) {
+      break;
+    }
+  }
+
+  return places;
+}
+
+async function fetchInsights(
+  admin: SupabaseClient,
+  places: RoutePlaceRow[],
+): Promise<PlaceInsightRow[]> {
+  const ids = [
+    ...new Set(
+      places.map(placeKeyOf),
+    ),
+  ];
+
+  const insights: PlaceInsightRow[] = [];
+
+  for (
+    let index = 0;
+    index < ids.length;
+    index += INSIGHT_BATCH_SIZE
+  ) {
+    const { data, error } = await admin
+      .from("place_insights")
+      .select(
+        [
+          "place_id",
+          "keywords",
+          "moods",
+          "signature_menus",
+          "fetched_at",
+        ].join(", "),
+      )
+      .in(
+        "place_id",
+        ids.slice(
+          index,
+          index + INSIGHT_BATCH_SIZE,
+        ),
+      );
+
+    if (error) throw error;
+
+    insights.push(
+      ...(
+        (data ?? []) as unknown as PlaceInsightRow[]
+      ),
+    );
+  }
+
+  return insights;
+}
+
+function emptyComparison(): ComparisonData {
+  const now = new Date();
+
+  return {
+    asOf: now.toISOString(),
+
+    from: new Date(
+      now.getTime() -
+        30 * 24 * 60 * 60 * 1000,
+    ).toISOString(),
+
+    myVisits: 0,
+    categories: [],
+    times: [],
+    ready: false,
+  };
+}
+
+async function fetchComparison(
+  admin: SupabaseClient,
+  userId: string,
+  places: RoutePlaceRow[],
+): Promise<ComparisonData> {
+  const { data, error } =
+    await admin.rpc(
+      "taste_comparison_v1",
+      {
+        p_user_id: userId,
+      },
+    );
+
+  if (error) throw error;
+
+  if (!data) {
+    throw new Error(
+      "Comparison snapshot missing",
+    );
+  }
+
+  return buildComparison(
+    places,
+    data as CohortSnapshot,
+  );
+}
+
+export async function POST(
+  request: Request,
+) {
+  try {
+    const token = request.headers
+      .get("authorization")
+      ?.match(/^Bearer\s+(.+)$/i)?.[1]
+      ?.trim();
+
+    if (!token) {
+      return jsonResponse(
+        {
+          error: "unauthorized",
+        },
+        401,
+      );
     }
 
-    const analysis = analyzePlaces(places, insights);
-    const missingPlaces = findMissingInsights(places, insights);
+    const admin = adminClient();
 
-    if (missingPlaces.length > 0 && !allowPartial) {
-      return NextResponse.json({
-        status: "needs_enrichment",
-        analysis,
-        report: null,
-        generatedAt: null,
-        cached: false,
-        missingPlaces,
-      });
+    const {
+      data: auth,
+      error: authError,
+    } = await admin.auth.getUser(token);
+
+    if (
+      authError ||
+      !auth.user
+    ) {
+      return jsonResponse(
+        {
+          error: "unauthorized",
+        },
+        401,
+      );
     }
 
-    const fingerprint = analysisFingerprint(places, insights);
-    const { data: cached, error: cacheError } = await supabaseAdmin
-      .from("analysis_reports")
-      .select("report, generated_at, fingerprint")
-      .eq("user_id", auth.user.id)
-      .maybeSingle();
+    const userId = auth.user.id;
 
-    if (cacheError) throw cacheError;
-    if (!force && cached?.fingerprint === fingerprint) {
-      return NextResponse.json({
-        status: "ready",
-        analysis,
-        report: cached.report,
-        generatedAt: cached.generated_at,
-        cached: true,
-        missingPlaces,
-      });
-    }
+    const options =
+      await readOptions(request);
+
+    const places =
+      await fetchPlaces(
+        admin,
+        userId,
+      );
+
+    const insights =
+      await fetchInsights(
+        admin,
+        places,
+      );
+
+    const baseAnalysis =
+      analyzePlaces(
+        places,
+        insights,
+      );
+
+    const missingPlaces =
+      findMissingInsights(
+        places,
+        insights,
+      );
 
     if (places.length === 0) {
-      return NextResponse.json({
+      return jsonResponse({
         status: "ready",
-        analysis,
+        analysis: baseAnalysis,
+        comparison:
+          emptyComparison(),
         report: null,
         generatedAt: null,
         cached: false,
@@ -182,63 +337,202 @@ export async function POST(request: Request) {
       });
     }
 
-    const apiKey = process.env.GEMINI_API_KEY;
-    if (!apiKey) throw new Error("GEMINI_API_KEY is missing");
-
-    const prompt = [
-      "아래 방문 통계를 바탕으로 사용자의 장소 취향 리포트를 작성하세요.",
-      "검색 도구는 사용하지 마세요. 제공된 데이터 밖의 사실을 만들지 마세요.",
-      "표본이 적거나 값이 비어 있으면 그 한계를 caveat에 명확히 쓰세요.",
-      "질병, 소득, 정치 성향, 종교 등 민감한 특성을 추론하지 마세요.",
-      "친근하지만 과장하지 않는 한국어로 작성하세요.",
-      `표본 주의: ${emptyReportMessage(analysis.totalVisits)}`,
-      JSON.stringify(analysis),
-    ].join("\n");
-
-    const ai = new GoogleGenAI({ apiKey });
-    const interaction = (await ai.interactions.create({
-      model: MODEL,
-      input: prompt,
-      response_format: {
-        type: "text",
-        mime_type: "application/json",
-        schema: REPORT_SCHEMA,
-      },
-    } as never)) as unknown as Record<string, unknown>;
-
-    if (typeof interaction.output_text !== "string") {
-      throw new Error("Gemini output_text is missing");
+    if (
+      missingPlaces.length > 0 &&
+      !options.allowPartial
+    ) {
+      return jsonResponse({
+        status:
+          "needs_enrichment",
+        analysis: baseAnalysis,
+        report: null,
+        generatedAt: null,
+        cached: false,
+        missingPlaces,
+      });
     }
 
-    const report = sanitizeReport(JSON.parse(interaction.output_text));
-    const generatedAt = new Date().toISOString();
-    const { error: saveError } = await supabaseAdmin
+    const [
+      comparison,
+      recommendationFeedback,
+    ] = await Promise.all([
+      fetchComparison(
+        admin,
+        userId,
+        places,
+      ),
+
+      fetchRecommendationFeedback(
+        admin,
+        userId,
+        baseAnalysis,
+      ),
+    ]);
+
+    const analysis: FeedbackAwareAnalysis = {
+      ...baseAnalysis,
+      recommendationFeedback,
+    };
+
+    // フィードバックも含めてキャッシュを区別します。
+    const fingerprint =
+      reportFingerprint({
+        version: VERSION,
+        model: MODEL,
+
+        personal:
+          analysisFingerprint(
+            places,
+            insights,
+          ),
+
+        analysis,
+        comparison,
+      });
+
+    if (!options.force) {
+      const {
+        data: cached,
+        error: cacheError,
+      } = await admin
+        .from("analysis_reports")
+        .select(
+          "report, generated_at, fingerprint",
+        )
+        .eq(
+          "user_id",
+          userId,
+        )
+        .maybeSingle();
+
+      if (cacheError) {
+        throw cacheError;
+      }
+
+      if (
+        cached?.fingerprint ===
+          fingerprint &&
+        cached.report
+      ) {
+        let cachedReport:
+          | PersonalReport
+          | null = null;
+
+        try {
+          cachedReport =
+            sanitizeReport(
+              cached.report,
+            );
+        } catch {
+          cachedReport = null;
+        }
+
+        if (cachedReport) {
+          return jsonResponse({
+            status: "ready",
+            analysis,
+            comparison,
+            report: cachedReport,
+
+            generatedAt:
+              cached.generated_at,
+
+            cached: true,
+            missingPlaces,
+          });
+        }
+      }
+    }
+
+    const report =
+      await generateReport({
+        model: MODEL,
+        analysis,
+        comparison,
+
+        missingCount:
+          missingPlaces.length,
+      });
+
+    const generatedAt =
+      new Date().toISOString();
+
+    const {
+      error: saveError,
+    } = await admin
       .from("analysis_reports")
       .upsert(
         {
-          user_id: auth.user.id,
+          user_id: userId,
           fingerprint,
+
+          // 이번 생성에 사용한 피드백도 함께 보관합니다.
           stats: analysis,
+
           report,
           model: MODEL,
-          generated_at: generatedAt,
-          updated_at: generatedAt,
+
+          generated_at:
+            generatedAt,
+
+          updated_at:
+            generatedAt,
         },
-        { onConflict: "user_id" },
+        {
+          onConflict:
+            "user_id",
+        },
       );
 
-    if (saveError) throw saveError;
+    if (saveError) {
+      throw saveError;
+    }
 
-    return NextResponse.json({
+    return jsonResponse({
       status: "ready",
       analysis,
+      comparison,
       report,
       generatedAt,
       cached: false,
       missingPlaces,
     });
   } catch (error) {
-    console.error("analysis-report 실패:", error);
-    return NextResponse.json({ error: "analysis_failed" }, { status: 500 });
+    console.error(
+      "analysis-report 실패:",
+      error,
+    );
+
+    if (
+      error instanceof
+      ReportGenerationError
+    ) {
+      const status =
+        error.code ===
+        "report_timeout"
+          ? 504
+          : error.code ===
+              "report_rate_limited"
+            ? 503
+            : error.code ===
+                "report_configuration_missing"
+              ? 500
+              : 502;
+
+      return jsonResponse(
+        {
+          error: error.code,
+        },
+        status,
+      );
+    }
+
+    return jsonResponse(
+      {
+        error:
+          "analysis_failed",
+      },
+      500,
+    );
   }
 }

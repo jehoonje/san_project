@@ -8,24 +8,24 @@ import "@/styles/san-entry.css";
 const themeBootScript = `
 (function () {
   var root = document.documentElement;
-  var theme = "dark";
+  var theme = "light";
   try {
     var saved = window.localStorage.getItem("san-theme");
     if (saved === "dark" || saved === "light") {
       theme = saved;
     } else if (
       window.matchMedia &&
-      window.matchMedia("(prefers-color-scheme: light)").matches
+      window.matchMedia("(prefers-color-scheme: dark)").matches
     ) {
-      theme = "light";
+      theme = "dark";
     }
   } catch (e) {
-    theme = "dark";
+    theme = "light";
   }
   root.setAttribute("data-theme", theme);
   root.style.colorScheme = theme;
   var meta = document.querySelector('meta[name="theme-color"]');
-  if (meta) meta.setAttribute("content", theme === "dark" ? "#0d0b10" : "#f3ece7");
+  if (meta) meta.setAttribute("content", theme === "dark" ? "#0e1117" : "#f2f2ef");
 })();
 `;
 
@@ -51,10 +51,10 @@ export default function RootLayout({
   children,
 }: Readonly<{ children: React.ReactNode }>) {
   return (
-    <html lang="ko" data-theme="dark" suppressHydrationWarning>
+    <html lang="ko" data-theme="light" suppressHydrationWarning>
       <head>
-        <meta name="color-scheme" content="dark light" />
-        <meta name="theme-color" content="#0d0b10" />
+        <meta name="color-scheme" content="light dark" />
+        <meta name="theme-color" content="#f2f2ef" />
         <link
           rel="preload"
           href="/fonts/PretendardVariable.woff2"
@@ -62,7 +62,7 @@ export default function RootLayout({
           type="font/woff2"
           crossOrigin="anonymous"
         />
-        {/* BootIntroScreen의 "TIMSHEL" 파티클 샘플링용 Cinzel (해당 글자만 로드) */}
+        {/* 영문·숫자는 Inter, 한글은 Pretendard */}
         <link rel="preconnect" href="https://fonts.googleapis.com" />
         <link
           rel="preconnect"
@@ -72,7 +72,7 @@ export default function RootLayout({
         {/* eslint-disable-next-line @next/next/no-page-custom-font */}
         <link
           rel="stylesheet"
-          href="https://fonts.googleapis.com/css2?family=Cinzel:wght@700&text=TIMSHEL&display=swap"
+          href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500&display=swap"
         />
         <script dangerouslySetInnerHTML={{ __html: themeBootScript }} />
       </head>

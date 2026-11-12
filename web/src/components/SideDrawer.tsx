@@ -1,35 +1,73 @@
 "use client";
 
 import { useEffect, useId, useRef, useState } from "react";
-import { motion, useReducedMotion } from "motion/react";
+import { useReducedMotion } from "motion/react";
 
 import { Avatar } from "@/components/Avatar";
+import { CrossingLog } from "@/components/signal/CrossingLog";
 import { useProfile } from "@/hooks/useProfile";
+import { useTheme, type SanTheme } from "@/hooks/useTheme";
+import type { SignalStatus } from "@/hooks/useSignal";
 
 type SideDrawerProps = {
   open: boolean;
   email?: string | null;
+  /** 게스트 모드 여부 */
+  guest: boolean;
   onClose: () => void;
   onLogout: () => void;
+  /** 게스트 → 로그인 화면으로 */
+  onLogin: () => void;
+  signal: {
+    on: boolean;
+    status: SignalStatus;
+    callSign: string | null;
+    nearby: number;
+    onToggle: () => void;
+  };
+  /** 교차 로그의 주인 (계정 id 또는 게스트 id) */
+  ownerId: string | null;
 };
 
-const DURATION_MS = 380;
+const DURATION_MS = 460;
 const EASE = "cubic-bezier(0.22, 1, 0.36, 1)";
+
+const THEMES: { id: SanTheme; label: string }[] = [
+  { id: "light", label: "Light" },
+  { id: "dark", label: "Dark" },
+];
 
 export function SideDrawer({
   open,
   email,
+  guest,
   onClose,
   onLogout,
+  onLogin,
+  signal,
+  ownerId,
 }: SideDrawerProps) {
   const profile = useProfile();
+  const { theme, setTheme } = useTheme();
   const reducedMotion = Boolean(useReducedMotion());
   const dialogRef = useRef<HTMLDialogElement>(null);
   const [visible, setVisible] = useState(false);
   const titleId = useId();
 
-  const displayName = profile?.displayName ?? "러너";
-  const emailText = profile?.email ?? email ?? "이메일 정보 없음";
+  const displayName = guest ? "게스트" : (profile?.displayName ?? "산책자");
+  const emailText = guest
+    ? "기록은 이 기기에만 남아요"
+    : (profile?.email ?? email ?? "이메일 정보 없음");
+
+  const signalLine = !signal.on
+    ? "꺼져 있어요"
+    : signal.status === "live"
+      ? signal.nearby > 0
+        ? `근처에 ${signal.nearby}명`
+        : "근처에 아무도 없어요"
+      : signal.status === "error"
+        ? "연결되지 않았어요"
+        : "연결 중";
 
   useEffect(() => {
     const dialog = dialogRef.current;
@@ -89,12 +127,12 @@ export function SideDrawer({
         event.preventDefault();
         onClose();
       }}
-      className="fixed inset-0 m-0 h-dvh max-h-none w-full max-w-none overflow-clip border-0 bg-transparent p-0 text-white backdrop:bg-transparent"
+      className="fixed inset-0 m-0 h-dvh max-h-none w-full max-w-none overflow-clip border-0 bg-transparent p-0 text-san-text backdrop:bg-transparent"
     >
-      {/* 뒤 배경: 블러 없이 어둡게만 (iOS에서 blur + 투명도 전환은 깜빡임 원인) */}
+      {/* 뒤 배경: 단순 페이드 (iOS에서 blur + 투명도 전환은 깜빡임 원인) */}
       <div
         aria-hidden="true"
-        className="absolute inset-0 bg-black/65"
+        className="san-scrim-layer absolute inset-0"
         style={{
           opacity: visible ? 1 : 0,
           transition: `opacity ${duration}ms ${EASE}`,
@@ -102,131 +140,157 @@ export function SideDrawer({
         onClick={onClose}
       />
 
-      {/* 시트: px 기반이 아닌 translate3d(100%)만 사용, backdrop-filter 제거 */}
+      {/* 시트: 아래에서 흐림 속에 떠오르며 또렷해짐 */}
       <section
-        className="absolute inset-x-0 bottom-0 mx-auto max-h-[85dvh] max-w-xl overflow-y-auto rounded-t-[28px] border border-b-0 border-white/10 px-6 pt-3 shadow-[0_-16px_80px_rgba(0,0,0,0.4)]"
+        className="san-sheet san-no-scrollbar absolute inset-x-0 bottom-0 mx-auto max-h-[88dvh] max-w-xl overflow-y-auto px-6 pt-3"
         style={{
-          background:
-            "linear-gradient(145deg, rgba(29,33,38,.98), rgba(9,12,16,.99))",
-          paddingBottom: "calc(env(safe-area-inset-bottom, 0px) + 24px)",
-          transform: visible ? "translate3d(0,0,0)" : "translate3d(0,100%,0)",
+          paddingBottom: "calc(env(safe-area-inset-bottom, 0px) + 28px)",
+          transform: visible ? "translate3d(0,0,0)" : "translate3d(0,36px,0)",
           opacity: visible ? 1 : 0,
+          filter: visible || reducedMotion ? "blur(0px)" : "blur(10px)",
           visibility: visible || open ? "visible" : "hidden",
           willChange: "transform",
-          transition: `transform ${duration}ms ${EASE}, opacity ${duration}ms ${EASE}`,
+          transition: `transform ${duration}ms ${EASE}, opacity ${duration}ms ${EASE}, filter ${duration}ms ${EASE}`,
         }}
       >
-        <div
-          aria-hidden="true"
-          className="mx-auto mb-5 h-1 w-9 rounded-full bg-white/20"
-        />
+        <span aria-hidden="true" className="san-grabber mb-4" />
 
-        <header className="mb-6 flex items-center justify-between gap-4">
-          <h2 id={titleId} className="text-base font-semibold tracking-tight">
-            내 계정
+        <header className="mb-5 flex items-center justify-between gap-4">
+          <h2 id={titleId} className="san-eyebrow">
+            {guest ? "GUEST" : "ACCOUNT"}
           </h2>
 
-          <motion.button
+          <button
             type="button"
             aria-label="계정 메뉴 닫기"
             onClick={onClose}
-            whileTap={reducedMotion ? undefined : { scale: 0.94 }}
-            className="flex h-11 w-11 items-center justify-center rounded-full border border-white/10 bg-white/5 text-neutral-300 transition-colors hover:bg-white/10 hover:text-white focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white"
+            className="san-icon-btn san-icon-btn-plain -mr-3"
           >
-            <svg
-              width="20"
-              height="20"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="1.7"
-              strokeLinecap="round"
-              aria-hidden="true"
-            >
-              <path d="m6 6 12 12M18 6 6 18" />
+            <svg className="san-icon" viewBox="0 0 24 24" aria-hidden="true">
+              <path d="m6.5 6.5 11 11M17.5 6.5l-11 11" />
             </svg>
-          </motion.button>
+          </button>
         </header>
 
         <div className="flex items-center gap-4">
-          <div className="shrink-0 overflow-hidden rounded-full ring-1 ring-white/15">
+          <div className="shrink-0 overflow-hidden rounded-full">
             <Avatar
-              url={profile?.avatarUrl ?? null}
+              url={guest ? null : (profile?.avatarUrl ?? null)}
               name={displayName}
-              size={48}
+              size={52}
             />
           </div>
 
           <div className="min-w-0">
-            <p className="truncate text-base font-semibold text-white">
-              {displayName}
-            </p>
-            <p className="mt-1 truncate text-sm text-neutral-400">
+            <p className="san-title m-0 truncate">{displayName}</p>
+            <p className="m-0 mt-0.5 truncate text-[13px] text-san-text">
               {emailText}
             </p>
           </div>
         </div>
-{/* 
-        <section className="mt-7 border-t border-white/10 pt-5">
-          <div className="flex items-center justify-between gap-4">
-            <h3 className="text-sm font-medium text-neutral-200">카테고리</h3>
 
-            <span className="rounded-full border border-white/10 px-2.5 py-1 text-xs text-neutral-400">
-              준비 중
-            </span>
+        {/* 테마: 종이 / 먹 */}
+        <section className="mt-9" aria-label="화면 테마">
+          <h3 className="san-eyebrow">THEME</h3>
+          <div className="mt-3 flex gap-2" role="group">
+            {THEMES.map((item) => (
+              <button
+                key={item.id}
+                type="button"
+                className="san-pill flex-1"
+                aria-pressed={theme === item.id}
+                onClick={() => setTheme(item.id)}
+              >
+                {item.label}
+              </button>
+            ))}
           </div>
+        </section>
 
-          <p className="mt-3 text-sm leading-relaxed text-neutral-400">
-            카테고리 기능이 추가되면 이곳에서 관리할 수 있어요.
+        {/* 근처 신호 */}
+        <section className="mt-9" aria-label="근처 신호">
+          <h3 className="san-eyebrow">SIGNAL</h3>
+          <div className="mt-3 flex items-center justify-between gap-4">
+            <p className="m-0 flex min-w-0 items-center gap-2.5 text-[14px] text-san-text">
+              <span
+                className={`san-dot ${
+                  signal.on && signal.status === "live"
+                    ? "san-dot-live"
+                    : "san-dot-faint"
+                }`}
+                aria-hidden="true"
+              />
+              <span className="truncate">{signalLine}</span>
+            </p>
+            <button
+              type="button"
+              role="switch"
+              aria-checked={signal.on}
+              aria-label="근처 산책자와 서로 보이기"
+              className="san-pill min-h-11 shrink-0 px-5 text-[13px]"
+              aria-pressed={signal.on}
+              onClick={signal.onToggle}
+            >
+              {signal.on ? "켜짐" : "꺼짐"}
+            </button>
+          </div>
+          <p className="mt-3 text-[12.5px] leading-relaxed text-san-text">
+            정확한 위치 대신 대략적인 위치만 공유돼요. 근처 산책자의
+            아바타를 누르면 내 아바타가 그쪽을 보고 인사해요.
           </p>
-        </section> */}
 
-        <section className="mt-7 border-t border-white/10 pt-5">
-          <h3 className="text-sm font-medium text-neutral-200">지도 정보</h3>
+          {ownerId && (
+            <div className="mt-6">
+              <CrossingLog ownerId={ownerId} remote={!guest} />
+            </div>
+          )}
+        </section>
 
-          <p className="mt-3 text-xs leading-relaxed text-neutral-400">
+        <section className="mt-9">
+          <h3 className="san-eyebrow">MAP</h3>
+
+          <p className="mt-3 text-[12px] leading-relaxed text-san-text">
             지도 데이터 ©{" "}
             <a
               href="https://www.openstreetmap.org/copyright"
               target="_blank"
               rel="noopener noreferrer"
-              className="underline underline-offset-2 hover:text-white"
+              className="underline underline-offset-4"
             >
               OpenStreetMap contributors
             </a>
-            , 지도 스타일 ©{" "}
+            , 지도 타일 ©{" "}
             <a
               href="https://carto.com/about-carto/"
               target="_blank"
               rel="noopener noreferrer"
-              className="underline underline-offset-2 hover:text-white"
+              className="underline underline-offset-4"
             >
               CARTO
             </a>
           </p>
         </section>
 
-        <motion.button
-          type="button"
-          onClick={onLogout}
-          whileTap={reducedMotion ? undefined : { scale: 0.98 }}
-          className="mt-7 flex min-h-12 w-full items-center justify-center gap-2 rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-sm font-medium text-neutral-200 transition-colors hover:bg-white/10 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white"
-        >
-          <svg
-            width="18"
-            height="18"
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="currentColor"
-            strokeWidth="1.7"
-            strokeLinecap="round"
-            strokeLinejoin="round"
-            aria-hidden="true"
+        {guest ? (
+          <button
+            type="button"
+            onClick={onLogin}
+            className="san-pill san-pill-fill mt-9 h-14 w-full"
           >
-            <path d="M9 5H5v14h4M14 8l4 4-4 4M9 12h9" />
-          </svg>
-          로그아웃
-        </motion.button>
+            로그인하고 기록 이어가기
+          </button>
+        ) : (
+          <button
+            type="button"
+            onClick={onLogout}
+            className="san-pill mt-9 h-14 w-full"
+          >
+            <svg className="san-icon" viewBox="0 0 24 24" aria-hidden="true">
+              <path d="M9.5 5.5h-4v13h4M14 8.5l3.5 3.5-3.5 3.5M9.5 12h8" />
+            </svg>
+            로그아웃
+          </button>
+        )}
       </section>
     </dialog>
   );

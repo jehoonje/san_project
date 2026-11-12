@@ -14,7 +14,7 @@ const STORAGE_KEY = "san-dev-walk-open";
 const ALL_DIRS: DevDir[] = ["up", "down", "left", "right", "run"];
 
 const BTN =
-  "flex h-10 w-10 touch-none select-none items-center justify-center rounded-xl border border-white/15 bg-white/10 text-white active:bg-[#ff6843]/70";
+  "flex h-10 w-10 touch-none select-none items-center justify-center rounded-full border-0 bg-san-surface text-san-text active:bg-san-surface-strong";
 
 function Hold({
   dir,
@@ -72,7 +72,7 @@ export function DevWalkPanel({ auto, onAutoChange, onPress }: Props) {
   return (
     <div
       data-dev-walk
-      className={`pointer-events-auto fixed left-3 z-[90] rounded-2xl border border-white/15 bg-black/70 text-[11px] text-white backdrop-blur-md ${
+      className={`san-veil pointer-events-auto fixed left-3 z-[90] rounded-[22px] text-[11px] ${
         open ? "p-2.5" : "p-1"
       }`}
       style={{ top: "calc(env(safe-area-inset-top, 0px) + 80px)" }}
@@ -83,17 +83,17 @@ export function DevWalkPanel({ auto, onAutoChange, onPress }: Props) {
           onClick={toggle}
           aria-expanded={open}
           aria-label={open ? "가상 이동 패널 접기" : "가상 이동 패널 펼치기"}
-          className="relative flex h-8 min-w-8 touch-none select-none items-center justify-center rounded-lg border border-white/15 bg-white/10 px-1.5 text-[11px] font-semibold text-[#ff7959] active:bg-[#ff6843]/70"
+          className="relative flex h-9 min-w-9 touch-none select-none items-center justify-center rounded-full border-0 bg-san-surface px-2 font-mono text-[10px] tracking-[0.14em] text-san-text active:bg-san-surface-strong"
         >
           {open ? "−" : "DEV"}
 
           {/* 접힌 상태에서도 자동 걷기가 켜져 있으면 표시 */}
           {!open && auto && (
-            <span className="absolute -right-1 -top-1 h-2.5 w-2.5 rounded-full bg-[#ff6843] ring-2 ring-black/70" />
+            <span className="san-dot san-dot-live absolute -right-0.5 -top-0.5" />
           )}
         </button>
 
-        {open && <span className="font-semibold text-[#ff7959]">가상 이동</span>}
+        {open && <span className="san-eyebrow">DEV WALK</span>}
       </div>
 
       {open && (
@@ -112,7 +112,7 @@ export function DevWalkPanel({ auto, onAutoChange, onPress }: Props) {
             <button
               type="button"
               className={`${BTN} w-auto flex-1 px-2 ${
-                auto ? "!bg-[#ff6843]/80" : ""
+                auto ? "!bg-san-accent !text-san-on-accent" : ""
               }`}
               onClick={() => onAutoChange(!auto)}
             >
@@ -120,7 +120,7 @@ export function DevWalkPanel({ auto, onAutoChange, onPress }: Props) {
             </button>
           </div>
 
-          <div className="mt-2 text-white/60">WASD/방향키 · Shift 달리기</div>
+          <div className="mt-2 text-san-text">WASD/방향키 · Shift 달리기</div>
         </>
       )}
     </div>
