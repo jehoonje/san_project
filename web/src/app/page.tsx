@@ -1035,7 +1035,6 @@ export default function Home() {
               <TopBar
                 title={tab === "record" ? "Record" : "Map"}
                 isBack={false}
-                live={status === "recording"}
                 onMenu={() => setDrawerOpen(true)}
                 onBack={handleBack}
               />

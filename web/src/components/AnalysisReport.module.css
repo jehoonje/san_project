@@ -56,35 +56,37 @@
 }
 .toolbar button:active, .empty button:active, .share:active { background: var(--san-surface-strong); }
 
-/* 머리: 큰 블러 원 위에 얇은 이름 */
-.persona { position: relative; isolation: isolate; overflow: clip; overflow-clip-margin: 0; margin-top: 10px; padding: 8px 0 12px; }
+/*
+ * 머리: 카드 테두리 없이, 그라데이션 빛이 페이지 바탕으로 번져 사라짐.
+ * 가장자리를 마스크로 녹여서 상자처럼 끊기지 않게 한다.
+ */
+.persona { position: relative; isolation: isolate; margin-top: 4px; padding: 20px 0 16px; }
 .orb {
   position: absolute;
   z-index: -1;
-  top: -6px;
-  right: -40%;
-  width: min(86vw, 380px);
-  height: min(86vw, 380px);
-  border-radius: 50%;
+  inset: -64px -24px -48px;
   background:
-    radial-gradient(circle at 34% 30%, var(--san-orb-warm), transparent 62%),
-    radial-gradient(circle at 70% 72%, var(--san-orb-cool), transparent 64%),
-    var(--san-surface);
-  filter: blur(34px);
-  opacity: 0.8;
+    radial-gradient(52% 46% at 78% 26%, var(--san-orb-warm), transparent 72%),
+    radial-gradient(48% 42% at 92% 62%, var(--san-orb-cool), transparent 74%),
+    radial-gradient(70% 60% at 30% 40%, var(--san-surface), transparent 78%);
+  -webkit-mask-image: radial-gradient(120% 100% at 60% 35%, #000 38%, transparent 78%);
+  mask-image: radial-gradient(120% 100% at 60% 35%, #000 38%, transparent 78%);
+  opacity: 0.9;
   pointer-events: none;
-  animation: orbBreathe 6s ease-in-out infinite;
+  animation: orbBreathe 8s ease-in-out infinite;
 }
 .orbit {
   position: absolute;
   z-index: -1;
-  top: 54px;
-  right: -60%;
+  top: 40px;
+  right: -36%;
   width: min(118vw, 520px);
   height: min(62vw, 270px);
-  border: 0.75px solid var(--san-border-strong);
+  border: 0.75px solid var(--san-border);
   border-radius: 50%;
   transform: rotate(-16deg);
+  -webkit-mask-image: linear-gradient(to left, #000 30%, transparent 85%);
+  mask-image: linear-gradient(to left, #000 30%, transparent 85%);
   pointer-events: none;
 }
 .personaTop { display: flex; align-items: baseline; justify-content: space-between; gap: 13px; }
@@ -155,7 +157,7 @@
 .loading :global(.ar-progress) { margin-top: 0; }
 .ripples { margin: 0; }
 
-@keyframes orbBreathe { 0%, 100% { opacity: 0.64; transform: scale(0.98); } 50% { opacity: 0.86; transform: scale(1.03); } }
+@keyframes orbBreathe { 0%, 100% { opacity: 0.78; } 50% { opacity: 0.95; } }
 
 @media (min-width: 640px) {
   .tagline { font-size: 16px; }

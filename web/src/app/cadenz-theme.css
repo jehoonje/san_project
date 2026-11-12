@@ -347,9 +347,39 @@
   content: "";
 }
 
-/* 버튼 둘레의 파문: 가운데 점 없이 선만 */
+/* 버튼 둘레의 파문: 가운데 점 없이 선만, 버튼 중심에 정확히 겹침 */
 .san-ripples-bare::after {
   display: none;
+}
+
+.san-ripples-overlay {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  margin: calc(var(--size, 72px) / -2) 0 0 calc(var(--size, 72px) / -2);
+  pointer-events: none;
+}
+
+/* 버튼 안 아이콘: 한눈에 읽히는 크기 */
+/* 글자 없는 원형 알약 버튼 */
+.san-pill-icon {
+  padding: 0;
+}
+
+.san-icon {
+  flex: none;
+}
+
+.san-icon-lg {
+  width: 30px;
+  height: 30px;
+  stroke-width: 1.4;
+}
+
+.san-icon-md {
+  width: 28px;
+  height: 28px;
+  stroke-width: 1.35;
 }
 
 .san-pill-fill .san-ripples-bare > i {

@@ -8,8 +8,6 @@ type TopBarProps = {
   isBack: boolean;
   onMenu: () => void;
   onBack: () => void;
-  /** 기록 중이면 제목 옆에 맥동 점 */
-  live?: boolean;
   rightAction?: {
     label: string;
     onClick: () => void;
@@ -73,7 +71,6 @@ export function TopBar({
   isBack,
   onMenu,
   onBack,
-  live = false,
   rightAction = null,
   viewToggle = null,
 }: TopBarProps) {
@@ -115,7 +112,6 @@ export function TopBar({
             viewToggle ? "max-w-[calc(100vw-252px)]" : "max-w-[56vw]"
           }`}
         >
-          {live && <span className="san-dot san-dot-live" aria-label="기록 중" />}
           <span className="san-eyebrow truncate">{title}</span>
         </motion.p>
       </AnimatePresence>

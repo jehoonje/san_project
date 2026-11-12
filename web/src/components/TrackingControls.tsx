@@ -40,24 +40,24 @@ function vibrate(pattern: number | number[]) {
 
 function PauseIcon() {
   return (
-    <svg className="san-icon" viewBox="0 0 24 24" aria-hidden="true">
-      <path d="M9.5 6.5v11M14.5 6.5v11" />
+    <svg className="san-icon san-icon-lg" viewBox="0 0 24 24" aria-hidden="true">
+      <path d="M9 5.5v13M15 5.5v13" />
     </svg>
   );
 }
 
 function PlayIcon() {
   return (
-    <svg className="san-icon" viewBox="0 0 24 24" aria-hidden="true">
-      <path d="M9 6.2v11.6l9-5.8-9-5.8Z" />
+    <svg className="san-icon san-icon-lg" viewBox="0 0 24 24" aria-hidden="true">
+      <path d="M8.5 5.2v13.6l10.5-6.8-10.5-6.8Z" />
     </svg>
   );
 }
 
 function StopIcon() {
   return (
-    <svg className="san-icon" viewBox="0 0 24 24" aria-hidden="true">
-      <rect x="7" y="7" width="10" height="10" rx="2.5" />
+    <svg className="san-icon san-icon-md" viewBox="0 0 24 24" aria-hidden="true">
+      <rect x="5.5" y="5.5" width="13" height="13" rx="3.2" />
     </svg>
   );
 }
@@ -65,9 +65,9 @@ function StopIcon() {
 // 장소: 종이 위에 켜지는 점과 파문
 function PlaceIcon() {
   return (
-    <svg className="san-icon" viewBox="0 0 24 24" aria-hidden="true">
-      <circle cx="12" cy="12" r="7.5" />
-      <circle cx="12" cy="12" r="1.6" />
+    <svg className="san-icon san-icon-md" viewBox="0 0 24 24" aria-hidden="true">
+      <circle cx="12" cy="12" r="8.8" />
+      <circle cx="12" cy="12" r="2.6" fill="currentColor" stroke="none" />
     </svg>
   );
 }
@@ -202,15 +202,15 @@ export function TrackingControls({
             title="기록 시작"
             aria-describedby={statusDescriptionId}
             onClick={handleStart}
-            className="san-pill san-pill-fill relative h-[68px] w-[68px] p-0"
+            className="san-pill san-pill-fill relative h-[72px] w-[72px] san-pill-icon"
             {...swap}
           >
             <PlayIcon />
             {/* 시작 전: 버튼 둘레로 번지는 가는 파문 */}
             <span
               aria-hidden="true"
-              className="san-ripples san-ripples-bare pointer-events-none absolute inset-[-10px]"
-              style={{ ["--size" as string]: "88px" }}
+              className="san-ripples san-ripples-bare san-ripples-overlay"
+              style={{ ["--size" as string]: "112px" }}
             >
               <i />
               <i />
@@ -235,7 +235,7 @@ export function TrackingControls({
                 title="장소 저장"
                 aria-describedby={statusDescriptionId}
                 onClick={handleSavePlace}
-                className="san-pill relative h-[52px] w-[52px] p-0"
+                className="san-pill relative h-[56px] w-[56px] san-pill-icon"
               >
                 <PlaceIcon />
                 {/* 숫자 배지 대신: 저장한 장소가 있으면 별빛 점 하나 */}
@@ -247,7 +247,7 @@ export function TrackingControls({
                 )}
               </button>
             ) : (
-              <span aria-hidden="true" className="h-[52px] w-[52px]" />
+              <span aria-hidden="true" className="h-[56px] w-[56px]" />
             )}
 
             <button
@@ -256,7 +256,7 @@ export function TrackingControls({
               title={isRecording ? "일시정지" : "계속"}
               aria-describedby={statusDescriptionId}
               onClick={handlePrimaryAction}
-              className="san-pill san-pill-fill h-[60px] w-[60px] p-0"
+              className="san-pill san-pill-fill h-[64px] w-[64px] san-pill-icon"
             >
               {isRecording ? <PauseIcon /> : <PlayIcon />}
             </button>
@@ -267,7 +267,7 @@ export function TrackingControls({
               title="종료"
               aria-describedby={statusDescriptionId}
               onClick={handleStop}
-              className={`san-pill relative h-[52px] w-[52px] p-0 ${
+              className={`san-pill relative h-[56px] w-[56px] san-pill-icon ${
                 stopArmed ? "san-pill-danger" : ""
               }`}
             >
@@ -275,9 +275,10 @@ export function TrackingControls({
               {stopArmed && (
                 <span
                   aria-hidden="true"
-                  className="san-ripples san-ripples-bare pointer-events-none absolute inset-0 text-san-error"
-                  style={{ ["--size" as string]: "52px" }}
+                  className="san-ripples san-ripples-bare san-ripples-overlay text-san-error"
+                  style={{ ["--size" as string]: "84px" }}
                 >
+                  <i style={{ borderColor: "currentColor" }} />
                   <i style={{ borderColor: "currentColor" }} />
                 </span>
               )}

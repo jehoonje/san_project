@@ -93,7 +93,7 @@ export function EmoteSheet({ peer, relation, onEmote, onClose }: Props) {
             <button
               key={emote.id}
               type="button"
-              className="san-pill h-[52px] w-[52px] shrink-0 p-0"
+              className="san-pill h-[52px] w-[52px] shrink-0 san-pill-icon"
               aria-pressed={relation?.mine === emote.id}
               aria-label={emote.label}
               title={emote.label}

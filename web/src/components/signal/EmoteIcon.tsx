@@ -3,7 +3,7 @@ import type { EmoteId } from "@/lib/signal";
 /** 감정 표현 5종의 1.25pt 라인 아이콘 */
 export function EmoteIcon({ id }: { id: EmoteId }) {
   return (
-    <svg className="san-icon h-[22px] w-[22px]" viewBox="0 0 24 24" aria-hidden="true">
+    <svg className="san-icon san-icon-md" viewBox="0 0 24 24" aria-hidden="true">
       {id === "wave" && (
         <>
           {/* 들어 올린 손과 흔들림의 호 */}
