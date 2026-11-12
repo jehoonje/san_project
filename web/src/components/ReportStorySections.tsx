@@ -124,7 +124,7 @@ export function TrendSection({
       <span className="rs-eyebrow">요즘 앱에 남는 선택</span>
       <h2 id={id}>
         그 흐름 속에서,
-        <br />내 취향은?
+        <br />내 기록은
       </h2>
       {copy.trim() && <p className="rs-copy">{copy}</p>}
       {rising.map((row) => (
@@ -150,7 +150,7 @@ export function CharmSection({ copy }: { copy: string }) {
   return (
     <section className="rs-charm" aria-labelledby={id}>
       <span className="rs-eyebrow">기록에서 눈에 띈 면</span>
-      <h2 id={id}>이 취향의 매력</h2>
+      <h2 id={id}>기록에 남은 결</h2>
       <p className="rs-large-copy">{copy}</p>
     </section>
   );
@@ -172,7 +172,7 @@ export function RegionSection({
   const top = regions[0];
   return (
     <section className="rs-region" aria-labelledby={id}>
-      <span className="rs-eyebrow">취향이 머문 곳</span>
+      <span className="rs-eyebrow">자주 머문 동네</span>
       <h2 id={id}>{top?.label ?? "기록이 모인 동네"}</h2>
       {copy.trim() && <p className="rs-copy">{copy}</p>}
       {regions.length > 0 && (

@@ -969,7 +969,7 @@ export default function Home() {
     (analysisOpen || (selectedRoute !== null && viewerOpen));
 
   const topTitle = analysisOpen
-    ? "나의 취향"
+    ? "Trace"
     : selectedRoute
       ? selectedRoute.title
       : "My Routes";
@@ -977,7 +977,7 @@ export default function Home() {
   const rightAction =
     tab === "routes" && !analysisOpen && !selectedRoute
       ? {
-          label: "취향 읽기",
+          label: "기록의 잔향 보기",
           onClick: handleOpenAnalysis,
         }
       : null;
@@ -1088,7 +1088,7 @@ export default function Home() {
                           ) : (
                             <div className="flex h-full flex-col items-center justify-center px-7 pb-28 text-center">
                               <p className="m-0 text-[14px] text-san-text">
-                                로그인하면 취향 분석을 볼 수 있어요.
+                                로그인하면 기록의 잔향을 볼 수 있어요.
                               </p>
                               <button
                                 type="button"

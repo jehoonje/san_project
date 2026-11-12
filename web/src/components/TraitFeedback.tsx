@@ -476,13 +476,13 @@ export function TraitFeedback({
   return (
     <div className="trait-feedback">
       <span>
-        내 취향과 가까워요?
+        나와 맞나요?
       </span>
 
       <div
         className="trait-feedback-buttons"
         role="group"
-        aria-label="취향 해석에 대한 반응"
+        aria-label="이 관찰에 대한 반응"
       >
         <button
           type="button"

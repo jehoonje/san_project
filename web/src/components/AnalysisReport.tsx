@@ -31,15 +31,15 @@ type State =
 type HttpError = Error & { status?: number };
 const INITIAL: Loading = {
   status: "loading",
-  message: "기록에서 취향을 찾고 있어요",
+  message: "기록을 살펴보고 있어요",
   current: 0,
   total: 0,
 };
 const ERRORS: Record<string, string> = {
   unauthorized: "로그인이 만료됐어요. 다시 로그인해주세요.",
   report_timeout:
-    "취향을 읽는 데 시간이 오래 걸렸어요. 잠시 뒤 다시 시도해주세요.",
-  report_invalid: "취향 이야기를 정리하지 못했어요. 다시 불러와주세요.",
+    "기록을 살펴보는 데 시간이 오래 걸렸어요. 잠시 뒤 다시 시도해주세요.",
+  report_invalid: "기록을 정리하지 못했어요. 다시 불러와주세요.",
   report_rate_limited: "지금은 분석 요청이 많아요. 잠시 뒤 다시 시도해주세요.",
   report_provider_failed:
     "분석 서비스에 연결하지 못했어요. 잠시 뒤 다시 시도해주세요.",
@@ -147,7 +147,7 @@ async function load(
   if (signal.aborted) throw new DOMException("Request aborted", "AbortError");
   progress({
     status: "loading",
-    message: "나만의 취향 이름을 고르고 있어요",
+    message: "기록을 정리하고 있어요",
     current: completed,
     total: places.length,
   });
@@ -336,23 +336,15 @@ function Report({
   if (!stats.totalVisits)
     return (
       <div className={s.empty}>
-        <h2>
-          아직 이름 붙이지 않은
-          <br />
-          나의 취향.
-        </h2>
-        <p>
-          눈길이 가는 장소부터 남겨보세요.
-          <br />
-          어떤 선택이 쌓이는지 같이 읽어볼게요.
-        </p>
+        <h2>아직 남긴 장소가 없어요</h2>
+        <p>장소를 남기면 기록 사이의 공통점을 보여드려요.</p>
       </div>
     );
   if (!report)
     return (
       <div className={s.empty}>
-        <h2>취향이 쌓이고 있어요.</h2>
-        <p>위쪽의 새로 읽기를 누르면 기록을 다시 펼쳐볼 수 있어요.</p>
+        <h2>기록이 쌓이고 있어요</h2>
+        <p>새로 읽기를 누르면 지금까지의 기록을 다시 살펴봐요.</p>
       </div>
     );
   const category = [...stats.categories]
@@ -482,7 +474,7 @@ export function AnalysisReport({ accessToken }: Props) {
             <i />
             <i />
           </span>
-          <p>취향을 분석하고 있어요</p>
+          <p>기록을 살펴보고 있어요</p>
           {state.total > 0 && (
             <div className="ar-progress">
               <div

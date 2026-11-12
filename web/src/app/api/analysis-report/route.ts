@@ -47,7 +47,7 @@ const MODEL =
   "gemini-3.5-flash-lite";
 
 const VERSION =
-  "comparison-v5-feedback-recommendations";
+  "comparison-v6-trace-observation";
 
 const PLACE_PAGE_SIZE = 1000;
 const INSIGHT_BATCH_SIZE = 500;
