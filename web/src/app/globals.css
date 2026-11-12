@@ -1,26 +1,347 @@
 @import "tailwindcss";
+@import "./cadenz-theme.css";
+@import "./map-home.css";
 
+@font-face {
+  font-family: "Pretendard Variable";
+  src: url("/fonts/PretendardVariable.woff2") format("woff2-variations");
+  font-weight: 45 920;
+  font-style: normal;
+  font-display: swap;
+}
+
+/*
+ * SAN — 고요, 잔향, 온기, 관측, 여백.
+ *
+ * 두 테마는 구조가 같고 색만 다르다.
+ * 모든 색은 여기의 --san-* 토큰으로만 정의하고, 컴포넌트는 토큰만 참조한다.
+ * 순백·순흑은 쓰지 않는다. 강조색은 맥동 점(live)과 별(star) 두 가지뿐이다.
+ */
+
+/*
+ * 팔레트: late night flight.
+ *   light = 새벽 기내의 중성 회백색 + 잉크 남색 글자
+ *   dark  = 밤하늘 남흑색 + 달빛 글자 + 아주 작은 독서등의 온기
+ */
+:root,
+[data-theme="light"] {
+  /* 면 */
+  --san-background: #f2f2ef;
+  --san-background-soft: #ededea;
+  --san-surface: #e6e7e3;
+  --san-surface-strong: #dcdfdb;
+  --san-surface-soft: rgba(46, 52, 64, 0.05);
+  --san-surface-hover: rgba(46, 52, 64, 0.09);
+  --san-input: #e6e7e3;
+
+  /* 잉크 */
+  --san-text: #2e3440;
+  --san-text-muted: #5f6774;
+  --san-text-faint: #9aa0a8;
+
+  /* 헤어라인 (장식 곡선·타원 전용) */
+  --san-border: rgba(46, 52, 64, 0.14);
+  --san-border-strong: rgba(46, 52, 64, 0.3);
+
+  /* 포인트 = 잉크 그 자체. 채워진 알약은 잉크 면 + 바탕색 글자 */
+  --san-accent: #2e3440;
+  --san-accent-hover: #3b4252;
+  --san-accent-text: #f2f2ef;
+
+  /* 강조 2색 + 오류 */
+  --san-live: #3fa66b;
+  --san-star: #e8a93a;
+  --san-error: #b5523b;
+
+  --san-icon-fill: rgba(242, 242, 239, 0.7);
+  --san-scrim: rgba(46, 52, 64, 0.22);
+  --san-veil: rgba(242, 242, 239, 0.88);
+  --san-shadow: none;
+  --san-gradient-base-start: #f2f2ef;
+  --san-gradient-base-end: #e6e7e3;
+
+  /* 큰 블러 오브젝트: 창밖 새벽빛(차가움) + 기내 조명(온기) */
+  --san-orb-warm: #ecd2c2;
+  --san-orb-cool: #bccadb;
+
+  /* 지도 */
+  --san-map-land: #eeeeeb;
+  --san-map-green: #e3e6e0;
+  --san-map-water: #d9dfe5;
+  --san-map-road: #f9f9f7;
+  --san-map-road-minor: #f4f4f2;
+  --san-map-building: #e1e3df;
+  --san-map-building-top: #e9eae7;
+  --san-map-label: #5f6774;
+  --san-map-route: #2e3440;
+
+  /* 방문 빈도: 한 가지 호박색(창밖 도시 불빛)의 밝음 → 짙음 */
+  --san-heat-1: #cc9f66;
+  --san-heat-2: #b9874b;
+  --san-heat-3: #a37034;
+  --san-heat-4: #855826;
+  --san-heat-5: #603c18;
+  --san-sky: #e4e7ec;
+
+  /* 아바타 · 부트 파티클 */
+  --san-avatar: #2e3440;
+  --san-avatar-peer: #9aa0a8;
+  --san-particle: #2e3440;
+  --san-particle-soft: #8f9bb0;
+
+  --background: var(--san-background);
+  --foreground: var(--san-text);
+}
+
+[data-theme="dark"] {
+  --san-background: #0e1117;
+  --san-background-soft: #12161d;
+  --san-surface: #181c25;
+  --san-surface-strong: #20252f;
+  --san-surface-soft: rgba(216, 220, 227, 0.05);
+  --san-surface-hover: rgba(216, 220, 227, 0.1);
+  --san-input: #181c25;
+
+  --san-text: #d8dce3;
+  --san-text-muted: #8a93a3;
+  --san-text-faint: #565e6c;
+
+  --san-border: rgba(216, 220, 227, 0.13);
+  --san-border-strong: rgba(216, 220, 227, 0.28);
+
+  --san-accent: #d8dce3;
+  --san-accent-hover: #e5e8ed;
+  --san-accent-text: #0e1117;
+
+  --san-live: #3fa66b;
+  --san-star: #e8a93a;
+  --san-error: #d0786a;
+
+  --san-icon-fill: rgba(14, 17, 23, 0.7);
+  --san-scrim: rgba(4, 6, 10, 0.56);
+  --san-veil: rgba(14, 17, 23, 0.86);
+  --san-shadow: none;
+  --san-gradient-base-start: #12161d;
+  --san-gradient-base-end: #0e1117;
+
+  /* 밤하늘(차가움) 위에 아주 작은 독서등(온기) */
+  --san-orb-warm: #4a3a36;
+  --san-orb-cool: #22314a;
+
+  --san-map-land: #10141b;
+  --san-map-green: #121820;
+  --san-map-water: #0a0d13;
+  --san-map-road: #1c212b;
+  --san-map-road-minor: #161a22;
+  --san-map-building: #181d26;
+  --san-map-building-top: #1f2530;
+  --san-map-label: #8a93a3;
+  --san-map-route: #d8dce3;
+
+  /* 방문 빈도: 어둠 속에서 많이 머문 곳일수록 밝게 켜짐 */
+  --san-heat-1: #6e5433;
+  --san-heat-2: #94693a;
+  --san-heat-3: #bd8a48;
+  --san-heat-4: #dfa862;
+  --san-heat-5: #f6d39b;
+  --san-sky: #07090d;
+
+  --san-avatar: #d8dce3;
+  --san-avatar-peer: #6a7385;
+  --san-particle: #d8dce3;
+  --san-particle-soft: #e7c9b3;
+
+  --background: var(--san-background);
+  --foreground: var(--san-text);
+}
+
+/* 타이포 · 간격 · 라운드 · 모션 (테마와 무관) */
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  --san-font-sans:
+    "Inter", "Pretendard Variable", "Pretendard", -apple-system,
+    BlinkMacSystemFont, "Segoe UI", sans-serif;
+  --san-font-mono:
+    ui-monospace, "SF Mono", "JetBrains Mono", Menlo, Consolas,
+    "Pretendard Variable", monospace;
+
+  --san-text-display: clamp(26px, 7.4vw, 34px);
+  --san-text-title: 20px;
+  --san-text-body: 15px;
+  --san-text-small: 13px;
+  --san-text-data: 11.5px;
+  --san-text-eyebrow: 10.5px;
+
+  --san-space-1: 4px;
+  --san-space-2: 8px;
+  --san-space-3: 12px;
+  --san-space-4: 16px;
+  --san-space-5: 24px;
+  --san-space-6: 32px;
+  --san-space-7: 48px;
+
+  --san-radius-sm: 16px;
+  --san-radius-md: 22px;
+  --san-radius-lg: 28px;
+  --san-radius-pill: 999px;
+
+  --san-ease: cubic-bezier(0.22, 1, 0.36, 1);
+  --san-ease-exit: cubic-bezier(0.4, 0, 1, 1);
+  --san-dur: 460ms;
+  --san-breath: 3s;
 }
 
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
+
+  --color-san-bg: var(--san-background);
+  --color-san-bg-soft: var(--san-background-soft);
+  --color-san-surface: var(--san-surface);
+  --color-san-surface-strong: var(--san-surface-strong);
+  --color-san-soft: var(--san-surface-soft);
+  --color-san-hover: var(--san-surface-hover);
+  --color-san-text: var(--san-text);
+  --color-san-muted: var(--san-text-muted);
+  --color-san-faint: var(--san-text-faint);
+  --color-san-line: var(--san-border);
+  --color-san-line-strong: var(--san-border-strong);
+  --color-san-accent: var(--san-accent);
+  --color-san-on-accent: var(--san-accent-text);
+  --color-san-live: var(--san-live);
+  --color-san-star: var(--san-star);
+  --color-san-error: var(--san-error);
+  --color-san-scrim: var(--san-scrim);
+  --color-san-veil: var(--san-veil);
+
+  --font-sans: var(--san-font-sans);
+  --font-mono: var(--san-font-mono);
+
+  --ease-ambient: cubic-bezier(0.22, 1, 0.36, 1);
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  width: 100%;
+  height: 100%;
+  min-height: 100%;
+  margin: 0;
+  overflow: hidden;
+  overscroll-behavior: none;
+  background: var(--san-background);
+}
+
+html {
+  color-scheme: light;
+  -webkit-text-size-adjust: 100%;
+  text-size-adjust: 100%;
+}
+
+html[data-theme="dark"] {
+  color-scheme: dark;
 }
 
 body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  position: fixed;
+  inset: 0;
+  color: var(--san-text);
+  background: var(--san-background);
+  font-family: var(--san-font-sans);
+  font-weight: 400;
+  letter-spacing: -0.005em;
+  word-break: keep-all;
+  overflow-wrap: anywhere;
+  touch-action: manipulation;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  -webkit-overflow-scrolling: auto;
+  transition:
+    background-color 500ms var(--san-ease),
+    color 500ms var(--san-ease);
+}
+
+button,
+input,
+textarea,
+select {
+  font: inherit;
+  color: inherit;
+}
+
+button {
+  -webkit-touch-callout: none;
+  -webkit-tap-highlight-color: transparent;
+}
+
+button:focus-visible,
+input:focus-visible,
+a:focus-visible {
+  outline: 1px solid var(--san-border-strong);
+  outline-offset: 3px;
+}
+
+input {
+  font-size: 16px;
+}
+
+::selection {
+  color: var(--san-text);
+  background: var(--san-surface-hover);
+}
+
+#__next {
+  width: 100%;
+  height: 100%;
+}
+
+.maplibregl-map {
+  width: 100%;
+  height: 100%;
+  font-family: var(--san-font-sans);
+}
+
+.maplibregl-canvas-container,
+.maplibregl-canvas {
+  touch-action: none;
+}
+
+.maplibregl-map,
+.maplibregl-map * {
+  -webkit-tap-highlight-color: transparent;
+}
+
+/* 지도 출처 표기: 유리 대신 종이 면 위에 작게 */
+.maplibregl-ctrl-attrib.maplibregl-compact,
+.maplibregl-ctrl-attrib {
+  color: var(--san-text);
+  background: var(--san-veil);
+  border-radius: var(--san-radius-sm);
+  font-size: 10px;
+  line-height: 1.4;
+  box-shadow: none;
+}
+
+.maplibregl-ctrl-attrib a {
+  color: var(--san-text);
+}
+
+.maplibregl-ctrl-attrib.maplibregl-compact-show .maplibregl-ctrl-attrib-button,
+.maplibregl-ctrl-attrib-button {
+  background-color: transparent;
+  opacity: 0.55;
+}
+
+[data-theme="dark"] .maplibregl-ctrl-attrib-button {
+  filter: invert(1);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  body {
+    transition: none;
+  }
 }

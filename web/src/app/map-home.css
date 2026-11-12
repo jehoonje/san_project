@@ -1,0 +1,147 @@
+/*
+ * map-home.css — 지도 중심 화면의 레이아웃 조각.
+ * 지도(종이/먹) → 번지는 블러 → 배경 면이 한 장면처럼 이어진다.
+ * 색은 --san-* 토큰만 사용한다.
+ */
+
+.san-shell {
+  position: relative;
+  isolation: isolate;
+  width: 100%;
+  height: 100dvh;
+  min-height: 480px;
+  overflow: hidden;
+  color: var(--san-text);
+  background: var(--san-background);
+  font-family: var(--san-font-sans);
+}
+
+/* 지도 위쪽: 상단 바가 읽히도록 종이 색이 옅게 내려앉는다 */
+.san-map-top-veil {
+  position: absolute;
+  z-index: 10;
+  inset: 0 0 auto;
+  height: 26%;
+  pointer-events: none;
+  background: linear-gradient(
+    to bottom,
+    var(--san-background) 0%,
+    color-mix(in oklab, var(--san-background) 62%, transparent) 42%,
+    transparent 100%
+  );
+}
+
+/* 지도 아래쪽: 단계형 블러 + 배경 면으로의 페이드 */
+.san-map-bottom-veil {
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(
+    to bottom,
+    transparent 0%,
+    color-mix(in oklab, var(--san-background) 30%, transparent) 24%,
+    color-mix(in oklab, var(--san-background) 84%, transparent) 54%,
+    var(--san-background) 78%,
+    var(--san-background) 100%
+  );
+}
+
+.san-route-view {
+  position: absolute;
+  z-index: 10;
+  inset: 0;
+  overflow: hidden;
+  background: var(--san-background);
+}
+
+.san-route-content {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  padding-top: calc(76px + env(safe-area-inset-top));
+  padding-bottom: 0;
+}
+
+/* 토스트: 지도 위에 얹는 작은 종이 알약 */
+.san-toast {
+  max-width: 28rem;
+  padding: 11px 20px;
+  border-radius: var(--san-radius-pill);
+  color: var(--san-text);
+  background: var(--san-veil);
+  font-size: 13px;
+  line-height: 1.6;
+  text-align: center;
+  -webkit-backdrop-filter: blur(14px);
+  backdrop-filter: blur(14px);
+}
+
+/* 기록 HUD: 큰 블러 원 + 정밀한 수치 */
+.san-hud {
+  position: relative;
+  display: grid;
+  width: 100%;
+  place-items: center;
+  padding: 18px 0 22px;
+  pointer-events: none;
+}
+
+.san-hud-orb {
+  top: 50%;
+  left: 50%;
+  width: 208px;
+  height: 208px;
+  margin: -104px 0 0 -104px;
+}
+
+.san-hud-ring {
+  top: 50%;
+  left: 50%;
+  width: 250px;
+  height: 132px;
+  margin: -66px 0 0 -125px;
+  transform: rotate(-14deg);
+}
+
+.san-hud-body {
+  position: relative;
+  display: grid;
+  justify-items: center;
+  gap: 6px;
+  text-align: center;
+}
+
+.san-hud-value {
+  color: var(--san-text);
+  font-family: var(--san-font-mono);
+  font-size: 40px;
+  font-weight: 300;
+  line-height: 1.1;
+  letter-spacing: -0.02em;
+  font-variant-numeric: tabular-nums;
+}
+
+.san-hud-value small {
+  margin-left: 6px;
+  font-size: 12px;
+  font-weight: 400;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+}
+
+.san-hud-meta {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+@media (max-height: 700px) {
+  .san-hud-orb {
+    width: 164px;
+    height: 164px;
+    margin: -82px 0 0 -82px;
+  }
+
+  .san-hud-value {
+    font-size: 32px;
+  }
+}

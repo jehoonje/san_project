@@ -1,17 +1,26 @@
 // mobile/src/app/index.tsx
 import { useEffect, useRef, useState } from "react";
-import { Alert, StyleSheet } from "react-native";
-import { SafeAreaView } from "react-native-safe-area-context";
+import {
+  StyleSheet,
+  SafeAreaView,
+  Alert,
+  Vibration,
+  useColorScheme,
+} from "react-native";
 import { WebView, WebViewMessageEvent } from "react-native-webview";
+import * as Haptics from "expo-haptics";
 import * as Location from "expo-location";
 import * as WebBrowser from "expo-web-browser";
 import * as Linking from "expo-linking";
 
 WebBrowser.maybeCompleteAuthSession();
 
-// 프리뷰 테스트가 끝나면 운영 주소로 되돌린 뒤 커밋하세요.
-const WEB_URL =
-  "https://san-project-dm9a5ingc-jehoonjes-projects.vercel.app/";
+const WEB_URL = "https://san-project-mc4fa4q60-jehoonjes-projects.vercel.app/";
+
+/** 이보다 부정확한(m) 좌표는 기록하지 않음 */
+const MAX_ACCURACY_M = 30;
+/** 사람 기준 이동 속도 상한(m/s). 이보다 빠르면 GPS 튐으로 보고 버림 */
+const MAX_SPEED_MPS = 12;
 
 type TrackingStatus = "idle" | "recording" | "paused";
 
@@ -22,70 +31,64 @@ type RecordedPoint = {
   accuracy: number | null;
 };
 
+// react-native-webview 14.0.1 타입 버그 우회: WebView<P = undefined>가 props를 never로 만듦
+// eslint-disable-next-line @typescript-eslint/no-empty-object-type
+type WebViewRef = WebView<{}>;
+
+/** 두 좌표 사이 거리(m) */
+function distanceM(a: RecordedPoint, b: RecordedPoint): number {
+  const R = 6371000;
+  const toRad = (d: number) => (d * Math.PI) / 180;
+  const dLat = toRad(b.lat - a.lat);
+  const dLng = toRad(b.lng - a.lng);
+  const h =
+    Math.sin(dLat / 2) ** 2 +
+    Math.cos(toRad(a.lat)) * Math.cos(toRad(b.lat)) * Math.sin(dLng / 2) ** 2;
+  return 2 * R * Math.asin(Math.sqrt(Math.min(1, Math.max(0, h))));
+}
+
 export default function Index() {
-  const webviewRef = useRef<WebView>(null);
-  const [status, setStatus] = useState<TrackingStatus>("idle");
-
+  const colorScheme = useColorScheme();
+  const webviewRef = useRef<WebViewRef>(null);
+  // 상태 값은 앱에서 읽지 않고(웹에 STATUS_ACK로만 전달) setter만 사용
+  const [, setStatus] = useState<TrackingStatus>("idle");
   const recordedPointsRef = useRef<RecordedPoint[]>([]);
-  const locationSubscriptionRef =
-    useRef<Location.LocationSubscription | null>(null);
-
-  const isStartingTrackingRef = useRef(false);
+  const locationSubscriptionRef = useRef<Location.LocationSubscription | null>(
+    null
+  );
   const isWebReadyRef = useRef(false);
   const pendingInitialLocationRef = useRef<RecordedPoint | null>(null);
   const lastKnownPointRef = useRef<RecordedPoint | null>(null);
 
+  // 소셜 로그인 후 앱으로 돌아올 주소 (Expo Go: exp://..., 정식 빌드: sanproject://...)
   const redirectUri = Linking.createURL("auth/callback");
 
   useEffect(() => {
     console.log("[APP] OAuth redirectUri:", redirectUri);
   }, [redirectUri]);
 
-  useEffect(() => {
-    return () => {
-      locationSubscriptionRef.current?.remove();
-      locationSubscriptionRef.current = null;
-    };
-  }, []);
-
   function sendToWeb(message: Record<string, unknown>) {
     webviewRef.current?.postMessage(JSON.stringify(message));
   }
 
   function coordsForWeb(): [number, number][] {
-    return recordedPointsRef.current.map((point) => [
-      point.lng,
-      point.lat,
-    ]);
+    return recordedPointsRef.current.map((p) => [p.lng, p.lat]);
   }
 
   function sendInitialLocation(point: RecordedPoint) {
-    sendToWeb({
-      type: "LOCATION_UPDATE",
-      coords: [[point.lng, point.lat]],
-    });
-
+    // 웹 쪽 리스너가 늦게 붙는 경우를 대비해 즉시 1회 + 지연 후 1회 더 전송
+    sendToWeb({ type: "LOCATION_UPDATE", coords: [[point.lng, point.lat]] });
     setTimeout(() => {
-      sendToWeb({
-        type: "LOCATION_UPDATE",
-        coords: [[point.lng, point.lat]],
-      });
+      sendToWeb({ type: "LOCATION_UPDATE", coords: [[point.lng, point.lat]] });
     }, 800);
   }
 
+  // 앱 진입 시(추적 시작 전) 현재 위치를 1회 조회해 지도에 표시
   async function showInitialLocation() {
-    const permission =
+    const { status: permissionStatus } =
       await Location.requestForegroundPermissionsAsync();
 
-    console.log("[APP] 초기 위치 권한:", {
-      status: permission.status,
-      granted: permission.granted,
-      iosScope: permission.ios?.scope,
-      iosAccuracy: permission.ios?.accuracy,
-      androidAccuracy: permission.android?.accuracy,
-    });
-
-    if (permission.status !== "granted") {
+    if (permissionStatus !== "granted") {
       return;
     }
 
@@ -102,7 +105,6 @@ export default function Index() {
       };
 
       console.log("[APP] 초기 위치 조회:", point);
-
       lastKnownPointRef.current = point;
 
       if (isWebReadyRef.current) {
@@ -110,8 +112,8 @@ export default function Index() {
       } else {
         pendingInitialLocationRef.current = point;
       }
-    } catch (error) {
-      console.warn("[APP] 초기 위치 조회 실패:", error);
+    } catch (err) {
+      console.warn("[APP] 초기 위치 조회 실패:", err);
     }
   }
 
@@ -123,30 +125,29 @@ export default function Index() {
     isWebReadyRef.current = true;
 
     setTimeout(() => {
-      const pending = pendingInitialLocationRef.current;
-
-      if (pending) {
-        sendInitialLocation(pending);
+      if (pendingInitialLocationRef.current) {
+        sendInitialLocation(pendingInitialLocationRef.current);
         pendingInitialLocationRef.current = null;
       }
     }, 500);
   }
 
+  // 웹의 메인(지도) 화면이 열렸을 때: 스플래시/로그인을 거쳐 왔으므로 위치를 다시 전달
   function handleWebReady() {
     if (lastKnownPointRef.current) {
       sendInitialLocation(lastKnownPointRef.current);
-      return;
+    } else {
+      showInitialLocation();
     }
-
-    showInitialLocation();
   }
 
+  // 장소 저장용: 현재 위치를 1회 조회해 요청 ID와 함께 웹에 응답 (기록/일시정지 상태와 무관)
   async function handlePlaceLocationRequest(requestId: string) {
     try {
-      const permission =
+      const { status: permissionStatus } =
         await Location.requestForegroundPermissionsAsync();
 
-      if (permission.status !== "granted") {
+      if (permissionStatus !== "granted") {
         sendToWeb({
           type: "PLACE_LOCATION_ERROR",
           requestId,
@@ -168,9 +169,8 @@ export default function Index() {
         lng: current.coords.longitude,
         accuracy: current.coords.accuracy,
       });
-    } catch (error) {
-      console.warn("[APP] 장소 저장용 위치 조회 실패:", error);
-
+    } catch (err) {
+      console.warn("[APP] 장소 저장용 위치 조회 실패:", err);
       sendToWeb({
         type: "PLACE_LOCATION_ERROR",
         requestId,
@@ -179,214 +179,103 @@ export default function Index() {
     }
   }
 
+  // 소셜 로그인: 시스템 브라우저(ASWebAuthenticationSession)로 열고 결과 URL을 웹에 전달
   async function startOAuth(url: string) {
     try {
-      const result = await WebBrowser.openAuthSessionAsync(
-        url,
-        redirectUri
-      );
-
+      const result = await WebBrowser.openAuthSessionAsync(url, redirectUri);
       if (result.type === "success") {
-        sendToWeb({
-          type: "OAUTH_CALLBACK",
-          url: result.url,
-        });
+        sendToWeb({ type: "OAUTH_CALLBACK", url: result.url });
       } else {
-        sendToWeb({
-          type: "OAUTH_CANCELED",
-        });
+        sendToWeb({ type: "OAUTH_CANCELED" });
       }
-    } catch (error) {
-      console.error("[APP] OAuth 실패:", error);
-
-      sendToWeb({
-        type: "OAUTH_CANCELED",
-      });
+    } catch (err) {
+      console.error("[APP] OAuth 실패:", err);
+      sendToWeb({ type: "OAUTH_CANCELED" });
     }
   }
 
   async function requestPermissionAndStart() {
-    if (
-      isStartingTrackingRef.current ||
-      locationSubscriptionRef.current
-    ) {
-      console.log("[APP] 이미 위치 기록을 시작했거나 시작 중입니다.");
+    const { status: permissionStatus } =
+      await Location.requestForegroundPermissionsAsync();
+
+    if (permissionStatus !== "granted") {
+      Alert.alert(
+        "위치 권한 필요",
+        "경로를 기록하려면 위치 권한을 허용해야 합니다."
+      );
+      sendToWeb({ type: "STATUS_ACK", status: "idle" });
       return;
     }
 
-    isStartingTrackingRef.current = true;
+    setStatus("recording");
+    sendToWeb({ type: "STATUS_ACK", status: "recording" });
 
-    try {
-      const permission =
-        await Location.requestForegroundPermissionsAsync();
-
-      console.log("[APP] 기록 위치 권한:", {
-        status: permission.status,
-        granted: permission.granted,
-        iosScope: permission.ios?.scope,
-        iosAccuracy: permission.ios?.accuracy,
-        androidAccuracy: permission.android?.accuracy,
-      });
-
-      if (permission.status !== "granted") {
-        Alert.alert(
-          "위치 권한 필요",
-          "경로를 기록하려면 위치 권한을 허용해야 합니다."
-        );
-
-        setStatus("idle");
-
-        sendToWeb({
-          type: "STATUS_ACK",
-          status: "idle",
-        });
-
-        return;
-      }
-
-      if (permission.ios?.accuracy === "reduced") {
-        Alert.alert(
-          "정확한 위치 필요",
-          "설정에서 Expo Go의 '정확한 위치'를 켜야 이동 경로를 제대로 기록할 수 있습니다."
-        );
-      }
-
-      const servicesEnabled =
-        await Location.hasServicesEnabledAsync();
-
-      console.log("[APP] 위치 서비스 활성화:", servicesEnabled);
-
-      if (!servicesEnabled) {
-        Alert.alert(
-          "위치 서비스 꺼짐",
-          "아이폰 설정에서 위치 서비스를 켜 주세요."
-        );
-
-        setStatus("idle");
-
-        sendToWeb({
-          type: "STATUS_ACK",
-          status: "idle",
-        });
-
-        return;
-      }
-
-      setStatus("recording");
-
-      sendToWeb({
-        type: "STATUS_ACK",
-        status: "recording",
-      });
-
-      /*
-       * iOS에서는 timeInterval이 적용되지 않습니다.
-       * distanceInterval을 0으로 두고 iOS가 제공하는 모든 위치 갱신을 받습니다.
-       * GPS 노이즈 제거와 최소 이동 거리 필터링은 동작 확인 후 앱 코드에서 처리합니다.
-       */
-      locationSubscriptionRef.current =
-        await Location.watchPositionAsync(
-          {
-            accuracy: Location.Accuracy.BestForNavigation,
-            distanceInterval: 0,
-            timeInterval: 1000,
-          },
-          (location) => {
-            const point: RecordedPoint = {
-              lat: location.coords.latitude,
-              lng: location.coords.longitude,
-              timestamp: location.timestamp,
-              accuracy: location.coords.accuracy,
-            };
-
-            recordedPointsRef.current.push(point);
-            lastKnownPointRef.current = point;
-
-            console.log(
-              `[APP] 좌표 기록 #${recordedPointsRef.current.length}:`,
-              {
-                ...point,
-                speed: location.coords.speed,
-                heading: location.coords.heading,
-              }
-            );
-
-            sendToWeb({
-              type: "LOCATION_UPDATE",
-              coords: coordsForWeb(),
-            });
-          },
-          (reason) => {
-            console.error("[APP] 위치 구독 오류:", reason);
-
-            sendToWeb({
-              type: "TRACKING_ERROR",
-              message: reason,
-            });
-          }
-        );
-
-      console.log("[APP] 위치 구독 시작 완료");
-    } catch (error) {
-      console.error("[APP] 위치 기록 시작 실패:", error);
-
-      locationSubscriptionRef.current?.remove();
-      locationSubscriptionRef.current = null;
-
-      setStatus("idle");
-
-      sendToWeb({
-        type: "STATUS_ACK",
-        status: "idle",
-      });
-
-      Alert.alert(
-        "위치 기록 오류",
-        "위치 기록을 시작하지 못했습니다."
-      );
-    } finally {
-      isStartingTrackingRef.current = false;
+    // 이미 기록 중이면 구독을 중복으로 만들지 않음
+    if (locationSubscriptionRef.current) {
+      return;
     }
+
+    locationSubscriptionRef.current = await Location.watchPositionAsync(
+      {
+        accuracy: Location.Accuracy.BestForNavigation,
+        // timeInterval은 Android 전용. iOS는 distanceInterval 기준으로 갱신됨
+        timeInterval: 1000,
+        distanceInterval: 1,
+      },
+      (location) => {
+        const point: RecordedPoint = {
+          lat: location.coords.latitude,
+          lng: location.coords.longitude,
+          timestamp: location.timestamp,
+          accuracy: location.coords.accuracy,
+        };
+
+        // 1) 부정확한 좌표 제외
+        if (point.accuracy != null && point.accuracy > MAX_ACCURACY_M) {
+          return;
+        }
+
+        // 2) 순간이동(GPS 튐) 제외: 직전 기록 대비 비정상적으로 빠른 이동
+        const points = recordedPointsRef.current;
+        const prev = points[points.length - 1];
+        if (prev) {
+          const dtSec = Math.max((point.timestamp - prev.timestamp) / 1000, 1);
+          if (distanceM(prev, point) / dtSec > MAX_SPEED_MPS) {
+            return;
+          }
+        }
+
+        points.push(point);
+        lastKnownPointRef.current = point;
+
+        console.log(`[APP] 좌표 기록 #${points.length}:`, point);
+
+        sendToWeb({
+          type: "LOCATION_UPDATE",
+          coords: coordsForWeb(),
+        });
+      }
+    );
   }
 
   function pauseTracking() {
     locationSubscriptionRef.current?.remove();
     locationSubscriptionRef.current = null;
-
     setStatus("paused");
-
-    sendToWeb({
-      type: "STATUS_ACK",
-      status: "paused",
-    });
-
-    console.log(
-      "[APP] 위치 기록 일시정지:",
-      recordedPointsRef.current.length
-    );
+    sendToWeb({ type: "STATUS_ACK", status: "paused" });
   }
 
   function stopTracking() {
     locationSubscriptionRef.current?.remove();
     locationSubscriptionRef.current = null;
-    isStartingTrackingRef.current = false;
-
     setStatus("idle");
-
-    sendToWeb({
-      type: "STATUS_ACK",
-      status: "idle",
-    });
+    sendToWeb({ type: "STATUS_ACK", status: "idle" });
 
     console.log(
       "[APP] 최종 기록된 좌표 개수:",
       recordedPointsRef.current.length
     );
-
-    console.log(
-      "[APP] 전체 기록:",
-      recordedPointsRef.current
-    );
+    console.log("[APP] 전체 기록:", recordedPointsRef.current);
 
     recordedPointsRef.current = [];
   }
@@ -394,27 +283,47 @@ export default function Index() {
   function handleWebMessage(event: WebViewMessageEvent) {
     try {
       const data = JSON.parse(event.nativeEvent.data);
-
       console.log("[APP] 웹에서 받은 메시지:", data);
 
       if (data.type === "START_TRACKING") {
         requestPermissionAndStart();
-        return;
       }
 
       if (data.type === "PAUSE_TRACKING") {
         pauseTracking();
-        return;
       }
 
       if (data.type === "STOP_TRACKING") {
         stopTracking();
-        return;
       }
 
       if (data.type === "WEB_READY") {
         handleWebReady();
-        return;
+      }
+
+      // 근처 신호: 손 흔들기·교차를 진동으로 알림
+      if (data.type === "HAPTIC") {
+        // 지구본을 돌릴 때의 짧은 틱 / 구역 단계가 바뀔 때의 가벼운 탭
+        if (data.style === "tick") {
+          void Haptics.selectionAsync().catch(() => undefined);
+        } else if (data.style === "level") {
+          void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(
+            () => undefined,
+          );
+        } else {
+          Vibration.vibrate(
+            data.style === "crossing"
+              ? [0, 60, 90, 60, 90, 180]
+              : data.style === "wave"
+                ? [0, 40, 80, 40]
+                : 25,
+          );
+        }
+      }
+
+      // 한 곳에 오래 머물러 웹이 장소 저장을 제안할 때: 약하게 두 번
+      if (data.type === "DWELL_DETECTED") {
+        Vibration.vibrate([0, 30, 120, 30]);
       }
 
       if (
@@ -422,37 +331,36 @@ export default function Index() {
         typeof data.requestId === "string"
       ) {
         handlePlaceLocationRequest(data.requestId);
-        return;
       }
 
-      if (
-        data.type === "OAUTH_START" &&
-        typeof data.url === "string"
-      ) {
+      if (data.type === "OAUTH_START" && typeof data.url === "string") {
         startOAuth(data.url);
       }
-    } catch (error) {
-      console.error(
-        "[APP] 메시지 파싱 실패:",
-        error,
-        event.nativeEvent.data
-      );
+    } catch (err) {
+      console.error("[APP] 메시지 파싱 실패:", err, event.nativeEvent.data);
     }
   }
 
   return (
-    <SafeAreaView style={styles.container} edges={["top", "bottom"]}>
-      <WebView
+    <SafeAreaView
+      style={[
+        styles.container,
+        { backgroundColor: colorScheme === "dark" ? INK : PAPER },
+      ]}
+    >
+      <WebView<{}>
         ref={webviewRef}
         source={{ uri: WEB_URL }}
-        style={styles.webview}
+        style={[
+          styles.webview,
+          { backgroundColor: colorScheme === "dark" ? INK : PAPER },
+        ]}
         originWhitelist={["*"]}
         javaScriptEnabled
         domStorageEnabled
         injectedJavaScriptBeforeContentLoaded={`
-          window.__NATIVE_REDIRECT_URI__ = ${JSON.stringify(
-            redirectUri
-          )};
+          window.__SAN_APP_REDIRECT__ = ${JSON.stringify(redirectUri)};
+          ${__DEV__ ? "window.localStorage.setItem('san-dev-walk','1');" : ""}
           true;
         `}
         onMessage={handleWebMessage}
@@ -462,10 +370,14 @@ export default function Index() {
   );
 }
 
+// 웹(globals.css)의 --san-background 와 같은 라이트/다크 바탕색.
+// 웹뷰가 뜨기 전이나 가장자리에 흰 여백이 비치지 않게 합니다.
+const PAPER = "#F2F2EF";
+const INK = "#0E1117";
+
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: "#ffffff",
   },
   webview: {
     flex: 1,

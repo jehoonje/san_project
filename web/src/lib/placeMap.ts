@@ -1,135 +1,28 @@
 // web/src/lib/placeMap.ts
+// 저장한 장소: "종이 위에 켜지는 점".
+// 작은 별빛 점 하나와 숨 쉬듯 번지는 가는 파문, 면 위에 올린 이름만 그립니다.
 import type * as maplibregl from "maplibre-gl";
-import {
-  PLACE_CATEGORIES,
-  type PlaceCategory,
-  type PlaceMapItem,
-} from "@/types/place";
-
-const ICON_PREFIX = "san-place-icon-";
-const ICON_PIXEL_SIZE = 96;
-
-const CATEGORY_COLORS: Record<PlaceCategory, string> = {
-  cafe: "#92400e",
-  restaurant: "#dc2626",
-  bar: "#7c3aed",
-  park: "#16a34a",
-  shop: "#2563eb",
-  culture: "#db2777",
-  etc: "#525252",
-};
+import { MAP_FONT, readMapPalette, type MapPalette } from "@/lib/mapStyle";
+import type { PlaceCategory, PlaceMapItem } from "@/types/place";
 
 type PlaceFeatureCollection = {
   type: "FeatureCollection";
   features: Array<{
     type: "Feature";
     id: string | number;
-    properties: {
-      name: string;
-      category: PlaceCategory;
-      icon: string;
-    };
-    geometry: {
-      type: "Point";
-      coordinates: [number, number];
-    };
+    properties: { name: string; category: PlaceCategory };
+    geometry: { type: "Point"; coordinates: [number, number] };
   }>;
 };
 
-function iconId(category: PlaceCategory) {
-  return `${ICON_PREFIX}${category}`;
-}
-
-function createCategoryIcon(
-  emoji: string,
-  color: string,
-): ImageData {
-  const canvas = document.createElement("canvas");
-  canvas.width = ICON_PIXEL_SIZE;
-  canvas.height = ICON_PIXEL_SIZE;
-
-  const ctx = canvas.getContext("2d");
-  if (!ctx) {
-    throw new Error("장소 아이콘을 만들 Canvas를 초기화하지 못했습니다.");
-  }
-
-  ctx.clearRect(0, 0, ICON_PIXEL_SIZE, ICON_PIXEL_SIZE);
-
-  // 핀 아래쪽 꼬리
-  ctx.save();
-  ctx.shadowColor = "rgba(0, 0, 0, 0.28)";
-  ctx.shadowBlur = 8;
-  ctx.shadowOffsetY = 4;
-  ctx.beginPath();
-  ctx.moveTo(48, 89);
-  ctx.lineTo(29, 55);
-  ctx.lineTo(67, 55);
-  ctx.closePath();
-  ctx.fillStyle = color;
-  ctx.fill();
-  ctx.lineWidth = 6;
-  ctx.strokeStyle = "#ffffff";
-  ctx.stroke();
-  ctx.restore();
-
-  // 원형 배지
-  ctx.save();
-  ctx.shadowColor = "rgba(0, 0, 0, 0.28)";
-  ctx.shadowBlur = 8;
-  ctx.shadowOffsetY = 4;
-  ctx.beginPath();
-  ctx.arc(48, 39, 31, 0, Math.PI * 2);
-  ctx.fillStyle = color;
-  ctx.fill();
-  ctx.lineWidth = 6;
-  ctx.strokeStyle = "#ffffff";
-  ctx.stroke();
-  ctx.restore();
-
-  // 카테고리 이모지
-  ctx.save();
-  ctx.font =
-    '42px "Apple Color Emoji", "Segoe UI Emoji", "Noto Color Emoji", sans-serif';
-  ctx.textAlign = "center";
-  ctx.textBaseline = "middle";
-  ctx.fillText(emoji, 48, 41);
-  ctx.restore();
-
-  return ctx.getImageData(0, 0, ICON_PIXEL_SIZE, ICON_PIXEL_SIZE);
-}
-
-function registerCategoryIcons(map: maplibregl.Map) {
-  for (const category of PLACE_CATEGORIES) {
-    const id = iconId(category.key);
-    if (map.hasImage(id)) continue;
-
-    const image = createCategoryIcon(
-      category.emoji,
-      CATEGORY_COLORS[category.key],
-    );
-
-    // 96px 이미지를 pixelRatio 2로 등록해 지도에서는 약 48px로 표시
-    map.addImage(id, image, { pixelRatio: 2 });
-  }
-}
-
-function toFeatureCollection(
-  places: PlaceMapItem[],
-): PlaceFeatureCollection {
+function toFeatureCollection(places: PlaceMapItem[]): PlaceFeatureCollection {
   return {
     type: "FeatureCollection",
     features: places.map((place, index) => ({
       type: "Feature",
       id: place.id ?? index,
-      properties: {
-        name: place.name,
-        category: place.category,
-        icon: iconId(place.category),
-      },
-      geometry: {
-        type: "Point",
-        coordinates: [place.lng, place.lat],
-      },
+      properties: { name: place.name, category: place.category },
+      geometry: { type: "Point", coordinates: [place.lng, place.lat] },
     })),
   };
 }
@@ -142,48 +35,101 @@ export function placeLayerId(prefix: string) {
   return `${prefix}-place-layer`;
 }
 
+export function placeDotLayerId(prefix: string) {
+  return `${prefix}-place-dot`;
+}
+
+export function placeRingLayerId(prefix: string) {
+  return `${prefix}-place-ring`;
+}
+
 export function addPlaceLayer(
   map: maplibregl.Map,
   prefix: string,
   places: PlaceMapItem[],
+  p: MapPalette = readMapPalette(),
 ) {
-  registerCategoryIcons(map);
-
   const sourceId = placeSourceId(prefix);
-  const layerId = placeLayerId(prefix);
 
   if (!map.getSource(sourceId)) {
-    map.addSource(sourceId, {
-      type: "geojson",
-      data: toFeatureCollection(places),
+    map.addSource(sourceId, { type: "geojson", data: toFeatureCollection(places) });
+  }
+
+  if (!map.getLayer(placeRingLayerId(prefix))) {
+    map.addLayer({
+      id: placeRingLayerId(prefix),
+      type: "circle",
+      source: sourceId,
+      paint: {
+        "circle-radius": 12,
+        "circle-color": "rgba(0,0,0,0)",
+        "circle-stroke-width": 0.75,
+        "circle-stroke-color": p.ink,
+        "circle-stroke-opacity": 0.5,
+      },
     });
   }
 
-  if (!map.getLayer(layerId)) {
+  if (!map.getLayer(placeDotLayerId(prefix))) {
     map.addLayer({
-      id: layerId,
+      id: placeDotLayerId(prefix),
+      type: "circle",
+      source: sourceId,
+      paint: {
+        "circle-radius": 4,
+        "circle-color": p.star,
+        "circle-stroke-width": 2,
+        "circle-stroke-color": p.paper,
+      },
+    });
+  }
+
+  if (!map.getLayer(placeLayerId(prefix))) {
+    map.addLayer({
+      id: placeLayerId(prefix),
       type: "symbol",
       source: sourceId,
       layout: {
-        "icon-image": ["get", "icon"],
-        "icon-anchor": "bottom",
-        "icon-allow-overlap": true,
-        "icon-ignore-placement": true,
         "text-field": ["get", "name"],
         "text-size": 12,
+        "text-font": MAP_FONT,
+        "text-letter-spacing": 0.02,
         "text-anchor": "top",
-        "text-offset": [0, 0.55],
-        "text-max-width": 10,
+        "text-offset": [0, 1.1],
+        "text-max-width": 9,
         "text-optional": true,
         "text-allow-overlap": false,
       },
       paint: {
-        "text-color": "#171717",
-        "text-halo-color": "#ffffff",
-        "text-halo-width": 2,
-        "text-halo-blur": 0.5,
+        "text-color": p.ink,
+        "text-halo-color": p.paper,
+        "text-halo-width": 2.2,
+        "text-halo-blur": 0.4,
       },
     });
+  }
+}
+
+/** 테마 전환 시 장소 점·이름 색 갱신 */
+export function applyPlacePalette(
+  map: maplibregl.Map,
+  prefix: string,
+  p: MapPalette = readMapPalette(),
+) {
+  try {
+    if (map.getLayer(placeRingLayerId(prefix))) {
+      map.setPaintProperty(placeRingLayerId(prefix), "circle-stroke-color", p.ink);
+    }
+    if (map.getLayer(placeDotLayerId(prefix))) {
+      map.setPaintProperty(placeDotLayerId(prefix), "circle-color", p.star);
+      map.setPaintProperty(placeDotLayerId(prefix), "circle-stroke-color", p.paper);
+    }
+    if (map.getLayer(placeLayerId(prefix))) {
+      map.setPaintProperty(placeLayerId(prefix), "text-color", p.ink);
+      map.setPaintProperty(placeLayerId(prefix), "text-halo-color", p.paper);
+    }
+  } catch {
+    /* 스타일이 내려가는 중이면 무시 */
   }
 }
 
@@ -192,9 +138,27 @@ export function updatePlaceLayer(
   prefix: string,
   places: PlaceMapItem[],
 ) {
-  const source = map.getSource(placeSourceId(prefix)) as
-    | maplibregl.GeoJSONSource
-    | undefined;
+  (map.getSource(placeSourceId(prefix)) as maplibregl.GeoJSONSource | undefined)
+    ?.setData(toFeatureCollection(places));
+}
 
-  source?.setData(toFeatureCollection(places));
+/** 파문이 3초 주기로 숨 쉬듯 번지는 애니메이션. 반환된 함수로 정지합니다. */
+export function startPlacePulse(map: maplibregl.Map, prefix: string) {
+  const id = placeRingLayerId(prefix);
+  let raf = 0;
+  let last = 0;
+
+  const tick = (now: number) => {
+    raf = requestAnimationFrame(tick);
+    if (now - last < 60 || !map.getLayer(id)) return;
+    last = now;
+
+    const phase = (now % 3000) / 3000;
+    const eased = 1 - Math.pow(1 - phase, 3);
+    map.setPaintProperty(id, "circle-radius", 5 + eased * 15);
+    map.setPaintProperty(id, "circle-stroke-opacity", 0.6 * (1 - eased));
+  };
+
+  raf = requestAnimationFrame(tick);
+  return () => cancelAnimationFrame(raf);
 }

@@ -1,0 +1,512 @@
+/*
+ * san-entry.css — 로그인 / 가입 / 게스트 진입 화면.
+ * 크림빛 종이 위에 큰 블러 원 하나와 가는 궤도선, 얇은 글자만 둔다.
+ * 색은 --san-* 토큰만 사용한다.
+ */
+
+.san-entry {
+  position: fixed;
+  inset: 0;
+  isolation: isolate;
+  width: 100%;
+  height: 100dvh;
+  overflow: hidden;
+  color: var(--san-text);
+  background: var(--san-background);
+}
+
+/* 배경: 큰 블러 원(온도) + 헤어라인 타원 두 개(궤도) */
+.san-ambient {
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  pointer-events: none;
+}
+
+.san-ambient span {
+  position: absolute;
+  border-radius: 50%;
+}
+
+.san-ambient span:nth-child(1) {
+  top: -12%;
+  right: -34%;
+  width: min(118vw, 620px);
+  height: min(118vw, 620px);
+  background:
+    radial-gradient(circle at 36% 34%, var(--san-orb-warm), transparent 62%),
+    radial-gradient(circle at 68% 70%, var(--san-orb-cool), transparent 64%),
+    var(--san-surface);
+  filter: blur(48px);
+  opacity: 0.8;
+  animation: sanOrbBreathe 6s ease-in-out infinite;
+}
+
+.san-ambient span:nth-child(2),
+.san-ambient span:nth-child(3) {
+  top: 6%;
+  right: -46%;
+  width: min(150vw, 780px);
+  height: min(86vw, 440px);
+  border: 0.75px solid var(--san-border-strong);
+  transform: rotate(-18deg);
+}
+
+.san-ambient span:nth-child(3) {
+  top: 14%;
+  right: -30%;
+  width: min(120vw, 620px);
+  height: min(60vw, 310px);
+  border-color: var(--san-border);
+  transform: rotate(-31deg);
+}
+
+@keyframes sanOrbBreathe {
+  0%,
+  100% {
+    opacity: 0.66;
+    transform: scale(0.98);
+  }
+  50% {
+    opacity: 0.86;
+    transform: scale(1.03);
+  }
+}
+
+/* 머리말 */
+.san-entry-head {
+  position: absolute;
+  top: max(64px, calc(env(safe-area-inset-top) + 56px));
+  left: max(28px, calc(env(safe-area-inset-left) + 24px));
+  right: 28px;
+  z-index: 2;
+  transition:
+    opacity 420ms var(--san-ease),
+    filter 420ms var(--san-ease);
+}
+
+.san-entry-head.is-away {
+  opacity: 0;
+  filter: blur(6px);
+}
+
+.san-entry-head h1 {
+  margin: 14px 0 0;
+  font-size: clamp(24px, 6.6vw, 30px);
+  font-weight: 300;
+  line-height: 1.5;
+  letter-spacing: 0.01em;
+  word-break: keep-all;
+}
+
+/* Menu */
+
+.san-menu {
+  position: absolute;
+  top: max(248px, calc(env(safe-area-inset-top) + 248px));
+  left: max(28px, calc(env(safe-area-inset-left) + 24px));
+  z-index: 2;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 2px;
+}
+
+.san-menu-item {
+  min-height: 58px;
+  padding: 2px 18px 2px 0;
+  border: 0;
+  color: var(--san-text);
+  background: transparent;
+  text-align: left;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.san-menu-item.is-soft {
+  color: var(--san-text-muted);
+}
+
+.san-menu-text {
+  display: inline-flex;
+  align-items: center;
+  font-size: clamp(32px, 9vw, 46px);
+  font-weight: 300;
+  line-height: 1.5;
+  letter-spacing: 0.18em;
+}
+
+.san-menu-char {
+  display: inline-block;
+}
+
+/* 떠오르는 카드 */
+
+.san-scrim {
+  position: absolute;
+  inset: 0;
+  z-index: 3;
+  background: var(--san-scrim);
+}
+
+.san-whip {
+  position: absolute;
+  inset: 0;
+  z-index: 4;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding:
+    max(24px, calc(env(safe-area-inset-top) + 16px))
+    16px
+    max(24px, calc(env(safe-area-inset-bottom) + 16px));
+  pointer-events: none;
+  will-change: transform, filter;
+}
+
+.san-card {
+  position: relative;
+  width: min(100%, 430px);
+  max-height: 100%;
+  overflow-x: hidden;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  padding: 68px clamp(22px, 6vw, 30px) 28px;
+  border: 0;
+  border-radius: var(--san-radius-lg);
+  color: var(--san-text);
+  background: var(--san-background);
+  box-shadow: none;
+  pointer-events: auto;
+  scrollbar-width: none;
+}
+
+.san-card::-webkit-scrollbar {
+  display: none;
+}
+
+.san-icon-button {
+  display: inline-flex;
+  align-items: center;
+  border: 0;
+  color: var(--san-text);
+  background: transparent;
+  cursor: pointer;
+  transition: background-color var(--san-dur) var(--san-ease);
+}
+
+.san-card-back {
+  position: absolute !important;
+  top: 12px;
+  left: 12px;
+  width: 48px;
+  height: 48px;
+  justify-content: center;
+  border-radius: var(--san-radius-pill);
+}
+
+.san-icon-button:active {
+  background: var(--san-surface);
+}
+
+.san-icon-button:disabled {
+  opacity: 0.4;
+  cursor: default;
+}
+
+/* 입력 · 버튼 (모두 평평한 알약) */
+
+.san-input {
+  display: block;
+  width: 100%;
+  height: 56px;
+  padding: 0 22px;
+  border: 0;
+  border-radius: var(--san-radius-pill);
+  outline: none;
+  color: var(--san-text);
+  background: var(--san-surface);
+  caret-color: var(--san-text);
+  font-size: 16px;
+  font-weight: 400;
+  box-shadow: none;
+  transition: background-color var(--san-dur) var(--san-ease);
+}
+
+.san-input::placeholder {
+  color: var(--san-text-muted);
+  font-weight: 300;
+}
+
+.san-input:focus {
+  background: var(--san-surface-strong);
+}
+
+.san-input:disabled {
+  opacity: 0.5;
+}
+
+.san-reveal {
+  overflow: hidden;
+}
+
+.san-reveal-inner {
+  padding-top: 10px;
+}
+
+.san-primary,
+.san-secondary,
+.san-social-button,
+.san-text-button {
+  display: flex;
+  width: 100%;
+  min-height: 56px;
+  align-items: center;
+  justify-content: center;
+  border: 0;
+  border-radius: var(--san-radius-pill);
+  font-size: 15px;
+  font-weight: 400;
+  letter-spacing: 0.01em;
+  cursor: pointer;
+  box-shadow: none;
+  transition:
+    background-color var(--san-dur) var(--san-ease),
+    opacity var(--san-dur) var(--san-ease);
+}
+
+.san-primary {
+  margin-top: 10px;
+  color: var(--san-accent-text);
+  background: var(--san-accent);
+}
+
+.san-primary:active {
+  background: var(--san-accent-hover);
+}
+
+.san-secondary,
+.san-social-button {
+  color: var(--san-text);
+  background: var(--san-surface);
+}
+
+.san-secondary:active,
+.san-social-button:active {
+  background: var(--san-surface-strong);
+}
+
+.san-text-button {
+  margin-top: 10px;
+  color: var(--san-text);
+  background: transparent;
+}
+
+.san-text-button:active {
+  background: var(--san-surface);
+}
+
+.san-primary:disabled,
+.san-secondary:disabled,
+.san-social-button:disabled,
+.san-text-button:disabled {
+  opacity: 0.4;
+  cursor: default;
+}
+
+.san-error {
+  margin: 14px 6px 0;
+  color: var(--san-error);
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+/* 구분: 선 대신 여백 */
+.san-divider {
+  display: block;
+  height: 28px;
+}
+
+.san-divider span {
+  display: none;
+}
+
+.san-social-list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.san-social-button {
+  position: relative;
+}
+
+.san-social-icon {
+  position: absolute;
+  left: 22px;
+  display: grid;
+  width: 22px;
+  height: 22px;
+  place-items: center;
+  color: var(--san-text);
+}
+
+/* 가입 단계 */
+
+.san-progress {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 8px;
+  margin: 0 6px 26px;
+}
+
+.san-progress span {
+  height: 1px;
+  border-radius: var(--san-radius-pill);
+  background: var(--san-border);
+  transition: background-color var(--san-dur) var(--san-ease);
+}
+
+.san-progress span.is-on {
+  background: var(--san-text);
+}
+
+.san-done {
+  text-align: center;
+}
+
+.san-done-mark {
+  display: grid;
+  width: 76px;
+  height: 76px;
+  place-items: center;
+  margin: 4px auto 22px;
+  border: 0.75px solid var(--san-border-strong);
+  border-radius: 50%;
+  color: var(--san-text);
+}
+
+.san-done-mark svg {
+  width: 30px;
+  height: 30px;
+}
+
+.san-done-text {
+  margin: 0 0 14px;
+  font-size: 18px;
+  font-weight: 300;
+}
+
+/* 화면 설정 */
+
+.san-theme-list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.san-theme-option {
+  display: grid;
+  min-height: 68px;
+  grid-template-columns: 28px 1fr 12px;
+  align-items: center;
+  gap: 14px;
+  padding: 12px 24px;
+  border: 0;
+  border-radius: var(--san-radius-pill);
+  color: var(--san-text);
+  background: var(--san-surface);
+  text-align: left;
+  cursor: pointer;
+  box-shadow: none;
+  transition:
+    background-color var(--san-dur) var(--san-ease),
+    color var(--san-dur) var(--san-ease);
+}
+
+.san-theme-option.is-active {
+  color: var(--san-accent-text);
+  background: var(--san-accent);
+}
+
+.san-theme-icon {
+  display: grid;
+  place-items: center;
+}
+
+.san-theme-name {
+  font-size: 15px;
+  font-weight: 400;
+  letter-spacing: 0.02em;
+}
+
+.san-theme-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: transparent;
+}
+
+.san-theme-option.is-active .san-theme-dot {
+  background: var(--san-accent-text);
+}
+
+/* 알림 · 로딩 */
+
+.san-notice {
+  position: absolute;
+  bottom: max(56px, calc(env(safe-area-inset-bottom) + 44px));
+  left: 50%;
+  z-index: 60;
+  width: max-content;
+  max-width: calc(100% - 40px);
+  padding: 12px 20px;
+  border-radius: var(--san-radius-pill);
+  color: var(--san-text);
+  background: var(--san-surface);
+  font-size: 13px;
+  translate: -50% 0;
+}
+
+.san-auth-loading {
+  position: fixed;
+  inset: 0;
+  display: grid;
+  height: 100dvh;
+  place-items: center;
+  background: var(--san-background);
+}
+
+.san-auth-loading-mark {
+  position: relative;
+  width: 72px;
+  height: 72px;
+}
+
+.san-auth-loading-mark span {
+  position: absolute;
+  inset: 0;
+  border: 0.75px solid var(--san-text);
+  border-radius: 50%;
+  opacity: 0;
+  animation: san-ripple-wide 3s var(--san-ease) infinite;
+}
+
+.san-auth-loading-mark span:nth-child(2) {
+  animation-delay: 1s;
+}
+
+.san-auth-loading-mark span:nth-child(3) {
+  animation-delay: 2s;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .san-ambient span:nth-child(1),
+  .san-auth-loading-mark span {
+    animation: none;
+  }
+
+  .san-auth-loading-mark span {
+    opacity: 0.3;
+  }
+}
