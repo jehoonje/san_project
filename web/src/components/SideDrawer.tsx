@@ -32,9 +32,9 @@ type SideDrawerProps = {
 const DURATION_MS = 460;
 const EASE = "cubic-bezier(0.22, 1, 0.36, 1)";
 
-const THEMES: { id: SanTheme; label: string; code: string }[] = [
-  { id: "light", label: "종이", code: "LIGHT" },
-  { id: "dark", label: "먹", code: "DARK" },
+const THEMES: { id: SanTheme; label: string }[] = [
+  { id: "light", label: "Light" },
+  { id: "dark", label: "Dark" },
 ];
 
 export function SideDrawer({
@@ -60,14 +60,14 @@ export function SideDrawer({
     : (profile?.email ?? email ?? "이메일 정보 없음");
 
   const signalLine = !signal.on
-    ? "지금은 서로 보이지 않아요"
+    ? "꺼져 있어요"
     : signal.status === "live"
       ? signal.nearby > 0
-        ? "가까이에 누군가 걷고 있어요"
-        : "근처는 고요해요"
+        ? `근처에 ${signal.nearby}명`
+        : "근처에 아무도 없어요"
       : signal.status === "error"
-        ? "신호가 닿지 않아요"
-        : "신호를 여는 중이에요";
+        ? "연결되지 않았어요"
+        : "연결 중";
 
   useEffect(() => {
     const dialog = dialogRef.current;
@@ -202,9 +202,6 @@ export function SideDrawer({
                 onClick={() => setTheme(item.id)}
               >
                 {item.label}
-                <span className="font-mono text-[10px] tracking-[0.16em] opacity-80">
-                  {item.code}
-                </span>
               </button>
             ))}
           </div>
@@ -212,10 +209,7 @@ export function SideDrawer({
 
         {/* 근처 신호 */}
         <section className="mt-9" aria-label="근처 신호">
-          <h3 className="san-eyebrow flex items-center gap-2">
-            SIGNAL
-            {signal.callSign && <span>· {signal.callSign}</span>}
-          </h3>
+          <h3 className="san-eyebrow">SIGNAL</h3>
           <div className="mt-3 flex items-center justify-between gap-4">
             <p className="m-0 flex min-w-0 items-center gap-2.5 text-[14px] text-san-text">
               <span
@@ -237,13 +231,12 @@ export function SideDrawer({
               aria-pressed={signal.on}
               onClick={signal.onToggle}
             >
-              {signal.on ? "보이는 중" : "숨는 중"}
+              {signal.on ? "켜짐" : "꺼짐"}
             </button>
           </div>
-          <p className="san-fade-tail mt-3 text-[12.5px] leading-relaxed text-san-text">
-            위치는 100m쯤 흐려서, 그날의 신호명으로만 나눠요. 가까이 잡힌
-            산책자의 아바타를 누르면 내 아바타가 그쪽으로 돌아서 인사를
-            건넵니다.
+          <p className="mt-3 text-[12.5px] leading-relaxed text-san-text">
+            정확한 위치 대신 대략적인 위치만 공유돼요. 근처 산책자의
+            아바타를 누르면 내 아바타가 그쪽을 보고 인사해요.
           </p>
 
           {ownerId && (

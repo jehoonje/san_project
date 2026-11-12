@@ -233,7 +233,6 @@ export function AuthPortal({ onAuthenticated, onSocialLogin }: AuthPortalProps) 
     if (key === "guest") {
       // 게스트: 로그인 없이 둘러보기. 기록은 이 기기에만 남음
       enterGuestMode();
-      showNotice("로그인 없이 둘러볼게요.");
       onAuthenticated();
       return;
     }
@@ -348,15 +347,6 @@ export function AuthPortal({ onAuthenticated, onSocialLogin }: AuthPortalProps) 
         <span />
       </div>
 
-      <header className={`san-entry-head ${panel ? "is-away" : ""}`}>
-        <p className="san-eyebrow">SAN · WALK LOG</p>
-        <h1>
-          걸은 자리가
-          <br />
-          조용히 남는 곳
-        </h1>
-      </header>
-
       <motion.nav
         className="san-menu"
         aria-label="SAN 메뉴"
@@ -438,8 +428,8 @@ export function AuthPortal({ onAuthenticated, onSocialLogin }: AuthPortalProps) 
                     <div className="san-theme-list">
                       {(
                         [
-                          { id: "light", name: "종이 · Light", icon: <SunIcon /> },
-                          { id: "dark", name: "먹 · Dark", icon: <MoonIcon /> },
+                          { id: "light", name: "Light", icon: <SunIcon /> },
+                          { id: "dark", name: "Dark", icon: <MoonIcon /> },
                         ] as const
                       ).map((o) => (
                         <button

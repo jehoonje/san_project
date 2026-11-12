@@ -11,124 +11,129 @@
 }
 
 /*
- * SAN — "크림빛 종이 위에 가는 잉크로 그린, 조용한 근미래."
+ * SAN — 고요, 잔향, 온기, 관측, 여백.
  *
  * 두 테마는 구조가 같고 색만 다르다.
- *   light = 종이(paper), dark = 먹(ink)
  * 모든 색은 여기의 --san-* 토큰으로만 정의하고, 컴포넌트는 토큰만 참조한다.
  * 순백·순흑은 쓰지 않는다. 강조색은 맥동 점(live)과 별(star) 두 가지뿐이다.
  */
 
+/*
+ * 팔레트: late night flight.
+ *   light = 새벽 기내의 중성 회백색 + 잉크 남색 글자
+ *   dark  = 밤하늘 남흑색 + 달빛 글자 + 아주 작은 독서등의 온기
+ */
 :root,
 [data-theme="light"] {
   /* 면 */
-  --san-background: #fbf5ea;
-  --san-background-soft: #f6efe1;
-  --san-surface: #f1e9d8;
-  --san-surface-strong: #eae0cb;
-  --san-surface-soft: rgba(107, 106, 79, 0.06);
-  --san-surface-hover: rgba(107, 106, 79, 0.11);
-  --san-input: #f1e9d8;
+  --san-background: #f2f2ef;
+  --san-background-soft: #ededea;
+  --san-surface: #e6e7e3;
+  --san-surface-strong: #dcdfdb;
+  --san-surface-soft: rgba(46, 52, 64, 0.05);
+  --san-surface-hover: rgba(46, 52, 64, 0.09);
+  --san-input: #e6e7e3;
 
   /* 잉크 */
-  --san-text: #6b6a4f;
-  --san-text-muted: #8f8d74;
-  --san-text-faint: #b3ae95;
+  --san-text: #2e3440;
+  --san-text-muted: #5f6774;
+  --san-text-faint: #9aa0a8;
 
   /* 헤어라인 (장식 곡선·타원 전용) */
-  --san-border: rgba(107, 106, 79, 0.16);
-  --san-border-strong: rgba(107, 106, 79, 0.34);
+  --san-border: rgba(46, 52, 64, 0.14);
+  --san-border-strong: rgba(46, 52, 64, 0.3);
 
-  /* 포인트 = 잉크 그 자체. 채워진 알약은 잉크 면 + 종이 글자 */
-  --san-accent: #6b6a4f;
-  --san-accent-hover: #5c5b43;
-  --san-accent-text: #fbf5ea;
+  /* 포인트 = 잉크 그 자체. 채워진 알약은 잉크 면 + 바탕색 글자 */
+  --san-accent: #2e3440;
+  --san-accent-hover: #3b4252;
+  --san-accent-text: #f2f2ef;
 
   /* 강조 2색 + 오류 */
   --san-live: #3fa66b;
-  --san-star: #f2b91d;
+  --san-star: #e8a93a;
   --san-error: #b5523b;
 
-  --san-icon-fill: rgba(251, 245, 234, 0.7);
-  --san-scrim: rgba(107, 106, 79, 0.2);
-  --san-veil: rgba(251, 245, 234, 0.86);
+  --san-icon-fill: rgba(242, 242, 239, 0.7);
+  --san-scrim: rgba(46, 52, 64, 0.22);
+  --san-veil: rgba(242, 242, 239, 0.88);
   --san-shadow: none;
-  --san-gradient-base-start: #fbf5ea;
-  --san-gradient-base-end: #f1e9d8;
+  --san-gradient-base-start: #f2f2ef;
+  --san-gradient-base-end: #e6e7e3;
 
-  /* 큰 블러 오브젝트의 온도 */
-  --san-orb-warm: #f0c9a0;
-  --san-orb-cool: #c9d2bf;
+  /* 큰 블러 오브젝트: 창밖 새벽빛(차가움) + 기내 조명(온기) */
+  --san-orb-warm: #ecd2c2;
+  --san-orb-cool: #bccadb;
 
-  /* 종이 지도 */
-  --san-map-land: #f6efe0;
-  --san-map-green: #ece6cf;
-  --san-map-water: #e1dccb;
-  --san-map-road: #fdf9f0;
-  --san-map-road-minor: #faf4e7;
-  --san-map-building: #ebe2ce;
-  --san-map-building-top: #f1e9d8;
-  --san-map-label: #8f8d74;
-  --san-map-route: #6b6a4f;
+  /* 지도 */
+  --san-map-land: #eeeeeb;
+  --san-map-green: #e3e6e0;
+  --san-map-water: #d9dfe5;
+  --san-map-road: #f9f9f7;
+  --san-map-road-minor: #f4f4f2;
+  --san-map-building: #e1e3df;
+  --san-map-building-top: #e9eae7;
+  --san-map-label: #5f6774;
+  --san-map-route: #2e3440;
 
   /* 아바타 · 부트 파티클 */
-  --san-avatar: #6b6a4f;
-  --san-avatar-peer: #a9a68a;
-  --san-particle: #6b6a4f;
-  --san-particle-soft: #a9a68a;
+  --san-avatar: #2e3440;
+  --san-avatar-peer: #9aa0a8;
+  --san-particle: #2e3440;
+  --san-particle-soft: #8f9bb0;
 
   --background: var(--san-background);
   --foreground: var(--san-text);
 }
 
 [data-theme="dark"] {
-  --san-background: #14120f;
-  --san-background-soft: #1a1713;
-  --san-surface: #221e18;
-  --san-surface-strong: #2b261e;
-  --san-surface-soft: rgba(205, 183, 126, 0.07);
-  --san-surface-hover: rgba(205, 183, 126, 0.13);
-  --san-input: #221e18;
+  --san-background: #0e1117;
+  --san-background-soft: #12161d;
+  --san-surface: #181c25;
+  --san-surface-strong: #20252f;
+  --san-surface-soft: rgba(216, 220, 227, 0.05);
+  --san-surface-hover: rgba(216, 220, 227, 0.1);
+  --san-input: #181c25;
 
-  --san-text: #cdb77e;
-  --san-text-muted: #8e7f58;
-  --san-text-faint: #6a5f43;
+  --san-text: #d8dce3;
+  --san-text-muted: #8a93a3;
+  --san-text-faint: #565e6c;
 
-  --san-border: rgba(205, 183, 126, 0.16);
-  --san-border-strong: rgba(205, 183, 126, 0.34);
+  --san-border: rgba(216, 220, 227, 0.13);
+  --san-border-strong: rgba(216, 220, 227, 0.28);
 
-  --san-accent: #cdb77e;
-  --san-accent-hover: #d8c592;
-  --san-accent-text: #14120f;
+  --san-accent: #d8dce3;
+  --san-accent-hover: #e5e8ed;
+  --san-accent-text: #0e1117;
 
   --san-live: #3fa66b;
-  --san-star: #f2b91d;
-  --san-error: #c9715a;
+  --san-star: #e8a93a;
+  --san-error: #d0786a;
 
-  --san-icon-fill: rgba(20, 18, 15, 0.7);
-  --san-scrim: rgba(8, 7, 5, 0.52);
-  --san-veil: rgba(20, 18, 15, 0.86);
+  --san-icon-fill: rgba(14, 17, 23, 0.7);
+  --san-scrim: rgba(4, 6, 10, 0.56);
+  --san-veil: rgba(14, 17, 23, 0.86);
   --san-shadow: none;
-  --san-gradient-base-start: #1a1713;
-  --san-gradient-base-end: #14120f;
+  --san-gradient-base-start: #12161d;
+  --san-gradient-base-end: #0e1117;
 
-  --san-orb-warm: #7a5a2e;
-  --san-orb-cool: #3d4a3c;
+  /* 밤하늘(차가움) 위에 아주 작은 독서등(온기) */
+  --san-orb-warm: #4a3a36;
+  --san-orb-cool: #22314a;
 
-  --san-map-land: #181511;
-  --san-map-green: #1c1a13;
-  --san-map-water: #100f0c;
-  --san-map-road: #262119;
-  --san-map-road-minor: #1f1b15;
-  --san-map-building: #26211a;
-  --san-map-building-top: #2f2920;
-  --san-map-label: #8e7f58;
-  --san-map-route: #cdb77e;
+  --san-map-land: #10141b;
+  --san-map-green: #121820;
+  --san-map-water: #0a0d13;
+  --san-map-road: #1c212b;
+  --san-map-road-minor: #161a22;
+  --san-map-building: #181d26;
+  --san-map-building-top: #1f2530;
+  --san-map-label: #8a93a3;
+  --san-map-route: #d8dce3;
 
-  --san-avatar: #cdb77e;
-  --san-avatar-peer: #8e7f58;
-  --san-particle: #cdb77e;
-  --san-particle-soft: #f1e3b8;
+  --san-avatar: #d8dce3;
+  --san-avatar-peer: #6a7385;
+  --san-particle: #d8dce3;
+  --san-particle-soft: #e7c9b3;
 
   --background: var(--san-background);
   --foreground: var(--san-text);
@@ -316,7 +321,7 @@ input {
 }
 
 [data-theme="dark"] .maplibregl-ctrl-attrib-button {
-  filter: invert(1) sepia(0.5);
+  filter: invert(1);
 }
 
 @media (prefers-reduced-motion: reduce) {

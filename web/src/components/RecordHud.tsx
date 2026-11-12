@@ -90,20 +90,7 @@ export function RecordHud({
               </p>
             </div>
           </motion.div>
-        ) : (
-          <motion.div
-            key="idle"
-            className="san-hud-body px-8"
-            {...screenMotion(reduce)}
-          >
-            <p className="san-eyebrow">READY</p>
-            <p className="san-title mt-1">
-              걸음을 시작하면
-              <br />
-              가는 선 하나가 남아요
-            </p>
-          </motion.div>
-        )}
+        ) : null}
       </AnimatePresence>
     </div>
   );

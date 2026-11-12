@@ -28,10 +28,7 @@ export default function SplashPage() {
         <i />
         <i />
       </span>
-      <div className="text-center">
-        <p className="san-eyebrow">SAN</p>
-        <h1 className="san-title mt-2">걸은 자리가 조용히 남는 곳</h1>
-      </div>
+      <h1 className="san-eyebrow">SAN</h1>
     </main>
   );
 }

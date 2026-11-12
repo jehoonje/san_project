@@ -21,9 +21,9 @@ export function RouteTitleModal({
   errorMessage,
   onConfirm,
   onCancel,
-  heading = "오늘의 걸음에 이름을",
-  description = "나중에 다시 꺼내 볼 이름을 붙여주세요.",
-  confirmLabel = "남기기",
+  heading = "루트 이름",
+  description = "저장할 루트의 이름을 입력해 주세요.",
+  confirmLabel = "저장",
 }: RouteTitleModalProps) {
   const [title, setTitle] = useState(defaultTitle);
   const titleId = useId();
@@ -106,7 +106,7 @@ export function RouteTitleModal({
             disabled={!trimmed || isSaving}
             className="san-pill san-pill-fill h-14"
           >
-            {isSaving ? "남기는 중…" : confirmLabel}
+            {isSaving ? "저장 중…" : confirmLabel}
           </button>
         </div>
       </motion.form>

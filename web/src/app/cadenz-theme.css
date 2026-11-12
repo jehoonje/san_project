@@ -347,6 +347,15 @@
   content: "";
 }
 
+/* 버튼 둘레의 파문: 가운데 점 없이 선만 */
+.san-ripples-bare::after {
+  display: none;
+}
+
+.san-pill-fill .san-ripples-bare > i {
+  border-color: var(--san-accent);
+}
+
 /* 큰 블러 오브젝트: 색과 온도만 남긴 원 */
 .san-orb {
   position: absolute;

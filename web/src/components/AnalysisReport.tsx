@@ -203,10 +203,10 @@ async function makeCard(title: string, summary: string, tags: string[]) {
   const ctx = canvas.getContext("2d");
   if (!ctx) throw new Error("canvas_unavailable");
   // 공유 카드도 지금 테마의 종이/먹 색 그대로: 면 + 큰 블러 원 + 얇은 글자
-  const paper = readToken("--san-background", "#fbf5ea");
-  const ink = readToken("--san-text", "#6b6a4f");
-  const warm = readToken("--san-orb-warm", "#f0c9a0");
-  const cool = readToken("--san-orb-cool", "#c9d2bf");
+  const paper = readToken("--san-background", "#f2f2ef");
+  const ink = readToken("--san-text", "#2e3440");
+  const warm = readToken("--san-orb-warm", "#ecd2c2");
+  const cool = readToken("--san-orb-cool", "#bccadb");
   ctx.fillStyle = paper;
   ctx.fillRect(0, 0, 1080, 1920);
   ctx.save();
@@ -376,9 +376,6 @@ function Report({
       <header className={s.persona}>
         <span className={s.orb} aria-hidden="true" />
         <span className={s.orbit} aria-hidden="true" />
-        <div className={s.personaTop}>
-          <span>MY TASTE</span>
-        </div>
         <div className={s.personaType}>
           <h1>{report.title}</h1>
         </div>
@@ -479,14 +476,14 @@ export function AnalysisReport({ accessToken }: Props) {
       <StorySectionStyles />
       <style>{STYLES}</style>
       {state.status === "loading" && (
-        <div className={s.empty} role="status" aria-live="polite">
-          <h2>
-            기록 사이에
-            <br />
-            취향이 숨어 있네요.
-          </h2>
-          <p>{state.message}</p>
-          {state.total > 0 ? (
+        <div className={s.loading} role="status" aria-live="polite">
+          <span className={`san-ripples ${s.ripples}`} aria-hidden="true">
+            <i />
+            <i />
+            <i />
+          </span>
+          <p>취향을 분석하고 있어요</p>
+          {state.total > 0 && (
             <div className="ar-progress">
               <div
                 role="progressbar"
@@ -498,21 +495,15 @@ export function AnalysisReport({ accessToken }: Props) {
                 <i style={{ width: `${progress}%` }} />
               </div>
               <span>
-                장소 정보 처리 {state.current}/{state.total}
+                {state.current}/{state.total}
               </span>
             </div>
-          ) : (
-            <span className={`san-ripples ${s.ripples}`} aria-hidden="true">
-              <i />
-              <i />
-              <i />
-            </span>
           )}
         </div>
       )}
       {state.status === "error" && (
         <div className={s.empty}>
-          <h2>다시 펼쳐볼까요?</h2>
+          <h2>불러오지 못했어요</h2>
           <p role="alert">{state.message}</p>
           <button type="button" onClick={() => void run(false)}>
             다시 불러오기
@@ -522,7 +513,6 @@ export function AnalysisReport({ accessToken }: Props) {
       {state.status === "ready" && (
         <>
           <div className={s.toolbar}>
-            <span>READING</span>
             <button type="button" onClick={() => void run(true)}>
               새로 읽기
             </button>

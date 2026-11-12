@@ -25,7 +25,7 @@ const themeBootScript = `
   root.setAttribute("data-theme", theme);
   root.style.colorScheme = theme;
   var meta = document.querySelector('meta[name="theme-color"]');
-  if (meta) meta.setAttribute("content", theme === "dark" ? "#14120f" : "#fbf5ea");
+  if (meta) meta.setAttribute("content", theme === "dark" ? "#0e1117" : "#f2f2ef");
 })();
 `;
 
@@ -54,7 +54,7 @@ export default function RootLayout({
     <html lang="ko" data-theme="light" suppressHydrationWarning>
       <head>
         <meta name="color-scheme" content="light dark" />
-        <meta name="theme-color" content="#fbf5ea" />
+        <meta name="theme-color" content="#f2f2ef" />
         <link
           rel="preload"
           href="/fonts/PretendardVariable.woff2"

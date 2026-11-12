@@ -360,10 +360,10 @@ export default function Index() {
   );
 }
 
-// 웹(globals.css)의 --san-background 와 같은 종이/먹 색.
+// 웹(globals.css)의 --san-background 와 같은 라이트/다크 바탕색.
 // 웹뷰가 뜨기 전이나 가장자리에 흰 여백이 비치지 않게 합니다.
-const PAPER = "#FBF5EA";
-const INK = "#14120F";
+const PAPER = "#F2F2EF";
+const INK = "#0E1117";
 
 const styles = StyleSheet.create({
   container: {

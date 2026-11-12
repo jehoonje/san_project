@@ -41,7 +41,7 @@ export function EmoteSheet({ peer, relation, onEmote, onClose }: Props) {
       ? `방금 ${emoteInfo(relation.theirs).got}`
       : relation?.mine
         ? `${emoteInfo(relation.mine).done} · 답을 기다려요`
-        : "조용히 인사를 건네볼까요";
+        : "";
 
   return (
     <div
@@ -64,9 +64,11 @@ export function EmoteSheet({ peer, relation, onEmote, onClose }: Props) {
               {peer.cs}
             </p>
             <p className="san-title mt-2">{distanceLabel(peer.distance)}</p>
-            <p className="mt-0.5 text-[13px] text-san-text" role="status">
-              {line}
-            </p>
+            {line && (
+              <p className="mt-0.5 text-[13px] text-san-text" role="status">
+                {line}
+              </p>
+            )}
           </div>
 
           <button
@@ -81,9 +83,9 @@ export function EmoteSheet({ peer, relation, onEmote, onClose }: Props) {
           </button>
         </div>
 
-        {/* 가로로 흐르는 알약 묶음 */}
+        {/* 다섯 가지 몸짓: 글자 없이 아이콘만 */}
         <div
-          className="san-no-scrollbar -mx-5 mt-4 flex gap-2 overflow-x-auto px-5"
+          className="mt-4 flex justify-between gap-2"
           role="group"
           aria-label="감정 표현"
         >
@@ -91,12 +93,13 @@ export function EmoteSheet({ peer, relation, onEmote, onClose }: Props) {
             <button
               key={emote.id}
               type="button"
-              className="san-pill h-12 shrink-0 gap-2 px-4"
+              className="san-pill h-[52px] w-[52px] shrink-0 p-0"
               aria-pressed={relation?.mine === emote.id}
+              aria-label={emote.label}
+              title={emote.label}
               onClick={() => onEmote(emote.id)}
             >
               <EmoteIcon id={emote.id} />
-              {emote.label}
             </button>
           ))}
         </div>

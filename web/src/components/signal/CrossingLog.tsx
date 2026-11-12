@@ -54,7 +54,7 @@ export function CrossingLog({ ownerId, remote }: Props) {
 
       {items === null ? null : items.length === 0 ? (
         <p className="mt-3 text-[13px] leading-relaxed text-san-text">
-          아직 스친 사람이 없어요. 걷다 보면 멀리서 파문이 번져 올 거예요.
+          아직 스친 사람이 없어요.
         </p>
       ) : (
         <ul className="m-0 mt-2 list-none p-0">

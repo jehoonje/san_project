@@ -165,7 +165,7 @@ export function PlaceSaveSheet({
                 {dwell ? `STAY · ${dwell.minutes} MIN` : "PLACE"}
               </p>
               <h2 id={titleId} className="san-title mt-2 text-[22px]">
-                {dwell ? "머문 자리를 남겨둘까요" : "이 자리를 남겨둘까요"}
+                장소 저장
               </h2>
             </div>
 
@@ -184,25 +184,13 @@ export function PlaceSaveSheet({
         <div className="san-no-scrollbar min-h-0 flex-1 overflow-y-auto overflow-x-hidden overscroll-contain px-6 pb-6">
           <section
             aria-label="위치 상태"
-            className="flex min-h-11 items-center gap-3"
+            className={`flex items-center gap-3 ${state.status === "ready" ? "" : "min-h-11"}`}
           >
             {state.status === "locating" && (
               <>
                 <span className="san-dot san-dot-live" aria-hidden="true" />
                 <p className="m-0 text-[13px] text-san-text">
-                  지금 서 있는 곳을 찾고 있어요
-                </p>
-              </>
-            )}
-
-            {state.status === "ready" && (
-              <>
-                <span className="san-dot" aria-hidden="true" />
-                <p className="san-data m-0">
-                  {state.lat.toFixed(5)}, {state.lng.toFixed(5)}
-                  {state.accuracy !== null && (
-                    <span className="ml-3">± {Math.round(state.accuracy)} m</span>
-                  )}
+                  위치 확인 중
                 </p>
               </>
             )}
@@ -235,7 +223,7 @@ export function PlaceSaveSheet({
                 <i />
                 <i />
               </span>
-              <p className="m-0 text-[13px] text-san-text">가까운 곳을 살피고 있어요</p>
+              <p className="m-0 text-[13px] text-san-text">주변 장소 검색 중</p>
             </div>
           )}
 
@@ -294,13 +282,13 @@ export function PlaceSaveSheet({
 
           {nearby.status === "done" && nearby.places.length === 0 && (
             <p className="mt-6 text-[13px] leading-relaxed text-san-text">
-              가까이에 알려진 곳이 없어요. 이름을 직접 적어주세요.
+              주변 장소가 없어요. 이름을 직접 입력해 주세요.
             </p>
           )}
 
           {nearby.status === "error" && (
             <p className="mt-6 text-[13px] leading-relaxed text-san-text">
-              주변을 살피지 못했어요. 이름은 직접 적을 수 있어요.
+              주변 장소를 불러오지 못했어요. 이름을 직접 입력해 주세요.
             </p>
           )}
 
@@ -313,7 +301,7 @@ export function PlaceSaveSheet({
               value={name}
               onChange={(event) => handleNameChange(event.target.value)}
               maxLength={60}
-              placeholder="이 자리의 이름"
+              placeholder="장소 이름"
               autoComplete="off"
               className="san-field-input"
             />
@@ -337,7 +325,7 @@ export function PlaceSaveSheet({
             disabled={!canSave}
             className="san-pill san-pill-fill h-14 w-full text-[15px]"
           >
-            남기기
+            저장
           </button>
         </footer>
       </motion.form>

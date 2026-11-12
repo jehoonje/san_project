@@ -13,6 +13,7 @@
   box-sizing: border-box;
   height: 100%;
   min-height: 0;
+  overflow-x: hidden;
   overflow-y: auto;
   overscroll-behavior-y: contain;
   padding-bottom: calc(128px + env(safe-area-inset-bottom, 0px));
@@ -29,7 +30,7 @@
 .root button:focus-visible { outline: 1px solid var(--san-border-strong); outline-offset: 4px; }
 
 .toolbar, .content { width: calc(100% - 48px); max-width: 720px; margin-inline: auto; }
-.toolbar { display: flex; align-items: center; justify-content: space-between; gap: 16px; padding-top: 4px; }
+.toolbar { display: flex; align-items: center; justify-content: flex-end; gap: 16px; padding-top: 4px; }
 .toolbar > span,
 .personaTop > span,
 .about h2,
@@ -56,12 +57,12 @@
 .toolbar button:active, .empty button:active, .share:active { background: var(--san-surface-strong); }
 
 /* 머리: 큰 블러 원 위에 얇은 이름 */
-.persona { position: relative; isolation: isolate; margin-top: 10px; padding: 34px 0 12px; }
+.persona { position: relative; isolation: isolate; overflow: clip; overflow-clip-margin: 0; margin-top: 10px; padding: 8px 0 12px; }
 .orb {
   position: absolute;
   z-index: -1;
   top: -6px;
-  right: -64px;
+  right: -40%;
   width: min(86vw, 380px);
   height: min(86vw, 380px);
   border-radius: 50%;
@@ -78,7 +79,7 @@
   position: absolute;
   z-index: -1;
   top: 54px;
-  right: -120px;
+  right: -60%;
   width: min(118vw, 520px);
   height: min(62vw, 270px);
   border: 0.75px solid var(--san-border-strong);
@@ -87,9 +88,9 @@
   pointer-events: none;
 }
 .personaTop { display: flex; align-items: baseline; justify-content: space-between; gap: 13px; }
-.personaType { position: relative; margin: 34px 0 22px; min-height: 120px; display: flex; align-items: center; }
+.personaType { position: relative; margin: 26px 0 22px; min-height: 110px; display: flex; align-items: center; }
 .persona h1 {
-  max-width: 560px;
+  max-width: none;
   color: var(--ink);
   font-size: clamp(30px, 8.6vw, 46px);
   font-weight: 300;
@@ -100,7 +101,7 @@
   text-wrap: balance;
 }
 .tagline {
-  max-width: 540px;
+  max-width: none;
   font-size: 15px;
   font-weight: 400;
   line-height: 1.95;
@@ -127,14 +128,14 @@
 .reading { position: relative; margin-top: 14px; padding: 28px 24px 28px; border-radius: 22px; background: var(--san-surface); }
 .sectionLabel { display: flex; flex-direction: column; align-items: flex-start; gap: 8px; }
 .sectionLabel .labelWord { color: var(--ink); font-size: 30px; font-weight: 300; letter-spacing: 0.005em; line-height: 1.35; }
-.reading > p { max-width: 580px; margin-top: 18px; color: var(--ink); font-size: 14px; line-height: 1.95; word-break: keep-all; overflow-wrap: anywhere; }
+.reading > p { max-width: none; margin-top: 18px; color: var(--ink); font-size: 14px; line-height: 1.95; word-break: keep-all; overflow-wrap: anywhere; }
 
 .charm { padding: 44px 0 10px; }
-.charm > p { max-width: 580px; margin-top: 16px; color: var(--ink); font-size: 19px; font-weight: 300; line-height: 1.85; word-break: keep-all; overflow-wrap: anywhere; }
+.charm > p { max-width: none; margin-top: 16px; color: var(--ink); font-size: 19px; font-weight: 300; line-height: 1.85; word-break: keep-all; overflow-wrap: anywhere; }
 
 .neighborhood { position: relative; padding: 44px 0 10px; }
 .neighborhood h2 { margin-top: 14px; color: var(--ink); font-size: clamp(30px, 8.6vw, 46px); font-weight: 300; line-height: 1.35; word-break: keep-all; overflow-wrap: anywhere; }
-.neighborhood > p { max-width: 580px; margin-top: 14px; color: var(--ink); font-size: 14px; line-height: 1.95; word-break: keep-all; overflow-wrap: anywhere; }
+.neighborhood > p { max-width: none; margin-top: 14px; color: var(--ink); font-size: 14px; line-height: 1.95; word-break: keep-all; overflow-wrap: anywhere; }
 
 .next { padding: 48px 0 10px; }
 .next h2 { color: var(--ink); font-size: 24px; font-weight: 300; line-height: 1.45; word-break: keep-all; }
@@ -148,7 +149,11 @@
 .empty h2 { font-size: clamp(26px, 7.4vw, 34px); font-weight: 300; line-height: 1.42; letter-spacing: 0.01em; word-break: keep-all; }
 .empty > p { margin-top: 18px; color: var(--ink); font-size: 14px; line-height: 1.9; word-break: keep-all; }
 .empty button { margin-top: 22px; }
-.ripples { margin-top: 30px; }
+/* 분석 중: 파문 + 한 줄, 가운데 정렬 */
+.loading { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 22px; min-height: 62dvh; padding: 0 28px; text-align: center; }
+.loading > p { color: var(--ink); font-size: 14px; line-height: 1.6; }
+.loading :global(.ar-progress) { margin-top: 0; }
+.ripples { margin: 0; }
 
 @keyframes orbBreathe { 0%, 100% { opacity: 0.64; transform: scale(0.98); } 50% { opacity: 0.86; transform: scale(1.03); } }
 

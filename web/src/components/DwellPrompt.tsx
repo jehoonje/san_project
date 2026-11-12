@@ -29,21 +29,18 @@ export function DwellPrompt({ minutes, onAccept, onDismiss }: DwellPromptProps) 
           <span className="san-dot san-dot-star" aria-hidden="true" />
           STAY · {minutes} MIN
         </p>
-        <p className="san-title mt-2">여기, 잠시 머무셨네요</p>
-        <p className="mt-1 text-[13px] leading-relaxed text-san-text">
-          이 자리를 장소로 남겨둘까요?
-        </p>
+        <p className="san-title mt-2">이 장소를 저장할까요?</p>
 
         <div className="mt-4 flex gap-2">
           <button type="button" onClick={onDismiss} className="san-pill flex-1">
-            지나칠게요
+            괜찮아요
           </button>
           <button
             type="button"
             onClick={onAccept}
             className="san-pill san-pill-fill flex-1"
           >
-            남기기
+            저장
           </button>
         </div>
       </motion.div>

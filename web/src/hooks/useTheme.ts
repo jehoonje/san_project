@@ -40,7 +40,7 @@ function applyTheme(theme: SanTheme) {
 
   themeColor?.setAttribute(
     "content",
-    theme === "dark" ? "#14120f" : "#fbf5ea",
+    theme === "dark" ? "#0e1117" : "#f2f2ef",
   );
 
   window.dispatchEvent(

@@ -138,8 +138,8 @@ const FACE_TURN_MS = 420;
 
 function avatarPalette() {
   return {
-    self: readToken("--san-avatar", "#6b6a4f"),
-    peer: readToken("--san-avatar-peer", "#a9a68a"),
+    self: readToken("--san-avatar", "#2e3440"),
+    peer: readToken("--san-avatar-peer", "#9aa0a8"),
   };
 }
 

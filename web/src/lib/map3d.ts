@@ -4,8 +4,8 @@ import { MAP_SOURCE_ID, readMapPalette, type MapPalette } from "@/lib/mapStyle";
 export const MAP_3D = {
   initialPitch: 62,
   maxPitch: 80,
-  initialZoom: 16.4,
-  followZoom: 17.2,
+  initialZoom: 15.7,
+  followZoom: 16.5,
   minBuildingZoom: 14,
 } as const;
 
@@ -91,7 +91,7 @@ export function enable3DWorld(map: maplibregl.Map, p: MapPalette = readMapPalett
             MAP_3D.minBuildingZoom, 0,
             MAP_3D.minBuildingZoom + 1, ["coalesce", ["get", "render_min_height"], 0],
           ],
-          "fill-extrusion-opacity": 0.88,
+          "fill-extrusion-opacity": 0.7,
           "fill-extrusion-vertical-gradient": true,
         },
       } as maplibregl.FillExtrusionLayerSpecification,

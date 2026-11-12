@@ -524,9 +524,9 @@ export default function BootIntroScreen({
 
       // 새 팔레트: 종이 위에서는 잉크 점(일반 혼합), 먹 위에서는 골드 빛(가산 혼합)
       const dark = currentTheme() === "dark";
-      uniforms.uInk.value.set(...hexToRgb01(readToken("--san-particle", "#6b6a4f")));
+      uniforms.uInk.value.set(...hexToRgb01(readToken("--san-particle", "#2e3440")));
       uniforms.uInkSoft.value.set(
-        ...hexToRgb01(readToken("--san-particle-soft", "#a9a68a")),
+        ...hexToRgb01(readToken("--san-particle-soft", "#9aa0a8")),
       );
       uniforms.uGlow.value = dark ? 1 : 0;
 

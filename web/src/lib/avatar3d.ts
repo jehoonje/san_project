@@ -33,7 +33,7 @@ export type AvatarScreenRect = {
 const CHAR_HEIGHT = 1.78; // 모델 단위 키
 const SCREEN_HEIGHT_PX = 124; // 화면에서 보이는 캐릭터 높이(px)
 
-const DEFAULT_TONE = new THREE.Color(0x6b6a4f);
+const DEFAULT_TONE = new THREE.Color(0x2e3440);
 
 /** 감정 표현 (월드 속 캐릭터가 서로에게 건네는 짧은 몸짓) */
 export type EmoteId = "wave" | "talk" | "bow" | "clap" | "cheer";
@@ -695,7 +695,7 @@ export function createAvatarLayer(id = "san-avatar-3d"): AvatarLayerHandle {
   let self: Actor | null = null;
   const peers = new Map<string, PeerActor>();
   let pendingPeers: PeerPose[] = [];
-  let palette: AvatarPalette = { self: "#6b6a4f", peer: "#a9a68a" };
+  let palette: AvatarPalette = { self: "#2e3440", peer: "#9aa0a8" };
   const pendingEmotes: Array<{
     target: "self" | string;
     emote: EmoteId;

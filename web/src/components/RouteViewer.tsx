@@ -113,11 +113,6 @@ function formatDay(value: string | null | undefined) {
   return `${d.getFullYear()}.${String(d.getMonth() + 1).padStart(2, "0")}.${String(d.getDate()).padStart(2, "0")}`;
 }
 
-function formatCoord(coord: [number, number] | undefined) {
-  if (!coord) return "—";
-  return `${coord[1].toFixed(5)}, ${coord[0].toFixed(5)}`;
-}
-
 export function RouteViewer({ route, open }: RouteViewerProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const mapRef = useRef<maplibregl.Map | null>(null);
@@ -276,9 +271,6 @@ export function RouteViewer({ route, open }: RouteViewerProps) {
   const distanceMeters = Number(route.distance_meters) || 0;
   const km = (distanceMeters / 1000).toFixed(2);
   const placeCount = route.route_places?.length ?? 0;
-  const coords = route.coordinates ?? [];
-  const first = coords[0];
-  const last = coords[coords.length - 1];
 
   return (
     <div
@@ -291,7 +283,7 @@ export function RouteViewer({ route, open }: RouteViewerProps) {
       />
       {!hasCoords && (
         <div className="absolute inset-0 z-[5] grid place-items-center px-8 text-center text-[13px] text-san-text">
-          이 걸음에는 그릴 수 있는 선이 없어요
+          표시할 경로가 없어요
         </div>
       )}
 
@@ -341,27 +333,21 @@ export function RouteViewer({ route, open }: RouteViewerProps) {
           )}
         </dl>
 
-        {/* 시작/종료: 시각과 좌표 */}
+        {/* 시작/종료 시각 */}
         <dl className="m-0 mt-5 grid gap-2">
           <div className="flex items-center gap-3">
             <dt className="flex w-[74px] items-center gap-2">
               <span className="san-route-dot h-2 w-2" aria-hidden="true" />
               <span className="san-eyebrow">START</span>
             </dt>
-            <dd className="san-data m-0 flex min-w-0 gap-3">
-              <span>{formatClock(route.started_at)}</span>
-              <span className="truncate">{formatCoord(first)}</span>
-            </dd>
+            <dd className="san-data m-0">{formatClock(route.started_at)}</dd>
           </div>
           <div className="flex items-center gap-3">
             <dt className="flex w-[74px] items-center gap-2">
               <span className="san-dot h-2 w-2" aria-hidden="true" />
               <span className="san-eyebrow">END</span>
             </dt>
-            <dd className="san-data m-0 flex min-w-0 gap-3">
-              <span>{formatClock(route.ended_at)}</span>
-              <span className="truncate">{formatCoord(last)}</span>
-            </dd>
+            <dd className="san-data m-0">{formatClock(route.ended_at)}</dd>
           </div>
         </dl>
       </section>

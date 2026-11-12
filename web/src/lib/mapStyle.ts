@@ -23,19 +23,19 @@ export type MapPalette = {
 
 export function readMapPalette(): MapPalette {
   return {
-    land: readToken("--san-map-land", "#f6efe0"),
-    green: readToken("--san-map-green", "#ece6cf"),
-    water: readToken("--san-map-water", "#e1dccb"),
-    road: readToken("--san-map-road", "#fdf9f0"),
-    roadMinor: readToken("--san-map-road-minor", "#faf4e7"),
-    building: readToken("--san-map-building", "#ebe2ce"),
-    buildingTop: readToken("--san-map-building-top", "#f1e9d8"),
-    label: readToken("--san-map-label", "#8f8d74"),
-    route: readToken("--san-map-route", "#6b6a4f"),
-    star: readToken("--san-star", "#f2b91d"),
+    land: readToken("--san-map-land", "#eeeeeb"),
+    green: readToken("--san-map-green", "#e3e6e0"),
+    water: readToken("--san-map-water", "#d9dfe5"),
+    road: readToken("--san-map-road", "#f9f9f7"),
+    roadMinor: readToken("--san-map-road-minor", "#f4f4f2"),
+    building: readToken("--san-map-building", "#e1e3df"),
+    buildingTop: readToken("--san-map-building-top", "#e9eae7"),
+    label: readToken("--san-map-label", "#5f6774"),
+    route: readToken("--san-map-route", "#2e3440"),
+    star: readToken("--san-star", "#e8a93a"),
     live: readToken("--san-live", "#3fa66b"),
-    paper: readToken("--san-background", "#fbf5ea"),
-    ink: readToken("--san-text", "#6b6a4f"),
+    paper: readToken("--san-background", "#f2f2ef"),
+    ink: readToken("--san-text", "#2e3440"),
   };
 }
 

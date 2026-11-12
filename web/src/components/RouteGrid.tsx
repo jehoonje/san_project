@@ -193,10 +193,10 @@ function DeleteRouteModal({
       >
         <p className="san-eyebrow">DELETE</p>
         <h2 id={headingId} className="san-title mt-2">
-          이 걸음을 지울까요
+          루트를 삭제할까요?
         </h2>
         <p className="mt-2 text-[13px] leading-relaxed text-san-text">
-          <span className="font-medium">{title}</span> 기록은 지우면 되돌릴 수
+          <span className="font-medium">{title}</span> 기록은 삭제 후 복구할 수
           없어요.
         </p>
         {errorMessage && (
@@ -212,7 +212,7 @@ function DeleteRouteModal({
             disabled={isBusy}
             className="san-pill"
           >
-            그대로 두기
+            취소
           </button>
           <button
             type="button"
@@ -220,7 +220,7 @@ function DeleteRouteModal({
             disabled={isBusy}
             className="san-pill san-pill-danger"
           >
-            {isBusy ? "지우는 중…" : "지우기"}
+            {isBusy ? "삭제 중…" : "삭제"}
           </button>
         </div>
       </motion.section>
@@ -255,7 +255,7 @@ export function RouteGrid({ owner, onSelect, view = "grid" }: RouteGridProps) {
       } catch (loadError) {
         if (cancelled) return;
         console.error("루트 목록 조회 실패:", loadError);
-        setError("걸음을 불러오지 못했어요.");
+        setError("루트를 불러오지 못했어요.");
       }
       if (!cancelled) setLoading(false);
     }
@@ -328,12 +328,12 @@ export function RouteGrid({ owner, onSelect, view = "grid" }: RouteGridProps) {
     try {
       const ok = await renameRoute(owner, targetId, title);
       if (!ok) {
-        setActionError("이미 지워졌거나 고칠 수 없는 걸음이에요.");
+        setActionError("수정할 수 없는 루트예요.");
         return;
       }
     } catch (updateError) {
       console.error("루트 수정 실패:", updateError);
-      setActionError("고치지 못했어요. 잠시 뒤 다시 시도해 주세요.");
+      setActionError("수정하지 못했어요. 다시 시도해 주세요.");
       return;
     } finally {
       setIsBusy(false);
@@ -356,12 +356,12 @@ export function RouteGrid({ owner, onSelect, view = "grid" }: RouteGridProps) {
     try {
       const ok = await deleteRoute(owner, targetId);
       if (!ok) {
-        setActionError("이미 지워졌거나 지울 수 없는 걸음이에요.");
+        setActionError("삭제할 수 없는 루트예요.");
         return;
       }
     } catch (deleteError) {
       console.error("루트 삭제 실패:", deleteError);
-      setActionError("지우지 못했어요. 잠시 뒤 다시 시도해 주세요.");
+      setActionError("삭제하지 못했어요. 다시 시도해 주세요.");
       return;
     } finally {
       setIsBusy(false);
@@ -390,7 +390,6 @@ export function RouteGrid({ owner, onSelect, view = "grid" }: RouteGridProps) {
           <i />
           <i />
         </span>
-        <p className="m-0 text-[13px] text-san-text">걸음을 펼치고 있어요</p>
       </div>
     );
   }
@@ -411,7 +410,7 @@ export function RouteGrid({ owner, onSelect, view = "grid" }: RouteGridProps) {
           <i />
           <i />
         </span>
-        <p className="san-title mt-8">아직 남은 걸음이 없어요</p>
+        <p className="mt-8 text-[14px] text-san-text">저장된 루트가 없어요</p>
       </div>
     );
   }
@@ -441,7 +440,7 @@ export function RouteGrid({ owner, onSelect, view = "grid" }: RouteGridProps) {
       {editing && (
         <div className="sticky top-0 z-20 flex items-center justify-between bg-san-veil px-5 py-2 backdrop-blur-md">
           <span className="text-[12.5px] text-san-text">
-            고치거나 지울 걸음을 골라주세요
+            수정하거나 삭제할 루트를 고르세요
           </span>
           <button
             type="button"
@@ -544,9 +543,9 @@ export function RouteGrid({ owner, onSelect, view = "grid" }: RouteGridProps) {
               <RouteTitleModal
                 key="edit-route"
                 defaultTitle={editTarget.title}
-                heading="이름을 고쳐 적기"
-                description="이 걸음에 새 이름을 붙여주세요."
-                confirmLabel="고치기"
+                heading="루트 이름 수정"
+                description="새 이름을 입력해 주세요."
+                confirmLabel="수정"
                 isSaving={isBusy}
                 errorMessage={actionError}
                 onConfirm={handleEditConfirm}

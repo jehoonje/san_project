@@ -87,8 +87,8 @@ export function coarsen([lng, lat]: LngLat, offset: LngLat): LngLat {
 /** 숫자 대신 거리 감각을 한 줄로 */
 export function distanceLabel(meters: number) {
   if (meters < 80) return "아주 가까이 있어요";
-  if (meters < 200) return "가까이 걷고 있어요";
-  return "멀리서 스치고 있어요";
+  if (meters < 200) return "가까이 있어요";
+  return "조금 떨어져 있어요";
 }
 
 export function signalDistance(a: LngLat, b: LngLat) {

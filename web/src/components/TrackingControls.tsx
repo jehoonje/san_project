@@ -92,14 +92,10 @@ export function TrackingControls({
 
   const isIdle = status === "idle";
   const isRecording = status === "recording";
-  const isPaused = status === "paused";
 
   const canSavePlace = showSavePlace && Boolean(onSavePlace);
 
   const normalizedPlaceCount = Math.max(0, placeCount);
-  const placeCountLabel =
-    normalizedPlaceCount > 99 ? "99+" : String(normalizedPlaceCount);
-
   const clearStopTimer = useCallback(() => {
     if (stopTimerRef.current !== null) {
       clearTimeout(stopTimerRef.current);
@@ -167,25 +163,8 @@ export function TrackingControls({
     onStop();
   }, [clearStopTimer, onStop, stopArmed]);
 
-  const statusMessage = (() => {
-    if (stopArmed) {
-      return "마치려면 한 번 더 눌러주세요";
-    }
-
-    if (lastMessage?.trim()) {
-      return lastMessage.trim();
-    }
-
-    if (isRecording) {
-      return "걸음이 선으로 남고 있어요";
-    }
-
-    if (isPaused) {
-      return "기록을 잠시 멈췄어요";
-    }
-
-    return "걸을 준비가 됐어요";
-  })();
+  // 문구는 정지 확인에만 사용 (나머지는 아이콘과 맥동 점으로 상태 표시)
+  const statusMessage = stopArmed ? "한 번 더 누르면 종료" : (lastMessage?.trim() ?? "");
 
   const swap = reducedMotion
     ? {
@@ -220,20 +199,29 @@ export function TrackingControls({
             key="start"
             type="button"
             aria-label="경로 기록 시작"
+            title="기록 시작"
             aria-describedby={statusDescriptionId}
             onClick={handleStart}
-            className="san-pill san-pill-fill h-[60px] gap-3 px-9 text-[15px]"
+            className="san-pill san-pill-fill relative h-[68px] w-[68px] p-0"
             {...swap}
           >
-            <span className="san-dot bg-san-on-accent" aria-hidden="true" />
-            걷기 시작
+            <PlayIcon />
+            {/* 시작 전: 버튼 둘레로 번지는 가는 파문 */}
+            <span
+              aria-hidden="true"
+              className="san-ripples san-ripples-bare pointer-events-none absolute inset-[-10px]"
+              style={{ ["--size" as string]: "88px" }}
+            >
+              <i />
+              <i />
+            </span>
           </motion.button>
         ) : (
           <motion.div
             key="active"
             role="group"
             aria-label="활성 경로 기록 제어"
-            className="san-veil flex items-center gap-1.5 rounded-full p-1.5"
+            className="san-veil flex items-center gap-2 rounded-full p-2"
             {...swap}
           >
             {canSavePlace ? (
@@ -244,16 +232,16 @@ export function TrackingControls({
                     ? `현재 장소 저장, 지금까지 ${normalizedPlaceCount}개 저장됨`
                     : "현재 장소 저장"
                 }
+                title="장소 저장"
                 aria-describedby={statusDescriptionId}
                 onClick={handleSavePlace}
-                className="san-pill relative h-[52px] gap-2 px-5"
+                className="san-pill relative h-[52px] w-[52px] p-0"
               >
                 <PlaceIcon />
-                <span>장소</span>
                 {/* 숫자 배지 대신: 저장한 장소가 있으면 별빛 점 하나 */}
                 {normalizedPlaceCount > 0 && (
                   <span
-                    className="san-dot san-dot-star absolute right-3 top-3"
+                    className="san-dot san-dot-star absolute right-2.5 top-2.5"
                     aria-hidden="true"
                   />
                 )}
@@ -265,25 +253,34 @@ export function TrackingControls({
             <button
               type="button"
               aria-label={isRecording ? "경로 기록 일시정지" : "경로 기록 계속"}
+              title={isRecording ? "일시정지" : "계속"}
               aria-describedby={statusDescriptionId}
               onClick={handlePrimaryAction}
-              className="san-pill san-pill-fill h-[52px] min-w-[112px] gap-2 px-6"
+              className="san-pill san-pill-fill h-[60px] w-[60px] p-0"
             >
               {isRecording ? <PauseIcon /> : <PlayIcon />}
-              <span>{isRecording ? "잠시 멈춤" : "이어 걷기"}</span>
             </button>
 
             <button
               type="button"
               aria-label={stopArmed ? "경로 기록 종료 확인" : "경로 기록 종료"}
+              title="종료"
               aria-describedby={statusDescriptionId}
               onClick={handleStop}
-              className={`san-pill h-[52px] gap-2 px-5 ${
+              className={`san-pill relative h-[52px] w-[52px] p-0 ${
                 stopArmed ? "san-pill-danger" : ""
               }`}
             >
               <StopIcon />
-              <span>{stopArmed ? "한 번 더" : "마침"}</span>
+              {stopArmed && (
+                <span
+                  aria-hidden="true"
+                  className="san-ripples san-ripples-bare pointer-events-none absolute inset-0 text-san-error"
+                  style={{ ["--size" as string]: "52px" }}
+                >
+                  <i style={{ borderColor: "currentColor" }} />
+                </span>
+              )}
             </button>
           </motion.div>
         )}
@@ -297,21 +294,20 @@ export function TrackingControls({
         className="mt-3 flex min-h-5 items-center justify-center px-4"
       >
         <AnimatePresence initial={false} mode="wait">
-          <motion.span
-            key={statusMessage}
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            transition={{ duration: reducedMotion ? 0 : 0.3, ease: "easeOut" }}
-            className={`flex items-center gap-2 rounded-full px-3 py-1 text-center text-[12px] ${
-              stopArmed ? "text-san-error" : "text-san-text"
-            }`}
-          >
-            {isRecording && !stopArmed && (
-              <span className="san-dot san-dot-live" aria-hidden="true" />
-            )}
-            {statusMessage}
-          </motion.span>
+          {statusMessage && (
+            <motion.span
+              key={statusMessage}
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              transition={{ duration: reducedMotion ? 0 : 0.3, ease: "easeOut" }}
+              className={`rounded-full px-3 py-1 text-center text-[12px] ${
+                stopArmed ? "text-san-error" : "text-san-text"
+              }`}
+            >
+              {statusMessage}
+            </motion.span>
+          )}
         </AnimatePresence>
       </div>
     </section>

@@ -483,7 +483,7 @@ export default function Home() {
       .then((moved) => {
         leaveGuestMode();
         if (!cancelled && moved > 0) {
-          showToastRef.current(`게스트로 남긴 걸음 ${moved}개를 옮겨 왔어요.`);
+          showToastRef.current(`게스트 기록 ${moved}개를 계정으로 옮겼어요.`);
           setSummaryRevision((current) => current + 1);
         }
       })
@@ -615,7 +615,7 @@ export default function Home() {
 
     if (finalCoords.length < 2 || !startedAt) {
       resetRecording();
-      showToast("남기기엔 걸음이 조금 짧았어요.");
+      showToast("저장하기엔 기록이 너무 짧아요.");
       return;
     }
 
@@ -686,12 +686,12 @@ export default function Home() {
       resetRecording();
       setSummaryRevision((current) => current + 1);
 
-      showToast("오늘 걸은 곳이 조용히 남았어요.");
+      showToast("루트를 저장했어요.");
     } catch (error) {
       console.error("루트 저장 실패:", error);
 
       if (mountedRef.current) {
-        setSaveError("남기지 못했어요. 다시 시도해 주세요.");
+        setSaveError("저장하지 못했어요. 다시 시도해 주세요.");
       }
     } finally {
       if (mountedRef.current) {
@@ -852,7 +852,7 @@ export default function Home() {
     setPlaces(placesRef.current);
     setPlaceSheet(null);
 
-    showToast("이 자리를 종이 위에 남겼어요.");
+    showToast("장소를 저장했어요.");
   }
 
   async function handleLogout() {
@@ -1087,23 +1087,16 @@ export default function Home() {
                           {session ? (
                             <AnalysisReport accessToken={session.access_token} />
                           ) : (
-                            <div className="mx-auto flex h-full max-w-xl flex-col items-start justify-center px-7 pb-28">
-                              <p className="san-eyebrow">GUEST</p>
-                              <p className="san-display mt-3">
-                                취향은 기록이 쌓인 뒤에
-                                <br />
-                                천천히 읽어드려요
-                              </p>
-                              <p className="san-fade-tail mt-4 text-[14px] leading-loose text-san-text">
-                                로그인하면 지금까지 남긴 걸음이 계정으로 옮겨지고,
-                                머문 장소들에서 나만의 취향을 읽어볼 수 있어요.
+                            <div className="flex h-full flex-col items-center justify-center px-7 pb-28 text-center">
+                              <p className="m-0 text-[14px] text-san-text">
+                                로그인하면 취향 분석을 볼 수 있어요.
                               </p>
                               <button
                                 type="button"
-                                className="san-pill san-pill-fill mt-7"
+                                className="san-pill san-pill-fill mt-6"
                                 onClick={handleGoLogin}
                               >
-                                로그인하기
+                                로그인
                               </button>
                             </div>
                           )}
@@ -1220,7 +1213,7 @@ export default function Home() {
                 defaultTitle={new Date(pendingRoute.startedAt).toLocaleString("ko-KR")}
                 description={
                   pendingRoute.places.length > 0
-                    ? `머문 자리 ${pendingRoute.places.length}곳도 함께 남아요.`
+                    ? `장소 ${pendingRoute.places.length}곳이 함께 저장돼요.`
                     : undefined
                 }
                 isSaving={isSaving}
