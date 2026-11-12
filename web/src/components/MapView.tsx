@@ -125,6 +125,8 @@ export type MapViewHandle = {
   playSelfEmote: (emote: EmoteId, toward: [number, number]) => void;
   /** 산책자 아바타가 나를 향해 감정 표현을 재생 */
   playPeerEmote: (peerId: string, emote: EmoteId) => void;
+  /** 지금 화면에 그려진 내 위치 (아직 모르면 null) */
+  getLocation: () => [number, number] | null;
 };
 
 type LocationState = "loading" | "ready" | "error";
@@ -1104,6 +1106,7 @@ export const MapView = forwardRef<MapViewHandle, MapViewProps>(function MapView(
         reduce ? 0 : FACE_TURN_MS,
       );
     },
+    getLocation: () => displayCoordRef.current ?? latestCoordRef.current,
     playPeerEmote: (peerId, emote) => {
       avatarLayerRef.current?.playEmote(
         peerId,

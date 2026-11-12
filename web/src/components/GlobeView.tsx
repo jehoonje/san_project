@@ -7,24 +7,35 @@ import * as maplibregl from "maplibre-gl";
 import "maplibre-gl/dist/maplibre-gl.css";
 
 import { dialogMotion, toastMotion } from "@/lib/motion";
-import { MAP_ATTRIBUTION, buildMapStyle, readMapPalette } from "@/lib/mapStyle";
+import { MAP_ATTRIBUTION, MAP_FONT, buildMapStyle, readMapPalette } from "@/lib/mapStyle";
 import { onThemeChange, readToken } from "@/lib/themeTokens";
 import { postToNative } from "@/lib/nativeBridge";
 import { listRoutes, type RouteOwner } from "@/lib/routeStore";
 import {
   HEAT_LEVELS,
   buildHeat,
+  heatFromCounts,
   heatLegend,
+  labelPoints,
   levelAtZoom,
   paintLevel,
+  type HeatCountsJSON,
   type HeatData,
   type HeatLevel,
 } from "@/lib/regionHeat";
 
 type GlobeViewProps = {
   owner: RouteOwner;
+  /** 지금 내 위치 (메인 지도에서 받아옴) */
+  getLocation: () => [number, number] | null;
   onClose: () => void;
 };
+
+/** 보기: 내가 남긴 장소 / 모든 사람이 남긴 장소 */
+type Scope = "mine" | "all";
+
+/** 내 위치로 들어갈 때의 줌 (동 단계) */
+const NEAR_ZOOM = 12.2;
 
 /** 처음 비추는 곳: 대한민국 */
 const KOREA: [number, number] = [127.8, 36.2];
@@ -96,7 +107,19 @@ function BackIcon() {
   );
 }
 
-function HomeIcon() {
+// 줌인: 내 위치 (점과 둘레 원)
+function NearIcon() {
+  return (
+    <svg className="san-icon" viewBox="0 0 24 24" aria-hidden="true">
+      <circle cx="12" cy="12" r="2.6" fill="currentColor" stroke="none" />
+      <circle cx="12" cy="12" r="7" />
+      <path d="M12 2.5v2.5M12 19v2.5M2.5 12H5M19 12h2.5" />
+    </svg>
+  );
+}
+
+// 줌아웃: 지구 전체
+function GlobeIcon() {
   return (
     <svg className="san-icon" viewBox="0 0 24 24" aria-hidden="true">
       <circle cx="12" cy="12" r="8.5" />
@@ -105,15 +128,28 @@ function HomeIcon() {
   );
 }
 
+const SCOPES: Array<{ id: Scope; label: string }> = [
+  { id: "mine", label: "나" },
+  { id: "all", label: "모두" },
+];
+
+const ERRORS: Record<string, string> = {
+  configuration_missing: "모두의 분포를 아직 볼 수 없어요",
+};
+
 type Picked = { label: string; count: number; level: HeatLevel };
 
-export function GlobeView({ owner, onClose }: GlobeViewProps) {
+export function GlobeView({ owner, getLocation, onClose }: GlobeViewProps) {
   const reduce = useReducedMotion();
   const containerRef = useRef<HTMLDivElement>(null);
   const mapRef = useRef<maplibregl.Map | null>(null);
   const heatRef = useRef<HeatData | null>(null);
   const [heat, setHeat] = useState<HeatData | null>(null);
   const [status, setStatus] = useState<"loading" | "ready" | "error">("loading");
+  const [errorText, setErrorText] = useState("불러오지 못했어요");
+  const [scope, setScope] = useState<Scope>("mine");
+  const [near, setNear] = useState(false);
+  const [notice, setNotice] = useState<string | null>(null);
   const [level, setLevel] = useState<HeatLevel>("country");
   const [picked, setPicked] = useState<Picked | null>(null);
   const [mounted, setMounted] = useState(false);
@@ -123,17 +159,35 @@ export function GlobeView({ owner, onClose }: GlobeViewProps) {
     queueMicrotask(() => setMounted(true));
   }, []);
 
-  // 남긴 장소 → 구역별 집계
+  // 남긴 장소 → 구역별 집계 (나: 브라우저에서 / 모두: 서버가 센 숫자만)
   useEffect(() => {
     let cancelled = false;
-    listRoutes(owner)
-      .then((routes) =>
-        buildHeat(
-          routes.flatMap((route) =>
-            (route.route_places ?? []).map((place) => ({ lat: place.lat, lng: place.lng })),
-          ),
-        ),
-      )
+    queueMicrotask(() => {
+      if (!cancelled) {
+        setStatus("loading");
+        setPicked(null);
+      }
+    });
+
+    const load =
+      scope === "mine"
+        ? listRoutes(owner).then((routes) =>
+            buildHeat(
+              routes.flatMap((route) =>
+                (route.route_places ?? []).map((place) => ({ lat: place.lat, lng: place.lng })),
+              ),
+            ),
+          )
+        : fetch("/api/place-heat")
+            .then(async (res) => {
+              const json = (await res.json().catch(() => null)) as
+                | { counts?: HeatCountsJSON; total?: number; error?: string }
+                | null;
+              if (!res.ok || !json?.counts) throw new Error(json?.error ?? "heat_failed");
+              return heatFromCounts(json.counts, Number(json.total) || 0);
+            });
+
+    load
       .then((data) => {
         if (cancelled) return;
         heatRef.current = data;
@@ -142,14 +196,23 @@ export function GlobeView({ owner, onClose }: GlobeViewProps) {
       })
       .catch((error) => {
         console.error("지구본 집계 실패:", error);
-        if (!cancelled) setStatus("error");
+        if (cancelled) return;
+        setErrorText(ERRORS[error instanceof Error ? error.message : ""] ?? "불러오지 못했어요");
+        setStatus("error");
       });
     return () => {
       cancelled = true;
     };
     // owner 는 식별 키로만 다시 불러옴
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [ownerKey]);
+  }, [ownerKey, scope]);
+
+  // 안내 한 줄은 잠깐만
+  useEffect(() => {
+    if (!notice) return;
+    const timer = window.setTimeout(() => setNotice(null), 2400);
+    return () => window.clearTimeout(timer);
+  }, [notice]);
 
   // Escape 로 닫기
   useEffect(() => {
@@ -258,6 +321,12 @@ export function GlobeView({ owner, onClose }: GlobeViewProps) {
       lastCenter = center;
       lastZoom = zoom;
 
+      if (event.originalEvent) {
+        // 손으로 끝까지 줄이면 "지구 전체" 상태로 맞춤
+        if (zoom <= map.getMinZoom() + 0.3) setNear(false);
+        else if (zoom >= NEAR_ZOOM - 1) setNear(true);
+      }
+
       const nextLevel = levelAtZoom(zoom);
       if (nextLevel !== lastLevel) {
         lastLevel = nextLevel;
@@ -277,6 +346,10 @@ export function GlobeView({ owner, onClose }: GlobeViewProps) {
       for (const item of HEAT_LEVELS) {
         const source = map.getSource(`heat-${item.id}`) as maplibregl.GeoJSONSource | undefined;
         source?.setData(paintLevel(data, item.id));
+        const labels = map.getSource(`heat-${item.id}-labels`) as
+          | maplibregl.GeoJSONSource
+          | undefined;
+        labels?.setData(labelPoints(data, item.id));
       }
     };
 
@@ -316,6 +389,40 @@ export function GlobeView({ owner, onClose }: GlobeViewProps) {
           );
         }
       });
+
+      // 색칠된 구역마다 총 개수: 면 위에 작은 숫자 (가독성을 위해 바탕색 테두리)
+      const ink = readToken("--san-text", "#2e3440");
+      const paper = readToken("--san-background", "#f2f2ef");
+      HEAT_LEVELS.forEach((item, index) => {
+        const id = `heat-${item.id}-labels`;
+        map.addSource(id, { type: "geojson", data: { type: "FeatureCollection", features: [] } });
+        // 단계마다 자기 줌 범위에서만 존재 (안 보이는 단계의 숫자가 자리를 차지하지 않게)
+        const minzoom = index === 0 ? 0 : item.minZoom;
+        const maxzoom = HEAT_LEVELS[index + 1]?.minZoom ?? 24;
+        map.addLayer({
+          id,
+          type: "symbol",
+          source: id,
+          minzoom,
+          maxzoom,
+          layout: {
+            "text-field": ["get", "t"],
+            "text-font": MAP_FONT,
+            "text-size": ["interpolate", ["linear"], ["zoom"], 2, 11, 10, 13],
+            "text-letter-spacing": 0.06,
+            // 나라·도·시는 구역이 적어 숫자를 모두 보여주고, 구·동은 겹치면 큰 수부터
+            "text-allow-overlap": index <= 2,
+            "text-padding": 4,
+            // 많이 남긴 곳의 숫자가 먼저 자리를 차지
+            "symbol-sort-key": ["-", 0, ["get", "v"]],
+          },
+          paint: {
+            "text-color": ink,
+            "text-halo-color": paper,
+            "text-halo-width": 1.8,
+          },
+        });
+      });
       paint();
     };
 
@@ -351,6 +458,13 @@ export function GlobeView({ owner, onClose }: GlobeViewProps) {
           map.setPaintProperty(`heat-${item.id}-line`, "line-color", line);
         }
       }
+      for (const item of HEAT_LEVELS) {
+        const id = `heat-${item.id}-labels`;
+        if (map.getLayer(id)) {
+          map.setPaintProperty(id, "text-color", readToken("--san-text", "#2e3440"));
+          map.setPaintProperty(id, "text-halo-color", readToken("--san-background", "#f2f2ef"));
+        }
+      }
       map.setSky(sky());
     });
 
@@ -371,14 +485,33 @@ export function GlobeView({ owner, onClose }: GlobeViewProps) {
     if (heat) window.dispatchEvent(new CustomEvent("san-heat-ready"));
   }, [heat]);
 
-  function handleHome() {
+  // 줌 토글: 내 위치로 들어가기(동 단계) ↔ 지구 전체(나라 단계)
+  function handleZoomToggle() {
     const map = mapRef.current;
     if (!map) return;
-    map.easeTo({
-      center: KOREA,
-      zoom: map.getMinZoom(),
-      duration: reduce ? 0 : 900,
-    });
+    const duration = reduce ? 0 : 1400;
+
+    if (near) {
+      map.flyTo({ center: KOREA, zoom: map.getMinZoom(), duration, essential: true });
+      setNear(false);
+      haptic("level");
+      return;
+    }
+
+    const here = getLocation();
+    if (!here) {
+      setNotice("아직 내 위치를 찾지 못했어요");
+      return;
+    }
+    map.flyTo({ center: here, zoom: NEAR_ZOOM, duration, essential: true });
+    setNear(true);
+    haptic("level");
+  }
+
+  function handleScope(next: Scope) {
+    if (next === scope) return;
+    setScope(next);
+    haptic("tick");
   }
 
   const meta = HEAT_LEVELS.find((item) => item.id === level) ?? HEAT_LEVELS[0];
@@ -423,13 +556,52 @@ export function GlobeView({ owner, onClose }: GlobeViewProps) {
         <button
           type="button"
           className="san-icon-btn pointer-events-auto"
-          onClick={handleHome}
-          aria-label="대한민국으로 돌아가기"
-          title="대한민국으로"
+          onClick={handleZoomToggle}
+          aria-pressed={near}
+          aria-label={near ? "지구 전체 보기" : "내 위치로 확대"}
+          title={near ? "지구 전체" : "내 위치"}
         >
-          <HomeIcon />
+          <AnimatePresence mode="wait" initial={false}>
+            <motion.span
+              key={near ? "out" : "in"}
+              className="grid place-items-center"
+              initial={{ opacity: 0, filter: "blur(4px)" }}
+              animate={{ opacity: 1, filter: "blur(0px)" }}
+              exit={{ opacity: 0, filter: "blur(4px)" }}
+              transition={{ duration: reduce ? 0 : 0.3 }}
+            >
+              {near ? <GlobeIcon /> : <NearIcon />}
+            </motion.span>
+          </AnimatePresence>
         </button>
       </header>
+
+      {/* 하단: 나 / 모두 토글 */}
+      <div
+        className="absolute inset-x-0 z-10 flex justify-center px-4"
+        style={{ top: "calc(env(safe-area-inset-top, 0px) + 80px)" }}
+      >
+        <div
+          className="san-veil flex gap-1 rounded-full p-1"
+          role="radiogroup"
+          aria-label="분포 보기"
+        >
+          {SCOPES.map((item) => (
+            <button
+              key={item.id}
+              type="button"
+              role="radio"
+              aria-checked={scope === item.id}
+              className={`san-pill min-h-11 px-6 text-[13px] ${
+                scope === item.id ? "san-pill-fill" : "san-pill-quiet"
+              }`}
+              onClick={() => handleScope(item.id)}
+            >
+              {item.label}
+            </button>
+          ))}
+        </div>
+      </div>
 
       {/* 하단: 고른 구역 + 방문 빈도 범례 */}
       <div
@@ -437,7 +609,17 @@ export function GlobeView({ owner, onClose }: GlobeViewProps) {
         style={{ bottom: "calc(env(safe-area-inset-bottom, 0px) + 28px)" }}
       >
         <AnimatePresence>
-          {picked && (
+          {notice && (
+            <motion.p
+              key="notice"
+              className="san-toast m-0"
+              role="status"
+              {...toastMotion(reduce)}
+            >
+              {notice}
+            </motion.p>
+          )}
+          {picked && !notice && (
             <motion.div
               key={`${picked.level}-${picked.label}`}
               className="san-veil pointer-events-auto flex items-center gap-3 rounded-full px-5 py-2.5"
@@ -461,16 +643,22 @@ export function GlobeView({ owner, onClose }: GlobeViewProps) {
           )}
 
           {status === "error" && (
-            <span className="text-[12.5px] text-san-error">불러오지 못했어요</span>
+            <span className="text-[12.5px] text-san-error">{errorText}</span>
           )}
 
           {status === "ready" && legend && (
             heat && heat.total === 0 ? (
-              <span className="text-[12.5px]">아직 남긴 장소가 없어요</span>
+              <span className="text-[12.5px]">
+                {scope === "mine" ? "아직 남긴 장소가 없어요" : "아직 모인 장소가 없어요"}
+              </span>
             ) : (
               <>
-                <span className="san-data" aria-label={`${meta.label} 단위 ${legend.visited}곳`}>
-                  {legend.visited}
+                <span
+                  className="san-data flex items-baseline gap-1.5"
+                  aria-label={`총 ${heat?.total ?? 0}개, ${meta.label} 단위 ${legend.visited}곳`}
+                >
+                  <span className="text-[10px] tracking-[0.16em]">TOTAL</span>
+                  <span className="text-[14px] font-medium">{heat?.total ?? 0}</span>
                 </span>
                 <span
                   className="flex items-center gap-1.5"

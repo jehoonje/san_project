@@ -26,7 +26,11 @@ export function levelAtZoom(zoom: number): HeatLevel {
 }
 
 type Props = { k: string; n: string; c?: string; cn?: string };
-type Geo = FeatureCollection<Polygon | MultiPolygon, Props>;
+export type Geo = FeatureCollection<Polygon | MultiPolygon, Props>;
+export type Boundaries = { sido: Geo; sgg: Geo; emd: Geo };
+
+/** 서버 ↔ 화면 사이에 주고받는 집계 (단계별 구역 키 → 방문 수) */
+export type HeatCountsJSON = Record<HeatLevel, Record<string, number>>;
 
 export type HeatPoint = { lat: number; lng: number };
 
@@ -42,9 +46,9 @@ export type HeatData = {
   total: number;
 };
 
-let cache: Promise<{ sido: Geo; sgg: Geo; emd: Geo }> | null = null;
+let cache: Promise<Boundaries> | null = null;
 
-function loadBoundaries() {
+function loadBoundaries(): Promise<Boundaries> {
   if (!cache) {
     const get = (name: string) =>
       fetch(`/geo/${name}.json`).then((res) => {
@@ -140,9 +144,11 @@ function bump(map: Map<string, number>, key: string) {
   map.set(key, (map.get(key) ?? 0) + 1);
 }
 
-export async function buildHeat(points: HeatPoint[]): Promise<HeatData> {
-  const { sido, sgg, emd } = await loadBoundaries();
-
+/** 점 목록 → 단계별 집계. 브라우저(내 기록)와 서버(모든 사람 기록)가 함께 씀 */
+export function aggregateHeat(
+  points: HeatPoint[],
+  { sgg, emd }: Boundaries,
+): { counts: HeatCounts; total: number } {
   const index: Indexed[] = emd.features.map((feature) => {
     const polygons = ringsOf(feature.geometry);
     return { key: feature.properties.k, bbox: bboxOf(polygons), polygons };
@@ -174,7 +180,37 @@ export async function buildHeat(points: HeatPoint[]): Promise<HeatData> {
   }
   if (total > 0) counts.country.set("KR", total);
 
-  return { sido, sgg, emd, counts, total };
+  return { counts, total };
+}
+
+export function countsToJSON(counts: HeatCounts): HeatCountsJSON {
+  const out = {} as HeatCountsJSON;
+  for (const level of HEAT_LEVELS) out[level.id] = Object.fromEntries(counts[level.id]);
+  return out;
+}
+
+function countsFromJSON(json: HeatCountsJSON): HeatCounts {
+  const out = {} as HeatCounts;
+  for (const level of HEAT_LEVELS) {
+    const entries = Object.entries(json?.[level.id] ?? {}).filter(
+      ([, value]) => typeof value === "number" && Number.isFinite(value) && value > 0,
+    );
+    out[level.id] = new Map(entries as Array<[string, number]>);
+  }
+  return out;
+}
+
+/** 내 기록: 브라우저에서 바로 집계 */
+export async function buildHeat(points: HeatPoint[]): Promise<HeatData> {
+  const boundaries = await loadBoundaries();
+  const { counts, total } = aggregateHeat(points, boundaries);
+  return { ...boundaries, counts, total };
+}
+
+/** 모든 사람 기록: 서버가 집계해 준 숫자에 경계만 붙임 */
+export async function heatFromCounts(json: HeatCountsJSON, total: number): Promise<HeatData> {
+  const boundaries = await loadBoundaries();
+  return { ...boundaries, counts: countsFromJSON(json), total };
 }
 
 /**
@@ -221,4 +257,118 @@ export function paintLevel(data: HeatData, level: HeatLevel): Geo {
 export function heatLegend(data: HeatData, level: HeatLevel) {
   const max = Math.max(0, ...data.counts[level].values());
   return { max, visited: data.counts[level].size };
+}
+
+// ── 색칠된 구역 위의 숫자 ─────────────────────
+
+function ringArea(ring: Position[]) {
+  let area = 0;
+  for (let i = 0, j = ring.length - 1; i < ring.length; j = i++) {
+    area += (ring[j][0] + ring[i][0]) * (ring[j][1] - ring[i][1]);
+  }
+  return Math.abs(area / 2);
+}
+
+function ringCentroid(ring: Position[]): Position {
+  let x = 0;
+  let y = 0;
+  let a = 0;
+  for (let i = 0, j = ring.length - 1; i < ring.length; j = i++) {
+    const f = ring[j][0] * ring[i][1] - ring[i][0] * ring[j][1];
+    x += (ring[j][0] + ring[i][0]) * f;
+    y += (ring[j][1] + ring[i][1]) * f;
+    a += f;
+  }
+  if (Math.abs(a) < 1e-12) return ring[0];
+  return [x / (3 * a), y / (3 * a)];
+}
+
+function distToSegment(px: number, py: number, a: Position, b: Position) {
+  const dx = b[0] - a[0];
+  const dy = b[1] - a[1];
+  const len = dx * dx + dy * dy;
+  let t = len > 0 ? ((px - a[0]) * dx + (py - a[1]) * dy) / len : 0;
+  t = Math.max(0, Math.min(1, t));
+  const x = a[0] + t * dx - px;
+  const y = a[1] + t * dy - py;
+  return x * x + y * y;
+}
+
+function edgeDistance(px: number, py: number, polygon: Position[][]) {
+  let best = Infinity;
+  for (const ring of polygon) {
+    for (let i = 0, j = ring.length - 1; i < ring.length; j = i++) {
+      const d = distToSegment(px, py, ring[j], ring[i]);
+      if (d < best) best = d;
+    }
+  }
+  return best;
+}
+
+/**
+ * 구역 안쪽에서 가장자리와 가장 먼 지점 (가운데가 뚫린 경기도처럼 무게중심이 밖에 떨어지는 경우 대비).
+ * 가장 큰 조각 안을 격자로 훑어 고름.
+ */
+function anchorOf(polygons: Position[][][]): Position | null {
+  let best: Position[][] | null = null;
+  let bestArea = -1;
+  for (const polygon of polygons) {
+    const outer = polygon[0];
+    if (!outer) continue;
+    const area = ringArea(outer);
+    if (area > bestArea) {
+      bestArea = area;
+      best = polygon;
+    }
+  }
+  if (!best) return null;
+
+  const c = ringCentroid(best[0]);
+  let anchor: Position | null = inPolygons(c[0], c[1], [best]) ? c : null;
+  let score = anchor ? edgeDistance(c[0], c[1], best) : -1;
+
+  const [minX, minY, maxX, maxY] = bboxOf([best]);
+  const STEPS = 14;
+  for (let i = 1; i < STEPS; i += 1) {
+    for (let j = 1; j < STEPS; j += 1) {
+      const x = minX + ((maxX - minX) * i) / STEPS;
+      const y = minY + ((maxY - minY) * j) / STEPS;
+      if (!inPolygons(x, y, [best])) continue;
+      const d = edgeDistance(x, y, best);
+      // 무게중심이 충분히 안쪽이면 그대로 두고, 아니면 더 안쪽 지점으로
+      if (d > score * 1.6) {
+        score = d;
+        anchor = [x, y];
+      }
+    }
+  }
+  if (anchor) return anchor;
+  return [(minX + maxX) / 2, (minY + maxY) / 2];
+}
+
+/**
+ * 방문한 구역마다 숫자를 올릴 점 하나.
+ * 시 단계처럼 여러 조각이 한 구역이면 가장 큰 조각에만 올림.
+ */
+export function labelPoints(data: HeatData, level: HeatLevel): FeatureCollection {
+  const painted = paintLevel(data, level);
+  const bestByKey = new Map<string, { area: number; anchor: Position; v: number }>();
+  for (const feature of painted.features) {
+    const props = feature.properties as unknown as { key: string; v: number };
+    if (!props.v) continue;
+    const polygons = ringsOf(feature.geometry);
+    const area = polygons.reduce((sum, polygon) => sum + (polygon[0] ? ringArea(polygon[0]) : 0), 0);
+    const prev = bestByKey.get(props.key);
+    if (prev && prev.area >= area) continue;
+    const anchor = anchorOf(polygons);
+    if (anchor) bestByKey.set(props.key, { area, anchor, v: props.v });
+  }
+  return {
+    type: "FeatureCollection",
+    features: [...bestByKey.entries()].map(([key, item]) => ({
+      type: "Feature",
+      properties: { key, v: item.v, t: String(item.v) },
+      geometry: { type: "Point", coordinates: item.anchor },
+    })),
+  };
 }

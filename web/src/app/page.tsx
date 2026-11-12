@@ -1165,6 +1165,7 @@ export default function Home() {
               <GlobeView
                 key="globe"
                 owner={owner}
+                getLocation={() => mapViewRef.current?.getLocation() ?? null}
                 onClose={() => setGlobeOpen(false)}
               />
             )}
