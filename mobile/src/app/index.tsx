@@ -1,6 +1,12 @@
 // mobile/src/app/index.tsx
 import { useEffect, useRef, useState } from "react";
-import { StyleSheet, SafeAreaView, Alert, Vibration } from "react-native";
+import {
+  StyleSheet,
+  SafeAreaView,
+  Alert,
+  Vibration,
+  useColorScheme,
+} from "react-native";
 import { WebView, WebViewMessageEvent } from "react-native-webview";
 import * as Location from "expo-location";
 import * as WebBrowser from "expo-web-browser";
@@ -41,6 +47,7 @@ function distanceM(a: RecordedPoint, b: RecordedPoint): number {
 }
 
 export default function Index() {
+  const colorScheme = useColorScheme();
   const webviewRef = useRef<WebViewRef>(null);
   // 상태 값은 앱에서 읽지 않고(웹에 STATUS_ACK로만 전달) setter만 사용
   const [, setStatus] = useState<TrackingStatus>("idle");
@@ -304,6 +311,11 @@ export default function Index() {
         );
       }
 
+      // 한 곳에 오래 머물러 웹이 장소 저장을 제안할 때: 약하게 두 번
+      if (data.type === "DWELL_DETECTED") {
+        Vibration.vibrate([0, 30, 120, 30]);
+      }
+
       if (
         data.type === "PLACE_LOCATION_REQUEST" &&
         typeof data.requestId === "string"
@@ -320,11 +332,19 @@ export default function Index() {
   }
 
   return (
-    <SafeAreaView style={styles.container}>
+    <SafeAreaView
+      style={[
+        styles.container,
+        { backgroundColor: colorScheme === "dark" ? INK : PAPER },
+      ]}
+    >
       <WebView<{}>
         ref={webviewRef}
         source={{ uri: WEB_URL }}
-        style={styles.webview}
+        style={[
+          styles.webview,
+          { backgroundColor: colorScheme === "dark" ? INK : PAPER },
+        ]}
         originWhitelist={["*"]}
         javaScriptEnabled
         domStorageEnabled
@@ -339,6 +359,11 @@ export default function Index() {
     </SafeAreaView>
   );
 }
+
+// 웹(globals.css)의 --san-background 와 같은 종이/먹 색.
+// 웹뷰가 뜨기 전이나 가장자리에 흰 여백이 비치지 않게 합니다.
+const PAPER = "#FBF5EA";
+const INK = "#14120F";
 
 const styles = StyleSheet.create({
   container: {

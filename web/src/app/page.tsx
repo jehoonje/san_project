@@ -7,7 +7,7 @@ import { useRouter } from "next/navigation";
 import { AnimatePresence, motion, useReducedMotion } from "motion/react";
 
 import { MapTabLayout, type MainTab } from "@/components/MapTabLayout";
-import { TasteCollection } from "@/components/TasteCollection";
+import { AnalysisReport } from "@/components/AnalysisReport";
 import {
   MapView,
   LocationIcon,
@@ -15,13 +15,11 @@ import {
   type MapViewport,
   type PeerMarker,
 } from "@/components/MapView";
-import { SignalButton } from "@/components/signal/SignalButton";
-import { SignalConsent } from "@/components/signal/SignalConsent";
-import { PeerSheet } from "@/components/signal/PeerSheet";
+import { EmoteSheet } from "@/components/signal/EmoteSheet";
 import { SignalNoticeBanner } from "@/components/signal/SignalNoticeBanner";
-import { CrossingSheet } from "@/components/signal/CrossingSheet";
-import { CrossingLog } from "@/components/signal/CrossingLog";
 import { TrackingControls } from "@/components/TrackingControls";
+import { RecordHud } from "@/components/RecordHud";
+import { DwellPrompt } from "@/components/DwellPrompt";
 import { TopBar } from "@/components/TopBar";
 import { SideDrawer } from "@/components/SideDrawer";
 import { RegionOverview } from "@/components/RegionOverview";
@@ -39,13 +37,32 @@ import { useNativeBridge } from "@/hooks/useNativeBridge";
 import { usePlaceLocation } from "@/hooks/usePlaceLocation";
 import { useSession } from "@/hooks/useSession";
 import { useSignal } from "@/hooks/useSignal";
-import { useTasteCard } from "@/hooks/useTasteCard";
 import { isDevPanelEnabled } from "@/lib/devLocation";
 
 import { makePlaceKey } from "@/lib/placeKey";
 import { supabase } from "@/lib/supabaseClient";
 import { postToNative } from "@/lib/nativeBridge";
 import { screenMotion, toastMotion } from "@/lib/motion";
+import { haversineMeters, type LngLat } from "@/lib/geo";
+import {
+  DWELL_RADIUS_METERS,
+  DWELL_THRESHOLD_MS,
+  DwellDetector,
+  dwellMinutesOf,
+  type DwellCluster,
+} from "@/lib/dwell";
+import {
+  getGuestId,
+  isGuestMode,
+  leaveGuestMode,
+  onGuestChange,
+} from "@/lib/guest";
+import {
+  importGuestRoutes,
+  saveRoute,
+  type RouteOwner,
+} from "@/lib/routeStore";
+import type { EmoteId } from "@/lib/signal";
 
 import type { AppToWebMessage, TrackingStatus } from "@/types/tracking";
 import type { SavedRoute } from "@/types/route";
@@ -54,14 +71,27 @@ import type { PlaceCategory, PlaceDraft } from "@/types/place";
 const INITIAL_CENTER: [number, number] = [126.978, 37.5665];
 const VIEWER_ANIM_MS = 300;
 const ROUTE_VIEW_KEY = "san-route-view";
+// 근처 신호는 기본으로 켜져 있고, 계정 시트에서 끌 수 있음 ("0"이면 꺼짐)
 const SIGNAL_KEY = "san-signal-on";
-const SIGNAL_CONSENT_KEY = "san-signal-consent";
 // 신호 위치 갱신: 이만큼 움직였거나 이 시간이 지나면 새 위치로
 const SIGNAL_MOVE_M = 25;
 const SIGNAL_REFRESH_MS = 40_000;
 
 // 로컬 가상 이동 시 경로에 점을 추가하는 최소 간격(m)
 const DEV_MIN_STEP_M = 3;
+
+// 체류 감지: 개발용 가상 이동에서는 20초만 머물러도 제안
+const DEV_DWELL_THRESHOLD_MS = 20 * 1000;
+const DWELL_CHECK_INTERVAL_MS = 5000;
+// 이미 저장한 장소 근처라면 다시 묻지 않음
+const NEAR_SAVED_PLACE_METERS = 50;
+
+type DwellPromptState = {
+  clusterId: number;
+  center: LngLat;
+  startedAt: number;
+  minutes: number;
+};
 
 // [부트 연동] 웹뷰 세션당 1회 재생 / 풀 버전은 최초 1회만
 const BOOT_PLAYED_KEY = "san-boot-played";
@@ -73,23 +103,6 @@ type PendingRoute = {
   startedAt: string;
   endedAt: string;
 };
-
-function haversineMeters(a: [number, number], b: [number, number]) {
-  const radius = 6371000;
-  const [lng1, lat1] = a;
-  const [lng2, lat2] = b;
-
-  const toRad = (degree: number) => (degree * Math.PI) / 180;
-
-  const dLat = toRad(lat2 - lat1);
-  const dLng = toRad(lng2 - lng1);
-
-  const value =
-    Math.sin(dLat / 2) ** 2 +
-    Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) * Math.sin(dLng / 2) ** 2;
-
-  return 2 * radius * Math.asin(Math.sqrt(Math.min(1, Math.max(0, value))));
-}
 
 function calcTotalDistance(coords: [number, number][]) {
   let total = 0;
@@ -107,7 +120,32 @@ export default function Home() {
   const { session, loading: sessionLoading } = useSession();
   const userId = session?.user.id ?? null;
 
+  // ── 게스트 모드: 로그인 없이 이 기기에만 기록 ─────────────
+  const [guestFlag, setGuestFlag] = useState(false);
+  const [guestChecked, setGuestChecked] = useState(false);
+  const [guestId, setGuestId] = useState<string | null>(null);
+
+  useEffect(() => {
+    const read = () => {
+      const on = isGuestMode();
+      setGuestFlag(on);
+      setGuestId(on ? getGuestId() : null);
+      setGuestChecked(true);
+    };
+    queueMicrotask(read);
+    return onGuestChange(read);
+  }, []);
+
+  const isGuest = !session && guestFlag;
+  const ownerId = userId ?? (isGuest ? guestId : null);
+  const owner = useMemo<RouteOwner | null>(
+    () =>
+      userId ? { kind: "user", userId } : isGuest ? { kind: "guest" } : null,
+    [userId, isGuest],
+  );
+
   const [status, setStatus] = useState<TrackingStatus>("idle");
+  const [startedAt, setStartedAt] = useState<string | null>(null);
   const [coords, setCoords] = useState<[number, number][]>([]);
   const [places, setPlaces] = useState<PlaceDraft[]>([]);
 
@@ -150,8 +188,7 @@ export default function Home() {
   }
 
   // ── 근처 신호 ─────────────────────────────
-  const [signalOn, setSignalOn] = useState(false);
-  const [signalConsentOpen, setSignalConsentOpen] = useState(false);
+  const [signalOn, setSignalOn] = useState(true);
   const [selectedPeerId, setSelectedPeerId] = useState<string | null>(null);
   const [selfPosition, setSelfPosition] = useState<[number, number] | null>(
     null,
@@ -163,13 +200,11 @@ export default function Home() {
 
   // 신호 켜짐 여부 복원 + 개발용 가상 산책자 (?mock=1, 끄기 ?ghost=0)
   useEffect(() => {
-    let on = false;
+    let on = true;
     try {
-      on =
-        window.localStorage.getItem(SIGNAL_KEY) === "1" &&
-        window.localStorage.getItem(SIGNAL_CONSENT_KEY) === "1";
+      on = window.localStorage.getItem(SIGNAL_KEY) !== "0";
     } catch {
-      on = false;
+      on = true;
     }
     const ghost =
       isDevPanelEnabled() &&
@@ -194,44 +229,18 @@ export default function Home() {
     setSelfPosition(coord);
   }, []);
 
-  function persistSignal(on: boolean) {
-    try {
-      window.localStorage.setItem(SIGNAL_KEY, on ? "1" : "0");
-    } catch {
-      // 무시
-    }
-  }
-
   function handleToggleSignal() {
-    if (signalOn) {
-      setSignalOn(false);
+    const next = !signalOn;
+    setSignalOn(next);
+    if (!next) {
       setSelectedPeerId(null);
-      persistSignal(false);
-      return;
+      mapViewRef.current?.faceToward(null);
     }
-    let consented = false;
     try {
-      consented = window.localStorage.getItem(SIGNAL_CONSENT_KEY) === "1";
-    } catch {
-      consented = false;
-    }
-    if (!consented) {
-      setSignalConsentOpen(true);
-      return;
-    }
-    setSignalOn(true);
-    persistSignal(true);
-  }
-
-  function handleConfirmSignal() {
-    try {
-      window.localStorage.setItem(SIGNAL_CONSENT_KEY, "1");
+      window.localStorage.setItem(SIGNAL_KEY, next ? "1" : "0");
     } catch {
       // 무시
     }
-    setSignalConsentOpen(false);
-    setSignalOn(true);
-    persistSignal(true);
   }
 
   // [부트 연동] 부트 스크린 상태 (null이면 재생 안 함)
@@ -272,6 +281,59 @@ export default function Home() {
     statusRef.current = status;
   }, [status]);
 
+  // ── 체류 감지: 한 곳에 오래 머물면 장소 저장을 제안 ─────────
+  const [dwellPrompt, setDwellPrompt] = useState<DwellPromptState | null>(null);
+  const dwellPromptRef = useRef<DwellPromptState | null>(null);
+  const dwellDetectorRef = useRef<DwellDetector | null>(null);
+  // 체류 구간 id → 그 구간에서 저장한 장소의 savedAt
+  const dwellSavedRef = useRef(new Map<number, string>());
+
+  function getDwellDetector() {
+    if (!dwellDetectorRef.current) {
+      dwellDetectorRef.current = new DwellDetector(
+        DWELL_RADIUS_METERS,
+        isDevPanelEnabled() ? DEV_DWELL_THRESHOLD_MS : DWELL_THRESHOLD_MS,
+      );
+    }
+    return dwellDetectorRef.current;
+  }
+
+  function showDwellPrompt(next: DwellPromptState | null) {
+    dwellPromptRef.current = next;
+    setDwellPrompt(next);
+  }
+
+  // 체류 구간이 끝나면, 그 구간에서 저장한 장소의 체류 시간을 최종값으로 갱신
+  function finishDwell(cluster: DwellCluster | null) {
+    if (!cluster) return;
+
+    if (dwellPromptRef.current?.clusterId === cluster.id) {
+      showDwellPrompt(null);
+    }
+
+    const savedAt = dwellSavedRef.current.get(cluster.id);
+    if (!savedAt) return;
+    dwellSavedRef.current.delete(cluster.id);
+
+    const minutes = dwellMinutesOf(cluster);
+    placesRef.current = placesRef.current.map((place) =>
+      place.savedAt === savedAt
+        ? { ...place, dwellMinutes: Math.max(place.dwellMinutes ?? 0, minutes) }
+        : place,
+    );
+    setPlaces(placesRef.current);
+  }
+
+  function observeDwell(point: LngLat | undefined) {
+    if (statusRef.current !== "recording" || !point) return;
+    finishDwell(getDwellDetector().observe(point, Date.now()));
+  }
+
+  const observeDwellRef = useRef(observeDwell);
+  useEffect(() => {
+    observeDwellRef.current = observeDwell;
+  });
+
   // [부트 연동] 재생 방식 결정: 이 웹뷰 세션에서 이미 재생했으면 생략,
   // 처음 실행이면 full, 이후에는 quick
   useEffect(() => {
@@ -306,12 +368,14 @@ export default function Home() {
     const next: [number, number][] = [...list, coord];
     coordsRef.current = next;
     setCoords(next);
+    observeDwellRef.current(coord);
   }, []);
 
   const handleNativeMessage = useCallback((data: AppToWebMessage) => {
     if (data.type === "LOCATION_UPDATE") {
       coordsRef.current = data.coords;
       setCoords(data.coords);
+      observeDwellRef.current(data.coords[data.coords.length - 1]);
     }
 
     if (data.type === "STATUS_ACK") {
@@ -322,13 +386,12 @@ export default function Home() {
   const { sendToApp } = useNativeBridge(handleNativeMessage);
   const { requestLocation } = usePlaceLocation();
 
-  const signalActive = signalOn && !sessionLoading && Boolean(session);
-  const taste = useTasteCard(session?.access_token ?? null, signalActive);
+  const signalActive = signalOn && Boolean(ownerId);
   const signal = useSignal({
-    userId,
+    ownerId,
+    remote: Boolean(userId),
     enabled: signalActive,
     position: selfPosition,
-    card: taste?.card ?? null,
     region: regionSummary.displayName || null,
     ghost: devGhost,
   });
@@ -357,11 +420,9 @@ export default function Home() {
         const relation = signal.relations[peer.sid];
         const state: PeerMarker["state"] = relation?.crossed
           ? "crossed"
-          : relation?.iWaved
-            ? "waved"
-            : relation?.theyWaved
-              ? "waving"
-              : "idle";
+          : relation?.theirs && !relation.mine
+            ? "greeting"
+            : "idle";
         return { id: peer.sid, label: peer.cs, lngLat: peer.pos, state };
       }),
     [signal.peers, signal.relations],
@@ -371,17 +432,72 @@ export default function Home() {
     ? (signal.peers.find((peer) => peer.sid === selectedPeerId) ?? null)
     : null;
 
+  // 산책자를 고르면 내 아바타가 그쪽으로 돌아섬
+  const handleSelectPeer = useCallback(
+    (sid: string) => {
+      const peer = signal.peers.find((p) => p.sid === sid);
+      if (!peer) return;
+      setSelectedPeerId(sid);
+      mapViewRef.current?.faceToward(peer.pos);
+    },
+    [signal.peers],
+  );
+
+  const handleClosePeer = useCallback(() => {
+    setSelectedPeerId(null);
+    mapViewRef.current?.faceToward(null);
+  }, []);
+
+  // 고른 산책자가 범위를 벗어나 사라지면 시트도 닫음
   useEffect(() => {
-    if (!sessionLoading && !session) {
-      router.replace("/login");
+    if (selectedPeerId && !selectedPeer) {
+      queueMicrotask(() => setSelectedPeerId(null));
+      mapViewRef.current?.faceToward(null);
     }
-  }, [sessionLoading, session, router]);
+  }, [selectedPeerId, selectedPeer]);
+
+  function handleEmote(emote: EmoteId) {
+    if (!selectedPeer) return;
+    signal.sendEmote(selectedPeer.sid, emote);
+    mapViewRef.current?.playSelfEmote(emote, selectedPeer.pos);
+  }
+
+  // 상대가 건넨 감정 표현: 그 아바타가 나를 향해 돌아서 재생
+  const incoming = signal.incoming;
+  useEffect(() => {
+    if (!incoming) return;
+    mapViewRef.current?.playPeerEmote(incoming.sid, incoming.emote);
+  }, [incoming]);
 
   useEffect(() => {
-    if (userId) {
+    if (!sessionLoading && guestChecked && !session && !guestFlag) {
+      router.replace("/login");
+    }
+  }, [sessionLoading, guestChecked, session, guestFlag, router]);
+
+  // 게스트로 남긴 기록이 있으면 로그인한 계정으로 옮김
+  useEffect(() => {
+    if (!userId || !guestFlag) return;
+    let cancelled = false;
+    void importGuestRoutes()
+      .then((moved) => {
+        leaveGuestMode();
+        if (!cancelled && moved > 0) {
+          showToastRef.current(`게스트로 남긴 걸음 ${moved}개를 옮겨 왔어요.`);
+          setSummaryRevision((current) => current + 1);
+        }
+      })
+      .catch(() => leaveGuestMode());
+    return () => {
+      cancelled = true;
+    };
+  }, [userId, guestFlag]);
+
+  useEffect(() => {
+    if (ownerId) {
       postToNative({ type: "WEB_READY" });
     }
-  }, [userId]);
+  }, [ownerId]);
 
   useEffect(() => {
     mountedRef.current = true;
@@ -407,9 +523,13 @@ export default function Home() {
     coordsRef.current = [];
     placesRef.current = [];
     startedAtRef.current = null;
+    dwellDetectorRef.current?.reset();
+    dwellSavedRef.current.clear();
+    showDwellPrompt(null);
 
     setCoords([]);
     setPlaces([]);
+    setStartedAt(null);
   }
 
   function showToast(message: string) {
@@ -427,6 +547,11 @@ export default function Home() {
     }, 3000);
   }
 
+  const showToastRef = useRef(showToast);
+  useEffect(() => {
+    showToastRef.current = showToast;
+  });
+
   function handleStart() {
     if (isSaving || pendingRoute) return;
 
@@ -434,20 +559,34 @@ export default function Home() {
 
     if (!isResume) {
       startedAtRef.current = new Date().toISOString();
+      setStartedAt(startedAtRef.current);
 
       coordsRef.current = [];
       placesRef.current = [];
+      dwellSavedRef.current.clear();
 
       setCoords([]);
       setPlaces([]);
     }
 
+    // 일시정지했던 시간은 체류로 치지 않도록 새로 시작
+    dwellDetectorRef.current?.reset();
+    statusRef.current = "recording";
+
     sendToApp({ type: "START_TRACKING" });
     setStatus("recording");
+    mapViewRef.current?.startCompass();
+
+    // 움직이지 않고 서 있어도 체류를 셀 수 있게 지금 자리부터 관찰
+    observeDwell(lastSelfRef.current?.coord);
   }
 
   function handlePause() {
     if (isSaving || pendingRoute) return;
+
+    finishDwell(getDwellDetector().reset());
+    showDwellPrompt(null);
+    statusRef.current = "paused";
 
     sendToApp({ type: "PAUSE_TRACKING" });
     setStatus("paused");
@@ -456,13 +595,19 @@ export default function Home() {
   function handleStop() {
     if (isSaving || pendingRoute) return;
 
-    const finalCoords = [...coordsRef.current];
-    const finalPlaces = [...placesRef.current];
     const startedAt = startedAtRef.current;
     const endedAt = new Date().toISOString();
 
+    finishDwell(getDwellDetector().reset());
+    showDwellPrompt(null);
+    statusRef.current = "idle";
+
     sendToApp({ type: "STOP_TRACKING" });
     setStatus("idle");
+
+    // 체류 시간까지 반영된 최종 목록
+    const finalCoords = [...coordsRef.current];
+    const finalPlaces = [...placesRef.current];
 
     // 진행 중인 장소 위치 요청도 무효화합니다.
     placeTokenRef.current += 1;
@@ -470,7 +615,7 @@ export default function Home() {
 
     if (finalCoords.length < 2 || !startedAt) {
       resetRecording();
-      showToast("저장할 이동 기록이 부족해요.");
+      showToast("남기기엔 걸음이 조금 짧았어요.");
       return;
     }
 
@@ -485,7 +630,7 @@ export default function Home() {
   }
 
   async function handleConfirmTitle(title: string) {
-    if (!pendingRoute || !userId || isSaving) return;
+    if (!pendingRoute || !owner || isSaving) return;
 
     const {
       coords: finalCoords,
@@ -525,45 +670,28 @@ export default function Home() {
         }),
       );
 
-      const { error } = await supabase.rpc("save_route_with_places", {
-        p_title: title,
-        p_coordinates: finalCoords,
-        p_distance_meters: distanceMeters,
-        p_duration_seconds: durationSeconds,
-        p_started_at: startedAt,
-        p_ended_at: endedAt,
-        p_places: enrichedPlaces.map((place) => ({
-          name: place.name,
-          category: place.category,
-          lat: place.lat,
-          lng: place.lng,
-          accuracy_meters: place.accuracyMeters,
-          dwell_minutes: place.dwellMinutes,
-          source: place.source,
-          saved_at: place.savedAt,
-          place_id: place.placeId,
-          region_dong: place.regionDong,
-        })),
+      await saveRoute(owner, {
+        title,
+        coordinates: finalCoords,
+        distanceMeters,
+        durationSeconds,
+        startedAt,
+        endedAt,
+        places: enrichedPlaces,
       });
 
       if (!mountedRef.current) return;
-
-      if (error) {
-        console.error("루트 저장 실패:", error);
-        setSaveError("저장에 실패했습니다. 다시 시도해 주세요.");
-        return;
-      }
 
       setPendingRoute(null);
       resetRecording();
       setSummaryRevision((current) => current + 1);
 
-      showToast("루트를 저장했어요.");
+      showToast("오늘 걸은 곳이 조용히 남았어요.");
     } catch (error) {
-      console.error("루트 저장 중 예외 발생:", error);
+      console.error("루트 저장 실패:", error);
 
       if (mountedRef.current) {
-        setSaveError("저장 중 오류가 발생했습니다.");
+        setSaveError("남기지 못했어요. 다시 시도해 주세요.");
       }
     } finally {
       if (mountedRef.current) {
@@ -627,6 +755,63 @@ export default function Home() {
     setPlaceSheet(null);
   }
 
+  function handleAcceptDwell() {
+    const prompt = dwellPromptRef.current;
+    if (!prompt) return;
+
+    placeTokenRef.current += 1;
+    showDwellPrompt(null);
+    setPlaceSheet({
+      status: "ready",
+      lng: prompt.center[0],
+      lat: prompt.center[1],
+      accuracy: null,
+      dwell: {
+        clusterId: prompt.clusterId,
+        startedAt: prompt.startedAt,
+        minutes: Math.max(
+          prompt.minutes,
+          Math.round((Date.now() - prompt.startedAt) / 60000),
+        ),
+      },
+    });
+  }
+
+  // 기록 중 주기적으로 오래 머무는 곳이 있는지 확인
+  const dwellBlocked = Boolean(placeSheet || pendingRoute);
+  useEffect(() => {
+    if (status !== "recording") return;
+
+    const timer = setInterval(() => {
+      if (dwellPromptRef.current || dwellBlocked) return;
+
+      const detector = dwellDetectorRef.current;
+      const now = Date.now();
+      const cluster = detector?.due(now);
+      if (!detector || !cluster) return;
+
+      detector.markPrompted(cluster.id);
+
+      const nearSaved = placesRef.current.some(
+        (place) =>
+          haversineMeters(cluster.center, [place.lng, place.lat]) <=
+          NEAR_SAVED_PLACE_METERS,
+      );
+      if (nearSaved) return;
+
+      dwellPromptRef.current = {
+        clusterId: cluster.id,
+        center: [...cluster.center],
+        startedAt: cluster.startedAt,
+        minutes: dwellMinutesOf(cluster, now),
+      };
+      setDwellPrompt(dwellPromptRef.current);
+      postToNative({ type: "DWELL_DETECTED" });
+    }, DWELL_CHECK_INTERVAL_MS);
+
+    return () => clearInterval(timer);
+  }, [status, dwellBlocked]);
+
   function handleSavePlace(
     name: string,
     category: PlaceCategory,
@@ -635,6 +820,8 @@ export default function Home() {
     if (!placeSheet || placeSheet.status !== "ready") {
       return;
     }
+
+    const dwell = placeSheet.dwell ?? null;
 
     const placeId = makePlaceKey({
       providerId,
@@ -650,18 +837,22 @@ export default function Home() {
       lng: placeSheet.lng,
       accuracyMeters: placeSheet.accuracy,
       savedAt: new Date().toISOString(),
-      source: "manual",
-      dwellMinutes: null,
+      source: dwell ? "auto_prompt" : "manual",
+      dwellMinutes: dwell ? dwell.minutes : null,
       placeId,
       regionDong: null,
     };
+
+    if (dwell) {
+      dwellSavedRef.current.set(dwell.clusterId, draft.savedAt);
+    }
 
     placesRef.current = [...placesRef.current, draft];
 
     setPlaces(placesRef.current);
     setPlaceSheet(null);
 
-    showToast(`장소를 저장했어요 (${placesRef.current.length}개)`);
+    showToast("이 자리를 종이 위에 남겼어요.");
   }
 
   async function handleLogout() {
@@ -675,6 +866,11 @@ export default function Home() {
     }
 
     router.replace("/login");
+  }
+
+  function handleGoLogin() {
+    setDrawerOpen(false);
+    router.push("/login");
   }
 
   function clearCloseTimer() {
@@ -696,6 +892,7 @@ export default function Home() {
     setSelectedRoute(null);
     setViewerOpen(false);
     setAnalysisOpen(false);
+    if (next === "routes") handleClosePeer();
     setTab(next);
 
     // 탭 변경은 기록 시작/중지와 별개입니다.
@@ -772,18 +969,20 @@ export default function Home() {
     (analysisOpen || (selectedRoute !== null && viewerOpen));
 
   const topTitle = analysisOpen
-    ? "Collection"
+    ? "나의 취향"
     : selectedRoute
       ? selectedRoute.title
-      : "My Route";
+      : "My Routes";
 
   const rightAction =
     tab === "routes" && !analysisOpen && !selectedRoute
       ? {
-          label: "취향 컬렉션",
+          label: "취향 읽기",
           onClick: handleOpenAnalysis,
         }
       : null;
+
+  const liveDistance = useMemo(() => calcTotalDistance(coords), [coords]);
 
   const canSavePlace =
     (status === "recording" || status === "paused") &&
@@ -791,11 +990,11 @@ export default function Home() {
     pendingRoute === null;
 
   // [부트 연동] 세션 확인 전에도 부트 스크린이 같은 위치에 유지되도록 단일 return 구조
-  const authed = !sessionLoading && !!session;
+  const authed = !sessionLoading && guestChecked && owner !== null;
 
   return (
     <>
-      {authed && session ? (
+      {authed && owner ? (
         <>
           <MapTabLayout
             tab={tab}
@@ -807,45 +1006,49 @@ export default function Home() {
                 places={places}
                 initialCenter={INITIAL_CENTER}
                 active={tab !== "routes"}
+                recording={status === "recording"}
                 onViewportChange={setViewport}
                 onFollowingChange={setIsFollowing}
                 onDevMove={handleDevMove}
                 onReady={() => setMapReady(true)} // [부트 연동]
                 peers={tab === "routes" ? [] : peerMarkers}
                 selectedPeerId={selectedPeerId}
-                onPeerSelect={setSelectedPeerId}
+                onPeerSelect={handleSelectPeer}
                 onLocation={handleSelfLocation}
               />
             }
             mapControls={
-              <div className="flex flex-col items-center gap-2.5">
-              <SignalButton
-                status={signal.status}
-                count={signal.peers.length}
-                onToggle={handleToggleSignal}
-              />
               <button
                 type="button"
                 onClick={() => mapViewRef.current?.recenter()}
                 aria-label="현재 위치로 이동"
                 title="현재 위치로 이동"
-                className={`grid h-12 w-12 place-items-center rounded-[18px] border border-white/15 bg-[rgba(10,13,18,0.62)] shadow-lg backdrop-blur-xl transition active:scale-95 ${
-                  isFollowing ? "text-[#79adff]" : "text-[#f4f5f7]"
+                aria-pressed={isFollowing}
+                className={`san-icon-btn transition-opacity duration-500 ${
+                  isFollowing ? "opacity-100" : "opacity-70"
                 }`}
               >
                 <LocationIcon />
               </button>
-              </div>
             }
             topBar={
               <TopBar
-                title={tab === "record" ? "기록" : "지도"} // 확인: 기록 탭 제목 문구
+                title={tab === "record" ? "Record" : "Map"}
                 isBack={false}
+                live={status === "recording"}
                 onMenu={() => setDrawerOpen(true)}
                 onBack={handleBack}
               />
             }
             overview={<RegionOverview summary={regionSummary} />}
+            recordHud={
+              <RecordHud
+                status={status}
+                distanceMeters={liveDistance}
+                startedAt={startedAt}
+                placeCount={places.length}
+              />
+            }
             recordingControls={
               <TrackingControls
                 status={isSaving ? "paused" : status}
@@ -881,10 +1084,29 @@ export default function Home() {
                           className="h-full"
                           {...screenMotion(reduceMotion)}
                         >
-                          <TasteCollection
-                            accessToken={session.access_token}
-                            footer={<CrossingLog userId={session.user.id} />}
-                          />
+                          {session ? (
+                            <AnalysisReport accessToken={session.access_token} />
+                          ) : (
+                            <div className="mx-auto flex h-full max-w-xl flex-col items-start justify-center px-7 pb-28">
+                              <p className="san-eyebrow">GUEST</p>
+                              <p className="san-display mt-3">
+                                취향은 기록이 쌓인 뒤에
+                                <br />
+                                천천히 읽어드려요
+                              </p>
+                              <p className="san-fade-tail mt-4 text-[14px] leading-loose text-san-text">
+                                로그인하면 지금까지 남긴 걸음이 계정으로 옮겨지고,
+                                머문 장소들에서 나만의 취향을 읽어볼 수 있어요.
+                              </p>
+                              <button
+                                type="button"
+                                className="san-pill san-pill-fill mt-7"
+                                onClick={handleGoLogin}
+                              >
+                                로그인하기
+                              </button>
+                            </div>
+                          )}
                         </motion.div>
                       ) : (
                         <motion.div
@@ -893,6 +1115,7 @@ export default function Home() {
                           {...screenMotion(reduceMotion)}
                         >
                           <RouteGrid
+                            owner={owner}
                             onSelect={handleSelectRoute}
                             view={routeView}
                           />
@@ -916,110 +1139,101 @@ export default function Home() {
 
           <SideDrawer
             open={drawerOpen}
-            email={session.user.email ?? null}
+            email={session?.user.email ?? null}
+            guest={isGuest}
             onClose={() => setDrawerOpen(false)}
             onLogout={handleLogout}
+            onLogin={handleGoLogin}
+            signal={{
+              on: signalOn,
+              status: signal.status,
+              callSign: signal.callSign,
+              nearby: signal.peers.length,
+              onToggle: handleToggleSignal,
+            }}
+            ownerId={ownerId}
           />
 
           <AnimatePresence>
-            {selectedPeer && tab !== "routes" && !signal.crossing && (
-              <PeerSheet
+            {selectedPeer && tab !== "routes" && (
+              <EmoteSheet
                 key={`peer-${selectedPeer.sid}`}
                 peer={selectedPeer}
                 relation={signal.relations[selectedPeer.sid]}
-                onWave={() => signal.wave(selectedPeer.sid)}
-                onClose={() => setSelectedPeerId(null)}
+                onEmote={handleEmote}
+                onClose={handleClosePeer}
               />
             )}
           </AnimatePresence>
 
-          <SignalNoticeBanner
-            notice={signal.notices[0] ?? null}
-            onWaveBack={signal.wave}
-            onDismiss={signal.dismissNotice}
-          />
-
-          <AnimatePresence>
-            {signal.crossing && (
-              <CrossingSheet
-                key={`crossing-${signal.crossing.encounterId}`}
-                crossing={signal.crossing}
-                myCallSign={signal.callSign}
-                giftSent={signal.relations[signal.crossing.sid]?.giftSent ?? null}
-                giftReceived={
-                  signal.relations[signal.crossing.sid]?.giftReceived ?? null
-                }
-                giftOptions={taste?.gifts ?? []}
-                onGift={(place) =>
-                  signal.crossing && signal.sendGift(signal.crossing.sid, place)
-                }
-                onClose={signal.closeCrossing}
-              />
-            )}
-          </AnimatePresence>
-
-          <AnimatePresence>
-            {signalConsentOpen && (
-              <SignalConsent
-                key="signal-consent"
-                callSign={signal.callSign}
-                onConfirm={handleConfirmSignal}
-                onCancel={() => setSignalConsentOpen(false)}
-              />
-            )}
-          </AnimatePresence>
-
-          <AnimatePresence>
-          {toast && (
-            <motion.div
-              key="toast"
-              {...toastMotion(reduceMotion)}
-              role="status"
-              className="pointer-events-none fixed inset-x-0 z-[60] flex justify-center px-5"
-              style={{
-                bottom: "calc(env(safe-area-inset-bottom, 0px) + 176px)",
-              }}
-            >
-              <span className="max-w-md rounded-full border border-white/10 bg-[rgba(8,12,18,0.72)] px-4 py-2.5 text-center text-[13px] leading-relaxed tracking-[-0.01em] text-white/90 shadow-[0_12px_40px_rgba(0,0,0,0.4),inset_0_1px_0_rgba(255,255,255,0.08)] backdrop-blur-2xl backdrop-saturate-150">
-                {toast}
-              </span>
-            </motion.div>
-          )}
-          </AnimatePresence>
-
-          <AnimatePresence>
-          {placeSheet && (
-            <PlaceSaveSheet
-              key="place-sheet"
-              state={placeSheet}
-              onRetry={handleOpenPlaceSheet}
-              onSave={handleSavePlace}
-              onCancel={handleClosePlaceSheet}
+          {tab !== "routes" && !dwellPrompt && (
+            <SignalNoticeBanner
+              notice={signal.notices[0] ?? null}
+              onReply={handleSelectPeer}
+              onDismiss={signal.dismissNotice}
             />
           )}
+
+          <AnimatePresence>
+            {dwellPrompt && tab === "record" && !placeSheet && (
+              <DwellPrompt
+                key="dwell"
+                minutes={dwellPrompt.minutes}
+                onAccept={handleAcceptDwell}
+                onDismiss={() => showDwellPrompt(null)}
+              />
+            )}
           </AnimatePresence>
 
           <AnimatePresence>
-          {pendingRoute && (
-            <RouteTitleModal
-              key="route-title"
-              defaultTitle={new Date(pendingRoute.startedAt).toLocaleString("ko-KR")}
-              description={
-                pendingRoute.places.length > 0
-                  ? `장소 ${pendingRoute.places.length}개가 함께 저장됩니다. 루트의 이름을 입력해 주세요.`
-                  : undefined
-              }
-              isSaving={isSaving}
-              errorMessage={saveError}
-              onConfirm={handleConfirmTitle}
-              onCancel={handleCancelTitle}
-            />
-          )}
+            {toast && (
+              <motion.div
+                key="toast"
+                {...toastMotion(reduceMotion)}
+                role="status"
+                className="pointer-events-none fixed inset-x-0 z-[60] flex justify-center px-5"
+                style={{
+                  bottom: "calc(env(safe-area-inset-bottom, 0px) + 184px)",
+                }}
+              >
+                <span className="san-toast">{toast}</span>
+              </motion.div>
+            )}
+          </AnimatePresence>
+
+          <AnimatePresence>
+            {placeSheet && (
+              <PlaceSaveSheet
+                key="place-sheet"
+                state={placeSheet}
+                onRetry={handleOpenPlaceSheet}
+                onSave={handleSavePlace}
+                onCancel={handleClosePlaceSheet}
+              />
+            )}
+          </AnimatePresence>
+
+          <AnimatePresence>
+            {pendingRoute && (
+              <RouteTitleModal
+                key="route-title"
+                defaultTitle={new Date(pendingRoute.startedAt).toLocaleString("ko-KR")}
+                description={
+                  pendingRoute.places.length > 0
+                    ? `머문 자리 ${pendingRoute.places.length}곳도 함께 남아요.`
+                    : undefined
+                }
+                isSaving={isSaving}
+                errorMessage={saveError}
+                onConfirm={handleConfirmTitle}
+                onCancel={handleCancelTitle}
+              />
+            )}
           </AnimatePresence>
         </>
       ) : (
         <main
-          className="fixed inset-0 bg-black"
+          className="fixed inset-0 bg-san-bg"
           aria-label="로딩 중"
           aria-busy="true"
         />

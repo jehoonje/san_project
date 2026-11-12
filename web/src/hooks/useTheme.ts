@@ -19,13 +19,13 @@ function isSanTheme(
 
 function getDocumentTheme(): SanTheme {
   if (typeof document === "undefined") {
-    return "dark";
+    return "light";
   }
 
   return document.documentElement.dataset.theme ===
-    "light"
-    ? "light"
-    : "dark";
+    "dark"
+    ? "dark"
+    : "light";
 }
 
 function applyTheme(theme: SanTheme) {
@@ -40,7 +40,7 @@ function applyTheme(theme: SanTheme) {
 
   themeColor?.setAttribute(
     "content",
-    theme === "dark" ? "#080a0f" : "#f3f0ea",
+    theme === "dark" ? "#14120f" : "#fbf5ea",
   );
 
   window.dispatchEvent(
@@ -52,7 +52,7 @@ function applyTheme(theme: SanTheme) {
 
 export function useTheme() {
   const [theme, setThemeState] =
-    useState<SanTheme>("dark");
+    useState<SanTheme>("light");
 
   const hasManualPreferenceRef =
     useRef(false);
@@ -102,7 +102,20 @@ export function useTheme() {
       handleSystemThemeChange,
     );
 
+    // 다른 화면(로그인 설정, 계정 시트)에서 바꾼 테마도 바로 따라감
+    const handleThemeEvent = () =>
+      setThemeState(getDocumentTheme());
+
+    window.addEventListener(
+      "san-theme-change",
+      handleThemeEvent,
+    );
+
     return () => {
+      window.removeEventListener(
+        "san-theme-change",
+        handleThemeEvent,
+      );
       mediaQuery.removeEventListener(
         "change",
         handleSystemThemeChange,

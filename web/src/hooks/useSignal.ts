@@ -3,7 +3,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { LngLat } from "@/lib/geo";
 import { postToNative } from "@/lib/nativeBridge";
-import { compareCards, type TasteCard } from "@/lib/tasteCollection";
 import {
   callSignFor,
   cellOf,
@@ -11,15 +10,14 @@ import {
   makeSessionId,
   makeSessionOffset,
   neighborCells,
-  sanitizeGift,
-  sanitizeWave,
+  sanitizeEmote,
   signalDistance,
   SIGNAL_RADIUS_M,
-  type GiftPlace,
+  type EmoteId,
   type SignalPresence,
 } from "@/lib/signal";
 import { SignalChannels } from "@/lib/signalChannels";
-import { patchEncounter, saveEncounter } from "@/lib/encounters";
+import { saveEncounter } from "@/lib/encounters";
 
 export type SignalStatus = "off" | "connecting" | "live" | "error";
 
@@ -29,73 +27,57 @@ export type Peer = {
   pos: LngLat;
   ch: string;
   distance: number;
-  card: TasteCard;
-  match: number;
-  common: string[];
   ghost: boolean;
 };
 
 export type Relation = {
-  iWaved: boolean;
-  theyWaved: boolean;
+  /** 내가 마지막으로 건넨 감정 표현 */
+  mine: EmoteId | null;
+  /** 상대가 마지막으로 건넨 감정 표현 */
+  theirs: EmoteId | null;
+  /** 서로 주고받아 교차 로그에 남긴 상태 */
   crossed: boolean;
-  encounterId: string | null;
-  giftSent: GiftPlace | null;
-  giftReceived: GiftPlace | null;
 };
 
-export type SignalNotice =
-  | { id: string; kind: "wave"; sid: string; cs: string; match: number }
-  | { id: string; kind: "gift"; sid: string; cs: string; place: GiftPlace };
-
-export type Crossing = {
+export type SignalNotice = {
+  id: string;
+  kind: "emote" | "crossing";
   sid: string;
-  encounterId: string;
   cs: string;
-  card: TasteCard;
-  match: number;
-  common: string[];
+  emote: EmoteId;
+};
+
+/** 지도 아바타가 재생할 감정 표현 (상대가 나에게 건넨 것) */
+export type IncomingEmote = {
+  key: number;
+  sid: string;
+  emote: EmoteId;
 };
 
 type Options = {
-  userId: string | null;
+  /** 계정 id 또는 게스트 id. 신호명과 교차 로그 보관에 사용 */
+  ownerId: string | null;
+  /** 로그인 사용자면 true (교차 로그를 서버에도 저장) */
+  remote: boolean;
   enabled: boolean;
   position: LngLat | null;
-  card: TasteCard | null;
   region: string | null;
   /** 개발용 가상 산책자 (혼자서 흐름 확인) */
   ghost: boolean;
 };
 
-const EMPTY: Relation = {
-  iWaved: false,
-  theyWaved: false,
-  crossed: false,
-  encounterId: null,
-  giftSent: null,
-  giftReceived: null,
-};
+const EMPTY: Relation = { mine: null, theirs: null, crossed: false };
 
-type KnownPeer = { cs: string; card: TasteCard; ch: string | null; ghost: boolean };
+type KnownPeer = { cs: string; ch: string | null; ghost: boolean };
 
 const GHOST_SID = "ghost-echo";
 const GHOST_CS = "ECHO-00";
-const GHOST_CARD: TasteCard = {
-  t: "레코드를 모으는 카페 산책자",
-  k: [
-    "music.record",
-    "category.cafe",
-    "interior.wood",
-    "atmosphere.calm",
-    "menu.hand_drip",
-    "category.bar",
-  ],
-  n: 9,
-};
-const GHOST_GIFT: GiftPlace = {
-  name: "모노 레코드 바",
-  category: "bar",
-  region: "을지로동",
+const GHOST_REPLIES: Record<EmoteId, EmoteId> = {
+  wave: "wave",
+  talk: "talk",
+  bow: "bow",
+  clap: "cheer",
+  cheer: "clap",
 };
 
 function haptic(style: "tap" | "wave" | "crossing") {
@@ -114,18 +96,18 @@ function noticeId() {
 }
 
 export function useSignal({
-  userId,
+  ownerId,
+  remote,
   enabled,
   position,
-  card,
   region,
   ghost,
 }: Options) {
   const [sid] = useState(makeSessionId);
   const [offset] = useState(makeSessionOffset);
   const callSign = useMemo(
-    () => (userId ? callSignFor(userId) : null),
-    [userId],
+    () => (ownerId ? callSignFor(ownerId) : null),
+    [ownerId],
   );
 
   const [presence, setPresence] = useState<SignalPresence[]>([]);
@@ -134,35 +116,31 @@ export function useSignal({
   );
   const [relations, setRelations] = useState<Record<string, Relation>>({});
   const [notices, setNotices] = useState<SignalNotice[]>([]);
-  const [crossing, setCrossing] = useState<Crossing | null>(null);
+  const [incoming, setIncoming] = useState<IncomingEmote | null>(null);
   const [ghostPresence, setGhostPresence] = useState<SignalPresence | null>(
     null,
   );
 
   const relationsRef = useRef<Record<string, Relation>>({});
-  // 지금 열려 있는 교차 화면의 상대 (그 화면에서 선물을 바로 보여주므로 알림 생략)
-  const crossingSidRef = useRef<string | null>(null);
   const knownRef = useRef(new Map<string, KnownPeer>());
   const managerRef = useRef<SignalChannels | null>(null);
   const timersRef = useRef(new Set<ReturnType<typeof setTimeout>>());
-  const cardRef = useRef(card);
+  const incomingKeyRef = useRef(0);
   const regionRef = useRef(region);
-  const userIdRef = useRef(userId);
+  const ownerRef = useRef(ownerId);
+  const remoteRef = useRef(remote);
   const callSignRef = useRef(callSign);
   // 채널·타이머에서 부르는 최신 처리기 (아래에서 정의 후 갱신)
-  const handlersRef = useRef<{
-    wave: (raw: unknown) => void;
-    gift: (raw: unknown) => void;
-  }>({ wave: () => undefined, gift: () => undefined });
+  const emoteHandlerRef = useRef<(raw: unknown) => void>(() => undefined);
 
   useEffect(() => {
-    cardRef.current = card;
     regionRef.current = region;
-    userIdRef.current = userId;
+    ownerRef.current = ownerId;
+    remoteRef.current = remote;
     callSignRef.current = callSign;
-  }, [card, region, userId, callSign]);
+  }, [region, ownerId, remote, callSign]);
 
-  const active = Boolean(enabled && userId && card && position && callSign);
+  const active = Boolean(enabled && ownerId && position && callSign);
   const coarse = useMemo(
     () => (position ? coarsen(position, offset) : null),
     [position, offset],
@@ -193,126 +171,88 @@ export function useSignal({
     setNotices((list) => [...list.slice(-3), notice]);
   }, []);
 
-  // 서로 손을 흔들면 교차: 기록을 남기고 교차 화면을 띄움
+  // 서로 한 번씩 건넸다면 교차: 조용히 로그에 남김
   const maybeCross = useCallback(
     (peerSid: string, relation: Relation) => {
-      if (!relation.iWaved || !relation.theyWaved || relation.crossed) return;
+      if (!relation.mine || !relation.theirs || relation.crossed) return false;
       const peer = knownRef.current.get(peerSid);
-      const owner = userIdRef.current;
-      if (!peer || !owner) return;
+      const owner = ownerRef.current;
+      if (!peer || !owner) return false;
 
-      const encounterId = crypto.randomUUID();
-      const { percent, common } = compareCards(cardRef.current, peer.card);
-      updateRelation(peerSid, (r) => ({ ...r, crossed: true, encounterId }));
+      updateRelation(peerSid, (r) => ({ ...r, crossed: true }));
 
-      void saveEncounter(owner, {
-        id: encounterId,
+      void saveEncounter(owner, remoteRef.current, {
+        id: crypto.randomUUID(),
         peerCallSign: peer.cs,
-        peerCard: peer.card,
-        match: percent,
-        common,
+        myEmote: relation.mine,
+        peerEmote: relation.theirs,
         region: regionRef.current,
         metAt: new Date().toISOString(),
-        giftReceived: null,
-        giftSent: null,
       });
 
-      crossingSidRef.current = peerSid;
-      setCrossing({
+      pushNotice({
+        id: noticeId(),
+        kind: "crossing",
         sid: peerSid,
-        encounterId,
         cs: peer.cs,
-        card: peer.card,
-        match: percent,
-        common,
+        emote: relation.theirs,
       });
       haptic("crossing");
-
-      // 가상 산책자는 교차 후 장소 하나를 건넴
-      if (peer.ghost) {
-        later(() => handlersRef.current.gift({
-          from: GHOST_SID,
-          to: sid,
-          cs: GHOST_CS,
-          place: GHOST_GIFT,
-        }), 2600);
-      }
+      return true;
     },
-    [later, sid, updateRelation],
+    [pushNotice, updateRelation],
   );
 
-  const handleWave = useCallback(
+  const handleEmote = useCallback(
     (raw: unknown) => {
-      const message = sanitizeWave(raw);
+      const message = sanitizeEmote(raw);
       if (!message || message.to !== sid) return;
 
       const known = knownRef.current.get(message.from);
       knownRef.current.set(message.from, {
         cs: message.cs,
-        card: message.c,
         ch: known?.ch ?? null,
         ghost: message.from.startsWith("ghost-"),
       });
 
-      const { prev, next } = updateRelation(message.from, (r) => ({
+      const { next } = updateRelation(message.from, (r) => ({
         ...r,
-        theyWaved: true,
+        theirs: message.e,
       }));
-      if (prev.theyWaved) return;
 
-      haptic("wave");
-      if (next.iWaved) {
-        maybeCross(message.from, next);
-      } else {
-        pushNotice({
-          id: noticeId(),
-          kind: "wave",
-          sid: message.from,
-          cs: message.cs,
-          match: compareCards(cardRef.current, message.c).percent,
-        });
+      incomingKeyRef.current += 1;
+      setIncoming({
+        key: incomingKeyRef.current,
+        sid: message.from,
+        emote: message.e,
+      });
+
+      if (!maybeCross(message.from, next)) {
+        haptic("wave");
+        if (!next.crossed) {
+          pushNotice({
+            id: noticeId(),
+            kind: "emote",
+            sid: message.from,
+            cs: message.cs,
+            emote: message.e,
+          });
+        }
       }
     },
     [maybeCross, pushNotice, sid, updateRelation],
   );
 
-  const handleGift = useCallback(
-    (raw: unknown) => {
-      const message = sanitizeGift(raw);
-      if (!message || message.to !== sid) return;
-      const relation = relationsRef.current[message.from];
-      // 교차한 상대의 선물만 받음
-      if (!relation?.crossed || relation.giftReceived) return;
-
-      updateRelation(message.from, (r) => ({ ...r, giftReceived: message.place }));
-      const owner = userIdRef.current;
-      if (owner && relation.encounterId) {
-        void patchEncounter(owner, relation.encounterId, {
-          giftReceived: message.place,
-        });
-      }
-      if (crossingSidRef.current !== message.from) pushNotice({
-        id: noticeId(),
-        kind: "gift",
-        sid: message.from,
-        cs: message.cs,
-        place: message.place,
-      });
-      haptic("wave");
-    },
-    [pushNotice, sid, updateRelation],
-  );
-
   useEffect(() => {
-    handlersRef.current = { wave: handleWave, gift: handleGift };
-  }, [handleWave, handleGift]);
+    emoteHandlerRef.current = handleEmote;
+  }, [handleEmote]);
 
   // 채널 관리자: 신호가 켜져 있는 동안만 존재
   useEffect(() => {
     if (!active) return;
     const manager = new SignalChannels(sid, {
       onPresence: (list) => setPresence(list),
-      onBroadcast: (event, payload) => handlersRef.current[event](payload),
+      onEmote: (payload) => emoteHandlerRef.current(payload),
       onOwnStatus: (status) => setOwnStatus(status),
     });
     managerRef.current = manager;
@@ -331,22 +271,21 @@ export function useSignal({
     void managerRef.current?.sync(neighborCells(cell));
   }, [cell, active]);
 
-  // 내 신호(뭉갠 위치 + 취향 카드) 갱신
+  // 내 신호(뭉갠 위치) 갱신
   useEffect(() => {
     const manager = managerRef.current;
-    if (!manager || !cell || !coarse || !card || !callSign) return;
+    if (!manager || !cell || !coarse || !callSign) return;
     manager.setOwn(cell, {
-      v: 1,
+      v: 2,
       sid,
       cs: callSign,
       p: coarse,
       ch: cell,
-      c: card,
       at: Date.now(),
     });
     // coarseKey가 바뀔 때만 다시 보냄
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [cell, coarseKey, card, callSign, sid, active]);
+  }, [cell, coarseKey, callSign, sid, active]);
 
   // 앱을 내리면 신호를 숨기고, 돌아오면 다시 보냄
   useEffect(() => {
@@ -357,102 +296,101 @@ export function useSignal({
     return () => document.removeEventListener("visibilitychange", onVisibility);
   }, [active]);
 
-  // 개발용 가상 산책자: 신호를 켜고 잠시 뒤 북동쪽 약 140m에 나타남
+  // 개발용 가상 산책자: 잠시 뒤 북동쪽 약 60m에 나타났다가 천천히 주변을 걸음
   useEffect(() => {
     if (!active || !ghost || !coarse) return;
-    const at = offsetMeters(coarse, 100, 100);
-    const spawn = setTimeout(() => {
-      knownRef.current.set(GHOST_SID, {
-        cs: GHOST_CS,
-        card: GHOST_CARD,
-        ch: null,
-        ghost: true,
-      });
+    const spots: LngLat[] = [
+      offsetMeters(coarse, 42, 44),
+      offsetMeters(coarse, 70, 20),
+      offsetMeters(coarse, 30, 62),
+    ];
+    let step = 0;
+    const place = () => {
+      const at = spots[step % spots.length];
+      step += 1;
+      knownRef.current.set(GHOST_SID, { cs: GHOST_CS, ch: null, ghost: true });
       setGhostPresence({
-        v: 1,
+        v: 2,
         sid: GHOST_SID,
         cs: GHOST_CS,
         p: at,
         ch: cellOf(at),
-        c: GHOST_CARD,
         at: Date.now(),
       });
-    }, 1400);
-    // 먼저 손을 흔들지 않으면 가상 산책자가 먼저 흔듦
+    };
+    const spawn = setTimeout(place, 1400);
+    const stroll = setInterval(place, 26000);
+    // 먼저 인사하지 않으면 가상 산책자가 먼저 손을 흔듦
     const firstWave = setTimeout(() => {
-      if (relationsRef.current[GHOST_SID]?.theyWaved) return;
-      handlersRef.current.wave({
+      if (relationsRef.current[GHOST_SID]?.theirs) return;
+      emoteHandlerRef.current({
         from: GHOST_SID,
         to: sid,
         cs: GHOST_CS,
-        c: GHOST_CARD,
+        e: "wave",
       });
-    }, 12000);
+    }, 14000);
     return () => {
       clearTimeout(spawn);
+      clearInterval(stroll);
       clearTimeout(firstWave);
     };
     // 켜질 때 한 번만 배치
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [active, ghost, sid]);
 
+  // 가까이 잡힌 산책자만 남김. 범위를 벗어나면 목록에서 빠져 지도에서 사라짐
   const peers = useMemo<Peer[]>(() => {
     if (!active || !coarse) return [];
     const list = ghost && ghostPresence ? [...presence, ghostPresence] : presence;
     return list
       .filter((p) => p.sid !== sid)
-      .map((p) => {
-        const { percent, common } = compareCards(card, p.c);
-        return {
-          sid: p.sid,
-          cs: p.cs,
-          pos: p.p,
-          ch: p.ch,
-          distance: signalDistance(coarse, p.p),
-          card: p.c,
-          match: percent,
-          common,
-          ghost: p.sid.startsWith("ghost-"),
-        };
-      })
+      .map((p) => ({
+        sid: p.sid,
+        cs: p.cs,
+        pos: p.p,
+        ch: p.ch,
+        distance: signalDistance(coarse, p.p),
+        ghost: p.sid.startsWith("ghost-"),
+      }))
       .filter((p) => p.distance <= SIGNAL_RADIUS_M)
       .sort((a, b) => a.distance - b.distance);
-  }, [active, card, coarse, ghost, ghostPresence, presence, sid]);
+  }, [active, coarse, ghost, ghostPresence, presence, sid]);
 
-  // 지도에 보이는 신호는 상대 정보로 기억 (손 흔들기·선물 보낼 때 사용)
+  // 지도에 보이는 산책자는 상대 정보로 기억 (감정 표현을 보낼 때 사용)
   useEffect(() => {
     for (const peer of peers) {
       knownRef.current.set(peer.sid, {
         cs: peer.cs,
-        card: peer.card,
         ch: peer.ch,
         ghost: peer.ghost,
       });
     }
   }, [peers]);
 
-  const wave = useCallback(
-    (peerSid: string) => {
+  const sendEmote = useCallback(
+    (peerSid: string, emote: EmoteId) => {
       const peer = knownRef.current.get(peerSid);
-      const mine = cardRef.current;
       const cs = callSignRef.current;
-      if (!peer || !mine || !cs) return;
+      if (!peer || !cs) return;
 
-      const { prev, next } = updateRelation(peerSid, (r) => ({ ...r, iWaved: true }));
-      if (prev.iWaved) return;
+      const { next } = updateRelation(peerSid, (r) => ({ ...r, mine: emote }));
       haptic("tap");
 
       if (peer.ghost) {
-        later(() => handlersRef.current.wave({
-          from: GHOST_SID,
-          to: sid,
-          cs: GHOST_CS,
-          c: GHOST_CARD,
-        }), 1800);
+        later(
+          () =>
+            emoteHandlerRef.current({
+              from: GHOST_SID,
+              to: sid,
+              cs: GHOST_CS,
+              e: GHOST_REPLIES[emote],
+            }),
+          3200,
+        );
       } else {
-        managerRef.current?.send(
-          "wave",
-          { from: sid, to: peerSid, cs, c: mine },
+        managerRef.current?.sendEmote(
+          { from: sid, to: peerSid, cs, e: emote },
           peer.ch,
         );
       }
@@ -461,36 +399,8 @@ export function useSignal({
     [later, maybeCross, sid, updateRelation],
   );
 
-  const sendGift = useCallback(
-    (peerSid: string, place: GiftPlace) => {
-      const peer = knownRef.current.get(peerSid);
-      const relation = relationsRef.current[peerSid];
-      const cs = callSignRef.current;
-      if (!peer || !relation?.crossed || relation.giftSent || !cs) return;
-
-      updateRelation(peerSid, (r) => ({ ...r, giftSent: place }));
-      const owner = userIdRef.current;
-      if (owner && relation.encounterId) {
-        void patchEncounter(owner, relation.encounterId, { giftSent: place });
-      }
-      if (!peer.ghost) {
-        managerRef.current?.send(
-          "gift",
-          { from: sid, to: peerSid, cs, place },
-          peer.ch,
-        );
-      }
-    },
-    [sid, updateRelation],
-  );
-
   const dismissNotice = useCallback((id: string) => {
     setNotices((list) => list.filter((n) => n.id !== id));
-  }, []);
-
-  const closeCrossing = useCallback(() => {
-    crossingSidRef.current = null;
-    setCrossing(null);
   }, []);
 
   const status: SignalStatus = !enabled
@@ -504,11 +414,9 @@ export function useSignal({
     callSign,
     peers,
     relations,
+    incoming: enabled ? incoming : null,
     notices: enabled ? notices : [],
-    crossing: enabled ? crossing : null,
-    wave,
-    sendGift,
+    sendEmote,
     dismissNotice,
-    closeCrossing,
   };
 }

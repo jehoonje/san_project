@@ -1,15 +1,15 @@
 "use client";
 
-import {
-  AnimatePresence,
-  motion,
-} from "motion/react";
+import { AnimatePresence, motion, useReducedMotion } from "motion/react";
+import { EASE_AMBIENT } from "@/lib/motion";
 
 type TopBarProps = {
   title: string;
   isBack: boolean;
   onMenu: () => void;
   onBack: () => void;
+  /** 기록 중이면 제목 옆에 맥동 점 */
+  live?: boolean;
   rightAction?: {
     label: string;
     onClick: () => void;
@@ -21,16 +21,13 @@ type TopBarProps = {
   } | null;
 };
 
-const glassButtonClass =
-  "pointer-events-auto grid h-12 w-12 place-items-center rounded-[18px] border border-white/15 bg-black/25 text-white shadow-[0_12px_32px_rgba(0,0,0,0.24),inset_0_1px_0_rgba(255,255,255,0.16)] backdrop-blur-2xl backdrop-saturate-150";
-
 function GridIcon() {
   return (
-    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" aria-hidden="true">
-      <rect x="4.5" y="4.5" width="6" height="6" rx="1.8" stroke="currentColor" strokeWidth="1.7" />
-      <rect x="13.5" y="4.5" width="6" height="6" rx="1.8" stroke="currentColor" strokeWidth="1.7" />
-      <rect x="4.5" y="13.5" width="6" height="6" rx="1.8" stroke="currentColor" strokeWidth="1.7" />
-      <rect x="13.5" y="13.5" width="6" height="6" rx="1.8" stroke="currentColor" strokeWidth="1.7" />
+    <svg className="san-icon" viewBox="0 0 24 24" aria-hidden="true">
+      <rect x="4.5" y="4.5" width="6" height="6" rx="2" />
+      <rect x="13.5" y="4.5" width="6" height="6" rx="2" />
+      <rect x="4.5" y="13.5" width="6" height="6" rx="2" />
+      <rect x="13.5" y="13.5" width="6" height="6" rx="2" />
     </svg>
   );
 }
@@ -38,70 +35,35 @@ function GridIcon() {
 // 목록형: 짧은 머리말 + 한 줄 텍스트가 이어지는 모양
 function LogIcon() {
   return (
-    <svg width="21" height="21" viewBox="0 0 24 24" fill="none" aria-hidden="true">
-      <path
-        d="M4.5 7h2.5M10 7h9.5M4.5 12h2.5M10 12h6.5M4.5 17h2.5M10 17h8"
-        stroke="currentColor"
-        strokeWidth="1.7"
-        strokeLinecap="round"
-      />
+    <svg className="san-icon" viewBox="0 0 24 24" aria-hidden="true">
+      <path d="M4.5 7h2.5M10 7h9.5M4.5 12h2.5M10 12h6.5M4.5 17h2.5M10 17h8" />
     </svg>
   );
 }
 
 function MenuIcon() {
   return (
-    <svg
-      width="21"
-      height="21"
-      viewBox="0 0 24 24"
-      fill="none"
-      aria-hidden="true"
-    >
-      <path
-        d="M5 8h14M5 16h14"
-        stroke="currentColor"
-        strokeWidth="1.8"
-        strokeLinecap="round"
-      />
+    <svg className="san-icon" viewBox="0 0 24 24" aria-hidden="true">
+      <path d="M5 8.5h14M5 15.5h9" />
     </svg>
   );
 }
 
 function BackIcon() {
   return (
-    <svg
-      width="21"
-      height="21"
-      viewBox="0 0 24 24"
-      fill="none"
-      aria-hidden="true"
-    >
-      <path
-        d="m15 18-6-6 6-6"
-        stroke="currentColor"
-        strokeWidth="1.8"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      />
+    <svg className="san-icon" viewBox="0 0 24 24" aria-hidden="true">
+      <path d="m14.5 18-6-6 6-6" />
     </svg>
   );
 }
 
-// 취향 컬렉션: 궤도 위의 별
+// 취향 읽기: 겹쳐 번지는 두 개의 타원
 function AnalysisIcon() {
   return (
-    <svg
-      width="21"
-      height="21"
-      viewBox="0 0 24 24"
-      fill="none"
-      aria-hidden="true"
-    >
-      <circle cx="12" cy="12" r="7.5" stroke="currentColor" strokeWidth="1.5" opacity=".55" />
-      <circle cx="12" cy="12" r="2.2" fill="currentColor" />
-      <circle cx="17.3" cy="6.7" r="1.7" fill="currentColor" />
-      <circle cx="5.4" cy="15.6" r="1.2" fill="currentColor" opacity=".8" />
+    <svg className="san-icon" viewBox="0 0 24 24" aria-hidden="true">
+      <ellipse cx="12" cy="12" rx="8.5" ry="4.2" transform="rotate(-24 12 12)" />
+      <ellipse cx="12" cy="12" rx="8.5" ry="4.2" transform="rotate(38 12 12)" />
+      <circle cx="12" cy="12" r="1" />
     </svg>
   );
 }
@@ -111,80 +73,58 @@ export function TopBar({
   isBack,
   onMenu,
   onBack,
+  live = false,
   rightAction = null,
   viewToggle = null,
 }: TopBarProps) {
+  const reduce = useReducedMotion();
+  const swap = reduce
+    ? { duration: 0 }
+    : { duration: 0.36, ease: EASE_AMBIENT };
+
   return (
     <header className="pointer-events-none fixed inset-x-0 top-0 z-[55] flex min-h-[76px] items-center justify-between px-4 pt-[env(safe-area-inset-top)]">
-      <motion.button
+      <button
         type="button"
-        whileTap={{ scale: 0.91 }}
-        transition={{
-          type: "spring",
-          stiffness: 480,
-          damping: 30,
-        }}
-        className="pointer-events-auto grid h-12 w-12 place-items-center rounded-[18px] border border-white/15 bg-black/25 text-white shadow-[0_12px_32px_rgba(0,0,0,0.24),inset_0_1px_0_rgba(255,255,255,0.16)] backdrop-blur-2xl backdrop-saturate-150"
+        className="san-icon-btn pointer-events-auto"
         onClick={isBack ? onBack : onMenu}
         aria-label={isBack ? "뒤로 가기" : "메뉴 열기"}
       >
         <AnimatePresence mode="wait" initial={false}>
           <motion.span
             key={isBack ? "back" : "menu"}
-            initial={{
-              opacity: 0,
-              rotate: isBack ? -25 : 25,
-              scale: 0.8,
-            }}
-            animate={{
-              opacity: 1,
-              rotate: 0,
-              scale: 1,
-            }}
-            exit={{
-              opacity: 0,
-              rotate: isBack ? 25 : -25,
-              scale: 0.8,
-            }}
-            transition={{ duration: 0.2 }}
+            className="grid place-items-center"
+            initial={{ opacity: 0, filter: "blur(4px)" }}
+            animate={{ opacity: 1, filter: "blur(0px)" }}
+            exit={{ opacity: 0, filter: "blur(4px)" }}
+            transition={swap}
           >
             {isBack ? <BackIcon /> : <MenuIcon />}
           </motion.span>
         </AnimatePresence>
-      </motion.button>
+      </button>
 
       <AnimatePresence mode="wait">
         <motion.p
           key={title}
-          initial={{
-            opacity: 0,
-            y: -5,
-            filter: "blur(5px)",
-          }}
-          animate={{
-            opacity: 1,
-            y: 0,
-            filter: "blur(0px)",
-          }}
-          exit={{
-            opacity: 0,
-            y: 5,
-            filter: "blur(5px)",
-          }}
-          className={`absolute left-1/2 -translate-x-1/2 truncate ${
+          initial={{ opacity: 0, filter: "blur(6px)" }}
+          animate={{ opacity: 1, filter: "blur(0px)" }}
+          exit={{ opacity: 0, filter: "blur(6px)" }}
+          transition={swap}
+          className={`absolute left-1/2 m-0 flex -translate-x-1/2 items-center gap-2 ${
             viewToggle ? "max-w-[calc(100vw-252px)]" : "max-w-[56vw]"
-          } text-[14px] font-semibold tracking-[-0.02em] text-white/84`}
+          }`}
         >
-          {title}
+          {live && <span className="san-dot san-dot-live" aria-label="기록 중" />}
+          <span className="san-eyebrow truncate">{title}</span>
         </motion.p>
       </AnimatePresence>
 
       <div className="flex items-center gap-1.5">
         {viewToggle && (
-          <motion.button
+          <button
             type="button"
-            whileTap={{ scale: 0.91 }}
-            className={glassButtonClass}
+            className="san-icon-btn pointer-events-auto"
             onClick={viewToggle.onToggle}
             aria-label={
               viewToggle.mode === "grid" ? "목록형으로 보기" : "카드형으로 보기"
@@ -196,29 +136,28 @@ export function TopBar({
             <AnimatePresence mode="wait" initial={false}>
               <motion.span
                 key={viewToggle.mode}
-                initial={{ opacity: 0, scale: 0.6, rotate: -90, filter: "blur(4px)" }}
-                animate={{ opacity: 1, scale: 1, rotate: 0, filter: "blur(0px)" }}
-                exit={{ opacity: 0, scale: 0.6, rotate: 90, filter: "blur(4px)" }}
-                transition={{ type: "spring", stiffness: 520, damping: 32 }}
+                initial={{ opacity: 0, filter: "blur(4px)" }}
+                animate={{ opacity: 1, filter: "blur(0px)" }}
+                exit={{ opacity: 0, filter: "blur(4px)" }}
+                transition={swap}
                 className="grid place-items-center"
               >
                 {viewToggle.mode === "grid" ? <LogIcon /> : <GridIcon />}
               </motion.span>
             </AnimatePresence>
-          </motion.button>
+          </button>
         )}
 
         {rightAction ? (
-          <motion.button
+          <button
             type="button"
-            whileTap={{ scale: 0.91 }}
-            className={glassButtonClass}
+            className="san-icon-btn pointer-events-auto"
             onClick={rightAction.onClick}
             aria-label={rightAction.label}
             title={rightAction.label}
           >
             <AnalysisIcon />
-          </motion.button>
+          </button>
         ) : (
           <span className="h-12 w-12" aria-hidden="true" />
         )}

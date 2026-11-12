@@ -332,18 +332,14 @@ export function GlassTabBar<T extends string>({
   return (
     <motion.div
       ref={containerRef}
-      className="pointer-events-auto relative isolate w-full max-w-[333px] rounded-full border border-white/[0.14]"
+      className="pointer-events-auto relative isolate w-full max-w-[333px] rounded-full"
       style={{
         scale: containerScale,
         willChange: "transform",
         touchAction: "none",
-        background: "rgba(255,255,255,0.07)",
-        boxShadow: [
-          "inset 0 1px 0.5px rgba(255,255,255,0.5)",
-          "inset 0 -1px 0.5px rgba(255,255,255,0.08)",
-          "0 10px 34px rgba(0,0,0,0.45)",
-          "0 2px 8px rgba(0,0,0,0.3)",
-        ].join(", "),
+        // 리퀴드 글래스는 유지하되, 색은 종이/먹 톤 토큰으로만 입힘
+        background: "color-mix(in oklab, var(--san-surface) 62%, transparent)",
+        boxShadow: "inset 0 0 0 0.75px var(--san-border)",
       }}
     >
       <LiquidGlassLayer />
@@ -371,12 +367,12 @@ export function GlassTabBar<T extends string>({
               className={[
                 ITEM_CLASS,
                 "relative select-none outline-none [-webkit-tap-highlight-color:transparent]",
-                "transition-colors duration-200 focus-visible:ring-2 focus-visible:ring-white/80",
-                active ? "text-white" : "text-white/55 hover:text-white/80",
+                "transition-colors duration-500 ease-ambient focus-visible:ring-1 focus-visible:ring-san-line-strong",
+                active ? "text-san-text" : "text-san-muted",
               ].join(" ")}
             >
               {item.icon}
-              <span className="text-[11px] font-semibold tracking-[-0.01em]">
+              <span className="text-[10.5px] font-medium tracking-[0.04em]">
                 {item.label}
               </span>
             </button>
@@ -394,12 +390,7 @@ export function GlassTabBar<T extends string>({
             width,
             scale,
             willChange: "transform",
-            boxShadow: [
-              "inset 0 0 0 1px rgba(255,255,255,0.22)",
-              "inset 0 1px 1px rgba(255,255,255,0.6)",
-              "inset 0 -1px 2px rgba(255,255,255,0.12)",
-              "0 2px 10px rgba(0,0,0,0.28)",
-            ].join(", "),
+            boxShadow: "inset 0 0 0 0.75px var(--san-border)",
           }}
         >
           {/* 평소 알약 배경: 판이 사라지는 만큼 돌아옴 */}
@@ -407,8 +398,8 @@ export function GlassTabBar<T extends string>({
             className="absolute inset-0 rounded-full"
             style={{
               opacity: baseOpacity,
-              background:
-                "linear-gradient(180deg, rgba(255,255,255,0.26) 0%, rgba(255,255,255,0.09) 100%)",
+              // 선택 항목: 한 톤 채워진 면
+              background: "var(--san-surface-hover)",
             }}
           />
 
@@ -417,7 +408,7 @@ export function GlassTabBar<T extends string>({
             className="absolute inset-0 rounded-full"
             style={{
               opacity: progress,
-              background: "rgba(255,255,255,0.10)",
+              background: "var(--san-surface-soft)",
             }}
           />
 
@@ -448,11 +439,11 @@ export function GlassTabBar<T extends string>({
                   key={item.id}
                   className={[
                     ITEM_CLASS,
-                    idx === displayIndex ? "text-white" : "text-white/55",
+                    idx === displayIndex ? "text-san-text" : "text-san-muted",
                   ].join(" ")}
                 >
                   {item.icon}
-                  <span className="text-[11px] font-semibold tracking-[-0.01em]">
+                  <span className="text-[10.5px] font-medium tracking-[0.04em]">
                     {item.label}
                   </span>
                 </div>

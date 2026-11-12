@@ -21,9 +21,9 @@ export function RouteTitleModal({
   errorMessage,
   onConfirm,
   onCancel,
-  heading = "루트 제목",
-  description = "저장할 루트의 이름을 입력해 주세요.",
-  confirmLabel = "확인",
+  heading = "오늘의 걸음에 이름을",
+  description = "나중에 다시 꺼내 볼 이름을 붙여주세요.",
+  confirmLabel = "남기기",
 }: RouteTitleModalProps) {
   const [title, setTitle] = useState(defaultTitle);
   const titleId = useId();
@@ -51,7 +51,7 @@ export function RouteTitleModal({
 
   return (
     <motion.div
-      className="fixed inset-0 z-[100] grid place-items-end bg-black/60 p-4 backdrop-blur-md sm:place-items-center"
+      className="san-scrim-layer fixed inset-0 z-[100] grid place-items-end p-4 sm:place-items-center"
       {...scrimMotion(reducedMotion)}
       onMouseDown={(e) => {
         if (e.target === e.currentTarget && !isSaving) onCancel();
@@ -64,11 +64,16 @@ export function RouteTitleModal({
         aria-modal="true"
         aria-labelledby={titleId}
         aria-describedby={descriptionId}
-        className="w-full max-w-md rounded-[28px] border border-white/[0.08] bg-[linear-gradient(160deg,rgba(16,26,38,.94),rgba(6,12,20,.97))] p-6 shadow-[0_24px_70px_rgba(0,0,0,.55),inset_0_1px_0_rgba(255,255,255,.06)] backdrop-blur-2xl"
+        className="w-full max-w-md rounded-[28px] bg-san-bg p-6 text-san-text"
+        style={{ marginBottom: "env(safe-area-inset-bottom, 0px)" }}
       >
-        <p className="text-[11px] font-bold uppercase tracking-[0.2em] text-[#00bfff]">Route</p>
-        <h2 id={titleId} className="mt-1 text-2xl font-extrabold tracking-tight text-white">{heading}</h2>
-        <p id={descriptionId} className="mt-1 text-sm text-[#8fa3b8]">{description}</p>
+        <p className="san-eyebrow">ROUTE</p>
+        <h2 id={titleId} className="san-title mt-2 text-[22px]">
+          {heading}
+        </h2>
+        <p id={descriptionId} className="mt-1.5 text-[13px] leading-relaxed text-san-text">
+          {description}
+        </p>
 
         <input
           autoFocus
@@ -79,20 +84,29 @@ export function RouteTitleModal({
           aria-label={heading}
           aria-invalid={errorMessage ? true : undefined}
           aria-describedby={errorMessage ? errorId : undefined}
-          className="mt-5 h-14 w-full rounded-full border border-white/10 bg-[#0a121c] px-5 text-base text-white outline-none transition placeholder:text-[#5f7387] focus:border-[#00bfff]/60 focus:ring-4 focus:ring-[#00bfff]/15 disabled:opacity-60"
+          className="san-field-input mt-6"
         />
         {errorMessage ? (
-          <p id={errorId} role="alert" className="mt-2 px-2 text-sm text-[#ff9c8d]">{errorMessage}</p>
+          <p id={errorId} role="alert" className="mt-3 px-2 text-[13px] text-san-error">
+            {errorMessage}
+          </p>
         ) : null}
 
-        <div className="mt-6 grid grid-cols-2 gap-3">
-          <button type="button" onClick={onCancel} disabled={isSaving}
-            className="h-14 rounded-full border border-white/10 bg-white/[0.05] font-bold text-white transition active:scale-[0.98] disabled:opacity-50">
+        <div className="mt-6 grid grid-cols-2 gap-2">
+          <button
+            type="button"
+            onClick={onCancel}
+            disabled={isSaving}
+            className="san-pill h-14"
+          >
             취소
           </button>
-          <button type="submit" disabled={!trimmed || isSaving}
-            className="h-14 rounded-full bg-[#00bfff] font-extrabold tracking-wide text-[#04121c] shadow-[0_10px_28px_rgba(0,191,255,.25)] transition active:scale-[0.98] disabled:opacity-40">
-            {isSaving ? "저장 중…" : confirmLabel}
+          <button
+            type="submit"
+            disabled={!trimmed || isSaving}
+            className="san-pill san-pill-fill h-14"
+          >
+            {isSaving ? "남기는 중…" : confirmLabel}
           </button>
         </div>
       </motion.form>

@@ -12,7 +12,7 @@ import {
 
 type Hooks = {
   onPresence: (list: SignalPresence[]) => void;
-  onBroadcast: (event: "wave" | "gift", payload: unknown) => void;
+  onEmote: (payload: unknown) => void;
   onOwnStatus: (status: "live" | "connecting" | "error") => void;
 };
 
@@ -69,12 +69,12 @@ export class SignalChannels {
     }
   }
 
-  send(event: "wave" | "gift", payload: unknown, cell?: string | null) {
+  sendEmote(payload: unknown, cell?: string | null) {
     const target = cell ? this.channels.get(cell) : undefined;
     const list = target ? [target] : [...this.channels.values()];
     for (const channel of list) {
       if (channel.state !== "joined") continue;
-      void channel.send({ type: "broadcast", event, payload });
+      void channel.send({ type: "broadcast", event: "emote", payload });
     }
   }
 
@@ -98,11 +98,8 @@ export class SignalChannels {
 
     channel
       .on("presence", { event: "sync" }, () => this.emitPresence())
-      .on("broadcast", { event: "wave" }, ({ payload }) =>
-        this.hooks.onBroadcast("wave", payload),
-      )
-      .on("broadcast", { event: "gift" }, ({ payload }) =>
-        this.hooks.onBroadcast("gift", payload),
+      .on("broadcast", { event: "emote" }, ({ payload }) =>
+        this.hooks.onEmote(payload),
       )
       .subscribe((status) => {
         if (this.destroyed || this.channels.get(cell) !== channel) return;

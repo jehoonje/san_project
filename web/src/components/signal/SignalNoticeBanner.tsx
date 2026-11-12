@@ -3,85 +3,76 @@
 import { useEffect } from "react";
 import { AnimatePresence, motion, useReducedMotion } from "motion/react";
 import { toastMotion } from "@/lib/motion";
+import { emoteInfo } from "@/lib/signal";
 import type { SignalNotice } from "@/hooks/useSignal";
-import styles from "./signal.module.css";
 
 type Props = {
   notice: SignalNotice | null;
-  onWaveBack: (sid: string) => void;
+  /** 인사에 답하기: 그 산책자를 골라 감정 표현 시트를 엶 */
+  onReply: (sid: string) => void;
   onDismiss: (id: string) => void;
 };
 
-const CATEGORY_LABEL: Record<string, string> = {
-  cafe: "카페",
-  restaurant: "식당",
-  bar: "술집",
-  park: "공원",
-  shop: "소품샵",
-  culture: "문화",
-  etc: "장소",
-};
-
-// 위쪽에 잠시 떠오르는 신호 알림 (손 흔듦 / 장소를 건넴)
-export function SignalNoticeBanner({ notice, onWaveBack, onDismiss }: Props) {
+// 위쪽에 잠시 떠오르는 신호 알림 (인사를 받음 / 서로 인사를 나눠 교차 로그에 남음)
+export function SignalNoticeBanner({ notice, onReply, onDismiss }: Props) {
   const reduce = useReducedMotion();
 
   useEffect(() => {
     if (!notice) return;
     const timer = setTimeout(
       () => onDismiss(notice.id),
-      notice.kind === "wave" ? 15000 : 9000,
+      notice.kind === "emote" ? 12000 : 6000,
     );
     return () => clearTimeout(timer);
   }, [notice, onDismiss]);
 
   return (
-    <div className={styles.bannerWrap}>
+    <div
+      className="pointer-events-none fixed inset-x-0 z-[57] flex justify-center px-4"
+      style={{ top: "calc(env(safe-area-inset-top, 0px) + 84px)" }}
+    >
       <AnimatePresence mode="wait">
         {notice && (
           <motion.div
             key={notice.id}
-            className={styles.banner}
+            className="san-veil pointer-events-auto flex w-full max-w-md items-center gap-3 rounded-full py-2 pl-5 pr-2"
             role="status"
             aria-live="polite"
             {...toastMotion(reduce)}
           >
-            <p className={styles.bannerText}>
-              {notice.kind === "wave" ? (
-                <>
-                  <b>{notice.cs}</b> 님이 손을 흔들었어요
-                  <small>취향 일치 {notice.match}%</small>
-                </>
-              ) : (
-                <>
-                  <b>{notice.cs}</b> 님이 장소를 건넸어요
-                  <small>
-                    {notice.place.name} · {CATEGORY_LABEL[notice.place.category] ?? "장소"}
-                    {notice.place.region ? ` · ${notice.place.region}` : ""}
-                  </small>
-                </>
-              )}
+            <span
+              className={`san-dot ${notice.kind === "crossing" ? "san-dot-star" : "san-dot-live"}`}
+              aria-hidden="true"
+            />
+            <p className="m-0 min-w-0 flex-1 truncate text-[13px] text-san-text">
+              <span className="san-data mr-2">{notice.cs}</span>
+              {notice.kind === "crossing"
+                ? "서로 스쳤어요 · 교차 로그에 남겼어요"
+                : `가까이서 ${emoteInfo(notice.emote).got}`}
             </p>
-            {notice.kind === "wave" && (
+            {notice.kind === "emote" ? (
               <button
                 type="button"
-                className={styles.bannerAction}
+                className="san-pill san-pill-fill min-h-11 px-4 text-[13px]"
                 onClick={() => {
-                  onWaveBack(notice.sid);
+                  onReply(notice.sid);
                   onDismiss(notice.id);
                 }}
               >
-                같이 흔들기
+                답하기
+              </button>
+            ) : (
+              <button
+                type="button"
+                className="san-icon-btn san-icon-btn-plain h-11 w-11"
+                onClick={() => onDismiss(notice.id)}
+                aria-label="알림 닫기"
+              >
+                <svg className="san-icon" viewBox="0 0 24 24" aria-hidden="true">
+                  <path d="m6.5 6.5 11 11M17.5 6.5l-11 11" />
+                </svg>
               </button>
             )}
-            <button
-              type="button"
-              className={styles.bannerClose}
-              onClick={() => onDismiss(notice.id)}
-              aria-label="알림 닫기"
-            >
-              ✕
-            </button>
           </motion.div>
         )}
       </AnimatePresence>

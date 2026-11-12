@@ -1,10 +1,33 @@
 // web/src/lib/signal.ts
-// 근처 산책자 신호: 대략적인 위치, 오늘의 신호명, 주고받는 메시지 형식
+// 근처 산책자 신호: 대략적인 위치, 오늘의 신호명, 주고받는 감정 표현
 import { haversineMeters, type LngLat } from "@/lib/geo";
-import { sanitizeCard, type TasteCard } from "@/lib/tasteCollection";
 
-/** 이 거리 안의 신호만 지도에 보임 */
-export const SIGNAL_RADIUS_M = 600;
+/**
+ * 이 거리 안에 "가까이 잡힌" 산책자만 지도에 보임.
+ * 지도를 아무리 축소해도 이 범위 밖은 나타나지 않고, 범위를 벗어나면 사라집니다.
+ */
+export const SIGNAL_RADIUS_M = 400;
+
+/** 감정 표현 5가지 (아바타가 상대를 향해 돌아선 뒤 재생) */
+export const EMOTES = [
+  { id: "wave", label: "손 흔들기", done: "손을 흔들었어요", got: "손을 흔들어요" },
+  { id: "talk", label: "말 건네기", done: "말을 건넸어요", got: "말을 건네요" },
+  { id: "bow", label: "꾸벅 인사", done: "꾸벅 인사했어요", got: "꾸벅 인사해요" },
+  { id: "clap", label: "박수", done: "박수를 보냈어요", got: "박수를 보내요" },
+  { id: "cheer", label: "환호", done: "환호했어요", got: "환호해요" },
+] as const;
+
+export type EmoteId = (typeof EMOTES)[number]["id"];
+
+const EMOTE_IDS = new Set<string>(EMOTES.map((e) => e.id));
+
+export function isEmoteId(value: unknown): value is EmoteId {
+  return typeof value === "string" && EMOTE_IDS.has(value);
+}
+
+export function emoteInfo(id: EmoteId) {
+  return EMOTES.find((e) => e.id === id) ?? EMOTES[0];
+}
 
 /*
  * 채널 격자: 약 670m x 660m (서울 위도 기준).
@@ -19,7 +42,7 @@ const SNAP_DEG = 0.001;
 const OFFSET_DEG = 0.00028;
 
 export type SignalPresence = {
-  v: 1;
+  v: 2;
   /** 세션마다 새로 만드는 임시 식별자 (계정과 연결되지 않음) */
   sid: string;
   /** 오늘의 신호명 */
@@ -28,18 +51,10 @@ export type SignalPresence = {
   p: LngLat;
   /** 이 신호가 속한 채널 칸 */
   ch: string;
-  c: TasteCard;
   at: number;
 };
 
-export type GiftPlace = {
-  name: string;
-  category: string;
-  region: string | null;
-};
-
-export type WaveMessage = { from: string; to: string; cs: string; c: TasteCard };
-export type GiftMessage = { from: string; to: string; cs: string; place: GiftPlace };
+export type EmoteMessage = { from: string; to: string; cs: string; e: EmoteId };
 
 export function cellOf([lng, lat]: LngLat) {
   return `${Math.floor(lat / CELL_LAT)}:${Math.floor(lng / CELL_LNG)}`;
@@ -55,7 +70,7 @@ export function neighborCells(cell: string) {
 }
 
 export function channelName(cell: string) {
-  return `san-signal-v1:${cell}`;
+  return `san-signal-v2:${cell}`;
 }
 
 export function makeSessionOffset(): LngLat {
@@ -69,10 +84,11 @@ export function coarsen([lng, lat]: LngLat, offset: LngLat): LngLat {
   return [round(snap(lng) + offset[0]), round(snap(lat) + offset[1])];
 }
 
+/** 숫자 대신 거리 감각을 한 줄로 */
 export function distanceLabel(meters: number) {
-  if (meters < 100) return "100m 안";
-  if (meters < 300) return "300m 안";
-  return "600m 안";
+  if (meters < 80) return "아주 가까이 있어요";
+  if (meters < 200) return "가까이 걷고 있어요";
+  return "멀리서 스치고 있어요";
 }
 
 export function signalDistance(a: LngLat, b: LngLat) {
@@ -91,7 +107,7 @@ function hash(text: string) {
 
 const WORDS = [
   "LYRA", "VELA", "NOVA", "ECHO", "DRIFT", "HALO", "LUMEN", "ATLAS",
-  "ORBIT", "PULSE", "IRIS", "AURA", "CYAN", "MIRA", "RHEA", "ZENITH",
+  "ORBIT", "PULSE", "IRIS", "AURA", "REED", "MIRA", "RHEA", "ZENITH",
   "KITE", "OPAL", "ONYX", "SOL", "TIDE", "ARC", "FERN", "MOTH",
 ];
 
@@ -130,49 +146,21 @@ function validCoord(value: unknown): value is LngLat {
 export function sanitizePresence(raw: unknown): SignalPresence | null {
   if (!raw || typeof raw !== "object") return null;
   const v = raw as Record<string, unknown>;
-  if (v.v !== 1) return null;
+  if (v.v !== 2) return null;
   if (typeof v.sid !== "string" || !SID_RE.test(v.sid)) return null;
   if (typeof v.cs !== "string" || !CS_RE.test(v.cs)) return null;
   if (!validCoord(v.p)) return null;
   if (typeof v.ch !== "string" || !/^-?\d+:-?\d+$/.test(v.ch)) return null;
-  const card = sanitizeCard(v.c);
-  if (!card) return null;
   const at = typeof v.at === "number" && Number.isFinite(v.at) ? v.at : 0;
-  return { v: 1, sid: v.sid, cs: v.cs, p: v.p, ch: v.ch, c: card, at };
+  return { v: 2, sid: v.sid, cs: v.cs, p: v.p, ch: v.ch, at };
 }
 
-export function sanitizeWave(raw: unknown): WaveMessage | null {
+export function sanitizeEmote(raw: unknown): EmoteMessage | null {
   if (!raw || typeof raw !== "object") return null;
   const v = raw as Record<string, unknown>;
   if (typeof v.from !== "string" || !SID_RE.test(v.from)) return null;
   if (typeof v.to !== "string" || !SID_RE.test(v.to)) return null;
   if (typeof v.cs !== "string" || !CS_RE.test(v.cs)) return null;
-  const card = sanitizeCard(v.c);
-  if (!card) return null;
-  return { from: v.from, to: v.to, cs: v.cs, c: card };
-}
-
-export function sanitizeGiftPlace(raw: unknown): GiftPlace | null {
-  if (!raw || typeof raw !== "object") return null;
-  const v = raw as Record<string, unknown>;
-  const name = typeof v.name === "string" ? v.name.trim().slice(0, 60) : "";
-  const category =
-    typeof v.category === "string" ? v.category.trim().slice(0, 20) : "etc";
-  const region =
-    typeof v.region === "string" && v.region.trim()
-      ? v.region.trim().slice(0, 30)
-      : null;
-  if (!name) return null;
-  return { name, category, region };
-}
-
-export function sanitizeGift(raw: unknown): GiftMessage | null {
-  if (!raw || typeof raw !== "object") return null;
-  const v = raw as Record<string, unknown>;
-  if (typeof v.from !== "string" || !SID_RE.test(v.from)) return null;
-  if (typeof v.to !== "string" || !SID_RE.test(v.to)) return null;
-  if (typeof v.cs !== "string" || !CS_RE.test(v.cs)) return null;
-  const place = sanitizeGiftPlace(v.place);
-  if (!place) return null;
-  return { from: v.from, to: v.to, cs: v.cs, place };
+  if (!isEmoteId(v.e)) return null;
+  return { from: v.from, to: v.to, cs: v.cs, e: v.e };
 }

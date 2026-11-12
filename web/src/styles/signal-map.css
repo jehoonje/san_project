@@ -1,132 +1,122 @@
-/* 지도 위 근처 신호: 숨 쉬듯 번지는 빛 점 */
+/*
+ * 지도 위 근처 산책자: 흐릿한 아바타 아래로 번지는 파문.
+ * 버튼 자체는 투명한 터치 영역이고, 아바타는 three.js 레이어가 그립니다.
+ */
 
 .san-peer {
   position: relative;
-  width: 48px;
-  height: 48px;
+  display: block;
+  width: 72px;
+  height: 148px;
   padding: 0;
   background: transparent;
   border: 0;
   cursor: pointer;
   -webkit-tap-highlight-color: transparent;
+  transition: opacity 900ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.san-peer[data-leaving="true"] {
+  opacity: 0;
+  pointer-events: none;
 }
 
 .san-peer:focus-visible {
-  outline: 1px solid rgba(0, 191, 255, 0.7);
-  outline-offset: 2px;
-  border-radius: 50%;
+  outline: 1px solid var(--san-border-strong);
+  outline-offset: -6px;
+  border-radius: 36px;
 }
 
-.san-peer-dot,
-.san-peer-halo {
+.san-peer-halo,
+.san-peer-halo::after {
   position: absolute;
-  top: 50%;
+  bottom: 0;
   left: 50%;
+  width: 56px;
+  height: 22px;
+  margin-left: -28px;
+  border: 0.75px solid var(--san-text);
   border-radius: 50%;
   pointer-events: none;
 }
 
-.san-peer-dot {
-  width: 10px;
-  height: 10px;
-  margin: -5px 0 0 -5px;
-  background: #e9f8ff;
-  box-shadow:
-    0 0 10px #00bfff,
-    0 0 28px rgba(0, 191, 255, 0.55);
-  transition:
-    background-color 400ms ease,
-    box-shadow 400ms ease;
+/* 발밑에서 번지는 타원 파문 (기울어진 지도 평면처럼 납작하게) */
+.san-peer-halo {
+  opacity: 0;
+  animation: san-peer-ripple calc(var(--san-breath, 3s) * 1.2)
+    cubic-bezier(0.22, 1, 0.36, 1) infinite;
 }
 
-.san-peer-halo {
-  width: 46px;
-  height: 46px;
-  margin: -23px 0 0 -23px;
-  border: 1px solid rgba(0, 191, 255, 0.55);
-  animation: san-peer-breathe 3.4s ease-in-out infinite;
+.san-peer-halo::after {
+  bottom: -0.75px;
+  content: "";
+  animation: inherit;
+  animation-delay: calc(var(--san-breath, 3s) * 0.6);
 }
 
 .san-peer-label {
   position: absolute;
-  top: calc(50% + 15px);
+  top: 100%;
   left: 50%;
-  color: rgba(233, 248, 255, 0.82);
+  margin-top: 6px;
+  padding: 3px 9px;
+  border-radius: 999px;
+  color: var(--san-text);
+  background: var(--san-veil);
   font:
-    500 9.5px/1 ui-monospace,
+    500 9.5px/1.4 ui-monospace,
     "SF Mono",
     Menlo,
     monospace;
-  letter-spacing: 0.1em;
+  letter-spacing: 0.16em;
   white-space: nowrap;
-  text-shadow: 0 1px 8px rgba(0, 0, 0, 0.9);
   transform: translateX(-50%);
   pointer-events: none;
-  transition: color 300ms ease;
+  opacity: 0;
+  transition: opacity 500ms cubic-bezier(0.22, 1, 0.36, 1);
 }
 
-.san-peer[data-selected="true"] .san-peer-label {
-  color: #00bfff;
+/* 이름표는 고른 상대나 방금 인사를 건넨 상대에게만 */
+.san-peer[data-selected="true"] .san-peer-label,
+.san-peer[data-state="greeting"] .san-peer-label,
+.san-peer[data-state="crossed"] .san-peer-label {
+  opacity: 1;
 }
 
-.san-peer[data-selected="true"] .san-peer-dot {
-  box-shadow:
-    0 0 0 4px rgba(0, 191, 255, 0.18),
-    0 0 14px #00bfff,
-    0 0 36px rgba(0, 191, 255, 0.7);
+/* 상대가 나에게 인사하는 중: 파문이 조금 더 잦아진다 */
+.san-peer[data-state="greeting"] .san-peer-halo {
+  animation-duration: 1.6s;
 }
 
-/* 상대가 나에게 손을 흔드는 중 */
-.san-peer[data-state="waving"] .san-peer-halo {
-  border-color: #00bfff;
-  animation: san-peer-wave 1.2s ease-out infinite;
-}
-
-/* 내가 손을 흔들어 둔 상대 */
-.san-peer[data-state="waved"] .san-peer-dot {
-  background: #9fe6ff;
-}
-
-/* 교차한 상대 */
-.san-peer[data-state="crossed"] .san-peer-dot {
-  background: #00bfff;
-  box-shadow:
-    0 0 16px #00bfff,
-    0 0 44px rgba(0, 191, 255, 0.85);
-}
-
+/* 서로 인사를 나눈 상대: 파문 대신 고요한 타원 하나 */
 .san-peer[data-state="crossed"] .san-peer-halo {
-  border-style: dashed;
-  animation-duration: 6s;
+  animation: none;
+  opacity: 0.45;
 }
 
-@keyframes san-peer-breathe {
-  0%,
+.san-peer[data-state="crossed"] .san-peer-halo::after {
+  display: none;
+}
+
+@keyframes san-peer-ripple {
+  0% {
+    opacity: 0.7;
+    transform: scale(0.3);
+  }
   100% {
     opacity: 0;
-    transform: scale(0.45);
-  }
-  50% {
-    opacity: 0.65;
-    transform: scale(1);
-  }
-}
-
-@keyframes san-peer-wave {
-  from {
-    opacity: 0.95;
-    transform: scale(0.35);
-  }
-  to {
-    opacity: 0;
-    transform: scale(1.7);
+    transform: scale(1.5);
   }
 }
 
 @media (prefers-reduced-motion: reduce) {
   .san-peer-halo,
-  .san-peer[data-state="waving"] .san-peer-halo {
+  .san-peer-halo::after {
     animation: none;
     opacity: 0.35;
+  }
+
+  .san-peer {
+    transition: none;
   }
 }

@@ -1,4 +1,5 @@
 import * as maplibregl from "maplibre-gl";
+import { MAP_SOURCE_ID, readMapPalette, type MapPalette } from "@/lib/mapStyle";
 
 export const MAP_3D = {
   initialPitch: 62,
@@ -8,50 +9,74 @@ export const MAP_3D = {
   minBuildingZoom: 14,
 } as const;
 
-type AnyLayer = {
-  id: string;
-  type: string;
-  source?: string;
-  "source-layer"?: string;
-};
-
 const BUILDING_LAYER_ID = "san-3d-buildings";
+const FLAT_BUILDING_ID = "building";
 
-export function enable3DWorld(map: maplibregl.Map) {
-  const layers = (map.getStyle()?.layers ?? []) as AnyLayer[];
+function extrusionColor(p: MapPalette) {
+  // 낮은 건물과 높은 건물도 같은 톤 안에서만 아주 조금 달라짐
+  return [
+    "interpolate",
+    ["linear"],
+    ["coalesce", ["get", "render_height"], 10],
+    0,
+    p.building,
+    120,
+    p.buildingTop,
+  ] as unknown as maplibregl.ExpressionSpecification;
+}
 
-  const flatBuilding = layers.find(
-    (layer) => layer["source-layer"] === "building",
-  );
-  const buildingSource = flatBuilding?.source ?? "carto";
-  const firstSymbolId = layers.find((layer) => layer.type === "symbol")?.id;
+function applySky(map: maplibregl.Map, p: MapPalette) {
+  try {
+    map.setLight({
+      anchor: "map",
+      color: p.buildingTop,
+      intensity: 0.28,
+      position: [1.4, 210, 38],
+    });
+  } catch {
+    /* ignore */
+  }
 
-  if (flatBuilding) {
+  // MapLibre 5+ : 하늘/안개. 지평선이 종이(먹) 색으로 번지며 사라짐
+  try {
+    const m = map as unknown as { setSky?: (sky: Record<string, unknown>) => void };
+    m.setSky?.({
+      "sky-color": p.paper,
+      "horizon-color": p.paper,
+      "fog-color": p.paper,
+      "fog-ground-blend": 0.72,
+      "horizon-fog-blend": 0.8,
+      "sky-horizon-blend": 0.6,
+      "atmosphere-blend": 0,
+    });
+  } catch {
+    /* ignore */
+  }
+}
+
+export function enable3DWorld(map: maplibregl.Map, p: MapPalette = readMapPalette()) {
+  if (map.getLayer(FLAT_BUILDING_ID)) {
     try {
-      map.setLayoutProperty(flatBuilding.id, "visibility", "none");
+      map.setLayoutProperty(FLAT_BUILDING_ID, "visibility", "none");
     } catch {
       /* ignore */
     }
   }
 
-  if (!map.getLayer(BUILDING_LAYER_ID) && map.getSource(buildingSource)) {
+  const firstSymbolId = (map.getStyle()?.layers ?? []).find(
+    (layer) => layer.type === "symbol",
+  )?.id;
+
+  if (!map.getLayer(BUILDING_LAYER_ID) && map.getSource(MAP_SOURCE_ID)) {
     map.addLayer(
       {
         id: BUILDING_LAYER_ID,
         type: "fill-extrusion",
-        source: buildingSource,
+        source: MAP_SOURCE_ID,
         "source-layer": "building",
         minzoom: MAP_3D.minBuildingZoom,
         paint: {
-          "fill-extrusion-color": [
-            "interpolate",
-            ["linear"],
-            ["coalesce", ["get", "render_height"], 10],
-            0, "#1c2535",
-            30, "#27364d",
-            80, "#33476a",
-            200, "#46608c",
-          ],
+          "fill-extrusion-color": extrusionColor(p),
           "fill-extrusion-height": [
             "interpolate",
             ["linear"],
@@ -66,7 +91,7 @@ export function enable3DWorld(map: maplibregl.Map) {
             MAP_3D.minBuildingZoom, 0,
             MAP_3D.minBuildingZoom + 1, ["coalesce", ["get", "render_min_height"], 0],
           ],
-          "fill-extrusion-opacity": 0.94,
+          "fill-extrusion-opacity": 0.88,
           "fill-extrusion-vertical-gradient": true,
         },
       } as maplibregl.FillExtrusionLayerSpecification,
@@ -74,38 +99,26 @@ export function enable3DWorld(map: maplibregl.Map) {
     );
   }
 
-  try {
-    map.setLight({
-      anchor: "map",
-      color: "#b9c8ff",
-      intensity: 0.4,
-      position: [1.4, 210, 38],
-    });
-  } catch {
-    /* ignore */
-  }
+  applySky(map, p);
+}
 
-  // MapLibre 5+ : 하늘/안개. 하위 버전이면 조용히 건너뜁니다.
-  try {
-    const m = map as unknown as { setSky?: (sky: Record<string, unknown>) => void };
-    m.setSky?.({
-      "sky-color": "#0b1020",
-      "horizon-color": "#2a3a5c",
-      "fog-color": "#0d1220",
-      "fog-ground-blend": 0.82,
-      "horizon-fog-blend": 0.6,
-      "sky-horizon-blend": 0.5,
-      "atmosphere-blend": ["interpolate", ["linear"], ["zoom"], 0, 1, 12, 0],
-    });
-  } catch {
-    /* ignore */
+/** 테마 전환 시 3D 건물·하늘 색 갱신 */
+export function apply3DPalette(map: maplibregl.Map, p: MapPalette = readMapPalette()) {
+  if (map.getLayer(BUILDING_LAYER_ID)) {
+    try {
+      map.setPaintProperty(BUILDING_LAYER_ID, "fill-extrusion-color", extrusionColor(p));
+    } catch {
+      /* ignore */
+    }
   }
+  applySky(map, p);
 }
 
 export function disable3DWorld(map: maplibregl.Map) {
   if (map.getLayer(BUILDING_LAYER_ID)) map.removeLayer(BUILDING_LAYER_ID);
 }
 
+/** 현재 위치: 잉크 점 + 3초 주기로 번지는 파문 + 가는 시야 호 */
 export function createGroundMarkerElement() {
   const root = document.createElement("div");
   root.className = "san-ground-marker";
@@ -115,52 +128,6 @@ export function createGroundMarkerElement() {
     '<div class="san-ground-cone"></div>' +
     '<div class="san-ground-core"></div>';
   return root;
-}
-
-/** 첨부 이미지의 광택 블랙 인간 형태 + 앱 포인트 컬러(#ff6843) 림라이트 */
-export function createAvatarElement() {
-  const root = document.createElement("div");
-  root.className = "san-avatar is-idle";
-  root.innerHTML = `
-    <div class="san-avatar-flip">
-      <svg class="san-fig" viewBox="0 0 60 104" width="48" height="83" aria-hidden="true">
-        <defs>
-          <linearGradient id="san-fig-body" x1="0" y1="0" x2="1" y2="1">
-            <stop offset="0" stop-color="#3a414d" />
-            <stop offset="0.45" stop-color="#14181f" />
-            <stop offset="1" stop-color="#07090c" />
-          </linearGradient>
-          <radialGradient id="san-fig-head" cx="0.35" cy="0.3" r="0.8">
-            <stop offset="0" stop-color="#4a525f" />
-            <stop offset="0.5" stop-color="#171b22" />
-            <stop offset="1" stop-color="#07090c" />
-          </radialGradient>
-        </defs>
-        <g class="san-fig-body">
-          <g class="limb leg leg-l"><rect x="20" y="54" width="9.5" height="42" rx="4.75" /></g>
-          <g class="limb leg leg-r"><rect x="30.5" y="54" width="9.5" height="42" rx="4.75" /></g>
-          <rect class="torso" x="16.5" y="26" width="27" height="36" rx="12" />
-          <g class="limb arm arm-l"><rect x="8" y="29" width="8.5" height="32" rx="4.25" /></g>
-          <g class="limb arm arm-r"><rect x="43.5" y="29" width="8.5" height="32" rx="4.25" /></g>
-          <circle class="head" cx="30" cy="14" r="11.5" />
-          <ellipse class="gloss" cx="26" cy="9.5" rx="4.5" ry="2.8" transform="rotate(-25 26 9.5)" />
-          <path class="gloss" d="M23 33 Q22 44 24 54" />
-        </g>
-      </svg>
-    </div>
-    <div class="san-avatar-shadow"></div>`;
-  return root;
-}
-
-export function setAvatarMotion(
-  el: HTMLElement,
-  state: { walking: boolean; speed: number; faceRight: boolean },
-) {
-  el.classList.toggle("is-walking", state.walking);
-  el.classList.toggle("is-idle", !state.walking);
-  el.classList.toggle("is-flipped", !state.faceRight);
-  const cycle = Math.max(0.42, Math.min(0.95, 1.1 - state.speed * 0.18));
-  el.style.setProperty("--walk-cycle", `${cycle.toFixed(2)}s`);
 }
 
 export function distanceMeters(a: [number, number], b: [number, number]) {

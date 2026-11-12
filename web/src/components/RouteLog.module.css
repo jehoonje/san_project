@@ -16,10 +16,11 @@
   --log-mono: ui-monospace, "SF Mono", "JetBrains Mono", Menlo, Consolas,
     "Pretendard Variable", monospace;
   --log-sans: "Pretendard Variable", "Pretendard", system-ui, sans-serif;
-  --log-accent: var(--san-accent, #00bfff);
-  --log-text: var(--san-text, #fff);
-  --log-muted: var(--san-text-muted, #8fa3b8);
-  --log-faint: var(--san-text-faint, #5f7387);
+  /* 작은 글씨는 대비를 우선: 데이터는 잉크 그대로, 보조만 한 톤 낮춤 */
+  --log-accent: var(--san-text);
+  --log-text: var(--san-text);
+  --log-muted: var(--san-text);
+  --log-faint: var(--san-text-muted);
 
   max-width: 640px;
   margin: 0 auto;
@@ -31,10 +32,10 @@
 .summary {
   margin: 0 0 22px;
   padding: 0 10px;
-  color: var(--log-faint);
+  color: var(--log-text);
   font-family: var(--log-mono);
   font-size: 10.5px;
-  letter-spacing: 0.16em;
+  letter-spacing: 0.2em;
   text-transform: uppercase;
 }
 
@@ -50,7 +51,7 @@
 }
 
 .routeEnd {
-  margin-bottom: 26px;
+  margin-bottom: 30px;
 }
 
 /* ── 한 줄 ─────────────────────────────── */
@@ -61,7 +62,8 @@
   column-gap: 14px;
   align-items: center;
   width: 100%;
-  height: 34px;
+  /* 구분선 없이 넉넉한 행 간격으로만 나눔 (터치 44pt) */
+  height: 44px;
   padding: 0 10px;
   color: inherit;
   font: inherit;
@@ -82,7 +84,7 @@
 }
 
 .line:active {
-  background: color-mix(in oklab, var(--log-accent) 9%, transparent);
+  background: var(--san-surface);
   transition-duration: 80ms;
 }
 
@@ -123,8 +125,8 @@
   overflow: hidden;
   font-family: var(--log-sans);
   font-size: 13.5px;
-  font-weight: 450;
-  letter-spacing: -0.01em;
+  font-weight: 400;
+  letter-spacing: 0;
   text-overflow: ellipsis;
 }
 
@@ -166,7 +168,18 @@
   font-size: 9.5px;
   letter-spacing: 0.14em;
   text-transform: uppercase;
-  text-shadow: 0 0 10px color-mix(in oklab, var(--log-accent) 60%, transparent);
+}
+
+/* 처음 남긴 장소: 별빛 점 하나 */
+.new::before {
+  display: inline-block;
+  width: 5px;
+  height: 5px;
+  margin-right: 5px;
+  border-radius: 50%;
+  background: var(--san-star);
+  vertical-align: 1px;
+  content: "";
 }
 
 /* 루트 종료 줄은 또렷하게, 시작 줄은 한 톤 낮게 */
@@ -180,18 +193,17 @@
 }
 
 .startLine {
-  opacity: 0.5;
+  opacity: 0.72;
 }
 
 .startLine:hover,
 .startLine:active {
-  opacity: 0.8;
+  opacity: 1;
 }
 
-/* 가장 최근 루트: 시각에만 은은한 빛 */
+/* 가장 최근 루트: 시각만 한 단계 또렷하게 */
 .latest .clock {
-  color: var(--log-accent);
-  text-shadow: 0 0 12px color-mix(in oklab, var(--log-accent) 55%, transparent);
+  font-weight: 600;
 }
 
 .pending {
@@ -221,20 +233,4 @@
   .pending {
     animation: none;
   }
-}
-
-/* 불러오는 중: 줄 모양 스켈레톤 */
-.skeleton {
-  display: grid;
-  gap: 18px;
-  max-width: 640px;
-  margin: 0 auto;
-  padding: 58px 28px;
-}
-
-.skeletonLine {
-  height: 8px;
-  background: color-mix(in oklab, var(--san-text, #fff) 6%, transparent);
-  border-radius: 4px;
-  animation: breathe 1.8s ease-in-out infinite;
 }

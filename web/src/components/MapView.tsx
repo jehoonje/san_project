@@ -15,11 +15,15 @@ import { createPortal } from "react-dom";
 
 import {
   addPlaceLayer,
+  applyPlacePalette,
   startPlacePulse,
   updatePlaceLayer,
 } from "@/lib/placeMap";
+import { applyMapPalette, buildMapStyle, readMapPalette } from "@/lib/mapStyle";
+import { onThemeChange, readToken } from "@/lib/themeTokens";
 import {
   MAP_3D,
+  apply3DPalette,
   bearingBetween,
   createGroundMarkerElement,
   disable3DWorld,
@@ -30,13 +34,16 @@ import {
   shortestAngleDelta,
 } from "@/lib/map3d";
 import {
+  EMOTE_SECONDS,
   createAvatarLayer,
   type AvatarLayerHandle,
   type AvatarScreenRect, // [부트 연동]
+  type EmoteId,
 } from "@/lib/avatar3d";
 import { usePlaceLocation } from "@/hooks/usePlaceLocation";
 import { useDevWalk } from "@/hooks/useDevWalk";
 import { DevWalkPanel } from "@/components/DevWalkPanel";
+import "@/styles/map-3d.css";
 import "@/styles/signal-map.css";
 import { getMockStart, isDevPanelEnabled } from "@/lib/devLocation";
 import type { PlaceMapItem } from "@/types/place";
@@ -53,12 +60,13 @@ export type MapViewport = {
   bounds: MapBounds;
 };
 
-/** 근처 신호(다른 산책자) 표시용 */
+/** 근처 산책자 표시용 */
 export type PeerMarker = {
   id: string;
   label: string;
   lngLat: [number, number];
-  state: "idle" | "waved" | "waving" | "crossed";
+  /** idle: 스치는 중 / greeting: 나에게 인사를 건넴 / crossed: 서로 인사를 나눔 */
+  state: "idle" | "greeting" | "crossed";
 };
 
 type MapViewProps = {
@@ -66,6 +74,8 @@ type MapViewProps = {
   places: PlaceMapItem[];
   initialCenter: [number, number];
   active?: boolean;
+  /** 기록 중이면 현재 위치 점이 초록으로 맥동 */
+  recording?: boolean;
   onViewportChange?: (viewport: MapViewport) => void;
   onFollowingChange?: (following: boolean) => void;
   onDevMove?: (coord: [number, number]) => void;
@@ -90,11 +100,9 @@ function createPeerElement(id: string, onSelect: (id: string) => void) {
   element.className = "san-peer";
   const halo = document.createElement("span");
   halo.className = "san-peer-halo";
-  const dot = document.createElement("span");
-  dot.className = "san-peer-dot";
   const label = document.createElement("span");
   label.className = "san-peer-label";
-  element.append(halo, dot, label);
+  element.append(halo, label);
   element.addEventListener("click", (event) => {
     event.stopPropagation();
     onSelect(id);
@@ -111,6 +119,12 @@ export type MapViewHandle = {
   getAvatarScreenRect: () => AvatarScreenRect | null;
   /** 나침반 시작 (iOS 권한 요청은 사용자 제스처 안에서 호출해야 함. 예: 기록 시작 버튼) */
   startCompass: () => void;
+  /** 내 아바타가 이 좌표(상대)를 향해 돌아섬. null이면 원래 방향으로 */
+  faceToward: (coord: [number, number] | null) => void;
+  /** 내 아바타가 상대를 향해 돌아선 뒤 감정 표현을 재생 */
+  playSelfEmote: (emote: EmoteId, toward: [number, number]) => void;
+  /** 산책자 아바타가 나를 향해 감정 표현을 재생 */
+  playPeerEmote: (peerId: string, emote: EmoteId) => void;
 };
 
 type LocationState = "loading" | "ready" | "error";
@@ -119,8 +133,15 @@ const ROUTE_SOURCE_ID = "live-route";
 const ROUTE_LAYER_ID = "live-route-line";
 const PLACE_PREFIX = "live";
 
-const DARK_MAP_STYLE =
-  "https://basemaps.cartocdn.com/gl/dark-matter-gl-style/style.json";
+/** 돌아서는 데 걸리는 시간. 감정 표현은 그 뒤에 시작 */
+const FACE_TURN_MS = 420;
+
+function avatarPalette() {
+  return {
+    self: readToken("--san-avatar", "#6b6a4f"),
+    peer: readToken("--san-avatar-peer", "#a9a68a"),
+  };
+}
 
 const HEADING_SMOOTHING_MS = 180;
 
@@ -174,14 +195,14 @@ export function LocationIcon() {
       height="20"
       fill="none"
       stroke="currentColor"
-      strokeWidth="2"
+      strokeWidth="1.25"
       strokeLinecap="round"
       strokeLinejoin="round"
       aria-hidden="true"
     >
-      <circle cx="12" cy="12" r="3" />
-      <path d="M12 2v3M12 19v3M2 12h3M19 12h3" />
-      <circle cx="12" cy="12" r="7" />
+      <circle cx="12" cy="12" r="2.4" />
+      <path d="M12 2.5v3M12 18.5v3M2.5 12h3M18.5 12h3" />
+      <circle cx="12" cy="12" r="6.5" />
     </svg>
   );
 }
@@ -192,6 +213,7 @@ export const MapView = forwardRef<MapViewHandle, MapViewProps>(function MapView(
     places,
     initialCenter,
     active = true,
+    recording = false,
     onViewportChange,
     onFollowingChange,
     onDevMove,
@@ -235,6 +257,10 @@ export const MapView = forwardRef<MapViewHandle, MapViewProps>(function MapView(
   const gpsHeadingRef = useRef<number | null>(null);
   const compassHeadingRef = useRef(0);
   const devOverrideRef = useRef(false);
+  // 감정 표현: 상대를 바라보는 동안의 방향 고정
+  const faceRef = useRef<{ coord: [number, number]; until: number } | null>(null);
+  const emoteTimerRef = useRef(0);
+  const recordingRef = useRef(recording);
   const lastDevRef = useRef<{ c: [number, number]; t: number } | null>(null);
 
   const requestTokenRef = useRef(0);
@@ -270,19 +296,22 @@ export const MapView = forwardRef<MapViewHandle, MapViewProps>(function MapView(
         const { element, label } = createPeerElement(peer.id, (id) =>
           onPeerSelectRef.current?.(id),
         );
-        const marker = new maplibregl.Marker({ element, anchor: "center" })
+        const marker = new maplibregl.Marker({ element, anchor: "bottom" })
           .setLngLat(peer.lngLat)
           .addTo(map);
         entry = { marker, element, label };
         entries.set(peer.id, entry);
-      } else {
-        entry.marker.setLngLat(peer.lngLat);
       }
+      // 위치는 아바타 레이어가 걸음 속도로 보간하므로 매 프레임 tick에서 맞춤
       entry.label.textContent = peer.label;
       entry.element.dataset.state = peer.state;
       entry.element.dataset.selected = String(selectedPeerRef.current === peer.id);
-      entry.element.setAttribute("aria-label", `근처 신호 ${peer.label}`);
+      entry.element.setAttribute("aria-label", `근처 산책자 ${peer.label}`);
     }
+
+    avatarLayerRef.current?.setPeers(
+      next.map((peer) => ({ id: peer.id, lngLat: peer.lngLat })),
+    );
   }, []);
 
   const [isFollowing, setIsFollowing] = useState(true);
@@ -351,6 +380,9 @@ export const MapView = forwardRef<MapViewHandle, MapViewProps>(function MapView(
       })
         .setLngLat(coord)
         .addTo(map);
+      groundMarkerRef.current
+        .getElement()
+        .classList.toggle("is-live", recordingRef.current);
     },
     [],
   );
@@ -614,7 +646,7 @@ export const MapView = forwardRef<MapViewHandle, MapViewProps>(function MapView(
 
       map = new maplibregl.Map({
         container,
-        style: DARK_MAP_STYLE,
+        style: buildMapStyle(),
         center: [centerLng, centerLat],
         zoom: MAP_3D.initialZoom,
         pitch: MAP_3D.initialPitch,
@@ -729,7 +761,18 @@ export const MapView = forwardRef<MapViewHandle, MapViewProps>(function MapView(
         gpsH !== null &&
         (!hasCompassRef.current || speedRef.current > WALK_HEADING_MPS);
 
-      if (useGps) {
+      // 감정 표현 중에는 상대를 바라봄 (걷기 시작하면 풀림)
+      const face = faceRef.current;
+      if (face && (clock > face.until || speedRef.current > WALK_HEADING_MPS)) {
+        faceRef.current = null;
+      }
+
+      if (faceRef.current && displayCoordRef.current) {
+        headingTargetRef.current = bearingBetween(
+          displayCoordRef.current,
+          faceRef.current.coord,
+        );
+      } else if (useGps) {
         headingTargetRef.current = gpsH;
       } else if (hasCompassRef.current) {
         headingTargetRef.current = compassHeadingRef.current;
@@ -789,6 +832,12 @@ export const MapView = forwardRef<MapViewHandle, MapViewProps>(function MapView(
         speedMps: speedRef.current,
       });
 
+      // 산책자 터치 영역을 보간 중인 아바타 위치에 맞춤
+      for (const [peerId, entry] of peerMarkersRef.current) {
+        const at = avatarLayerRef.current?.getPeerLngLat(peerId);
+        if (at) entry.marker.setLngLat(at);
+      }
+
       if (isFollowingRef.current && clock > cameraBusyUntilRef.current) {
         map.setCenter(next);
       }
@@ -801,7 +850,8 @@ export const MapView = forwardRef<MapViewHandle, MapViewProps>(function MapView(
       window.clearTimeout(loadingTimer);
 
       try {
-        enable3DWorld(map);
+        const palette = readMapPalette();
+        enable3DWorld(map, palette);
 
         map.addSource(ROUTE_SOURCE_ID, {
           type: "geojson",
@@ -813,20 +863,22 @@ export const MapView = forwardRef<MapViewHandle, MapViewProps>(function MapView(
           type: "line",
           source: ROUTE_SOURCE_ID,
           layout: { "line-join": "round", "line-cap": "round" },
+          // 내 경로: 잉크로 그은 가는 선
           paint: {
-            "line-color": "#ff6843",
-            "line-width": ["interpolate", ["linear"], ["zoom"], 12, 3, 18, 9],
-            "line-opacity": 0.94,
-            "line-blur": 0.4,
+            "line-color": palette.route,
+            "line-width": ["interpolate", ["linear"], ["zoom"], 12, 1.5, 18, 2.5],
+            "line-opacity": 0.95,
           },
         });
 
-        addPlaceLayer(map, PLACE_PREFIX, latestPlacesRef.current);
+        addPlaceLayer(map, PLACE_PREFIX, latestPlacesRef.current, palette);
         if (!reducedMotion()) stopPulse = startPlacePulse(map, PLACE_PREFIX);
 
         // three.js 아바타: 가장 마지막에 추가해 건물/기둥과 같은 깊이 공간에서 그려짐
         avatarLayerRef.current = createAvatarLayer();
+        avatarLayerRef.current.setPalette(avatarPalette());
         map.addLayer(avatarLayerRef.current.layer);
+        syncPeerMarkers(map);
 
         mapLoadedRef.current = true;
         setMapLoading(false);
@@ -852,8 +904,23 @@ export const MapView = forwardRef<MapViewHandle, MapViewProps>(function MapView(
       console.error("[MAP] 오류:", event.error);
     });
 
+    // 테마 전환: 지도·건물·장소·경로·아바타를 새 토큰 색으로 다시 칠함
+    const stopThemeWatch = onThemeChange(() => {
+      if (disposed || !mapLoadedRef.current) return;
+      const palette = readMapPalette();
+      applyMapPalette(map, palette);
+      apply3DPalette(map, palette);
+      applyPlacePalette(map, PLACE_PREFIX, palette);
+      if (map.getLayer(ROUTE_LAYER_ID)) {
+        map.setPaintProperty(ROUTE_LAYER_ID, "line-color", palette.route);
+      }
+      avatarLayerRef.current?.setPalette(avatarPalette());
+    });
+
     return () => {
       disposed = true;
+      stopThemeWatch();
+      window.clearTimeout(emoteTimerRef.current);
 
       cancelAnimationFrame(raf);
       window.clearTimeout(viewportTimer);
@@ -917,6 +984,13 @@ export const MapView = forwardRef<MapViewHandle, MapViewProps>(function MapView(
     const map = mapRef.current;
     if (map) applyCoords(map, coords);
   }, [coords, applyCoords]);
+
+  useEffect(() => {
+    recordingRef.current = recording;
+    groundMarkerRef.current
+      ?.getElement()
+      .classList.toggle("is-live", recording);
+  }, [recording]);
 
   useEffect(() => {
     latestPlacesRef.current = places;
@@ -1011,6 +1085,31 @@ export const MapView = forwardRef<MapViewHandle, MapViewProps>(function MapView(
     getAvatarScreenRect: () => avatarLayerRef.current?.getScreenRect() ?? null,
     startCompass: () => {
       void startCompass();
+    },
+    faceToward: (coord) => {
+      faceRef.current = coord
+        ? { coord, until: performance.now() + 20_000 }
+        : null;
+    },
+    playSelfEmote: (emote, toward) => {
+      const reduce = reducedMotion();
+      faceRef.current = {
+        coord: toward,
+        until: performance.now() + (EMOTE_SECONDS[emote] + 1.4) * 1000,
+      };
+      window.clearTimeout(emoteTimerRef.current);
+      // 먼저 상대를 향해 돌아선 다음 몸짓을 시작
+      emoteTimerRef.current = window.setTimeout(
+        () => avatarLayerRef.current?.playEmote("self", emote),
+        reduce ? 0 : FACE_TURN_MS,
+      );
+    },
+    playPeerEmote: (peerId, emote) => {
+      avatarLayerRef.current?.playEmote(
+        peerId,
+        emote,
+        displayCoordRef.current ?? latestCoordRef.current,
+      );
     },
   }));
 

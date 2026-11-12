@@ -4,15 +4,20 @@ import { useCallback, useEffect, useId, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { AnimatePresence, motion, useReducedMotion } from "motion/react";
 import { dialogMotion, screenMotion, scrimMotion } from "@/lib/motion";
-import { supabase } from "@/lib/supabaseClient";
+import {
+  deleteRoute,
+  listRoutes,
+  renameRoute,
+  type RouteOwner,
+} from "@/lib/routeStore";
 import { RouteTitleModal } from "@/components/RouteTitleModal";
 import { RouteLog } from "@/components/RouteLog";
-import logStyles from "@/components/RouteLog.module.css";
 import type { SavedRoute } from "@/types/route";
 
 export type RouteViewMode = "grid" | "log";
 
 type RouteGridProps = {
+  owner: RouteOwner;
   onSelect: (route: SavedRoute) => void;
   view?: RouteViewMode;
 };
@@ -22,53 +27,119 @@ const MOVE_TOLERANCE_PX = 10;
 
 function PencilIcon() {
   return (
-    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor"
-      strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-      <path d="M12 20h9" />
-      <path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4Z" />
+    <svg className="san-icon" viewBox="0 0 24 24" aria-hidden="true">
+      <path d="M12.5 19.5h7" />
+      <path d="M16.2 4.3a1.9 1.9 0 0 1 2.7 2.7L8 17.9l-3.6.9.9-3.6Z" />
     </svg>
   );
 }
 
 function TrashIcon() {
   return (
-    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor"
-      strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-      <path d="M3 6h18M8 6V4a1 1 0 0 1 1-1h6a1 1 0 0 1 1 1v2M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6" />
+    <svg className="san-icon" viewBox="0 0 24 24" aria-hidden="true">
+      <path d="M4.5 7h15M9 7V5h6v2M18 7l-.8 11.2a1.6 1.6 0 0 1-1.6 1.5H8.4a1.6 1.6 0 0 1-1.6-1.5L6 7" />
     </svg>
   );
 }
 
-function RouteGlyph() {
+/** 경로의 실제 모양을 가는 잉크 선으로 축소해 그립니다. (시작 = 빈 점, 끝 = 채운 점) */
+function RouteTrace({ coordinates }: { coordinates: [number, number][] }) {
+  const coords = (coordinates ?? []).filter(
+    (c) => Array.isArray(c) && Number.isFinite(c[0]) && Number.isFinite(c[1]),
+  );
+
+  if (coords.length < 2) {
+    return (
+      <svg viewBox="0 0 100 64" className="h-full w-full" aria-hidden="true">
+        <ellipse
+          cx="50"
+          cy="32"
+          rx="30"
+          ry="13"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="0.75"
+          opacity="0.5"
+          vectorEffect="non-scaling-stroke"
+        />
+      </svg>
+    );
+  }
+
+  let minX = Infinity;
+  let maxX = -Infinity;
+  let minY = Infinity;
+  let maxY = -Infinity;
+  const midLat = coords[Math.floor(coords.length / 2)][1];
+  const kx = Math.cos((midLat * Math.PI) / 180);
+  const pts = coords.map(([lng, lat]) => {
+    const x = lng * kx;
+    const y = -lat;
+    if (x < minX) minX = x;
+    if (x > maxX) maxX = x;
+    if (y < minY) minY = y;
+    if (y > maxY) maxY = y;
+    return [x, y] as const;
+  });
+
+  const w = Math.max(maxX - minX, 1e-9);
+  const h = Math.max(maxY - minY, 1e-9);
+  const scale = Math.min(84 / w, 48 / h);
+  const ox = (100 - w * scale) / 2;
+  const oy = (64 - h * scale) / 2;
+  // 점이 많아도 카드에서는 150개 안팎이면 충분
+  const step = Math.max(1, Math.floor(pts.length / 150));
+  const shown = pts.filter((_, i) => i % step === 0 || i === pts.length - 1);
+  const place = ([x, y]: readonly [number, number]) =>
+    [ox + (x - minX) * scale, oy + (y - minY) * scale] as const;
+  const d = shown
+    .map((pt, i) => {
+      const [x, y] = place(pt);
+      return `${i === 0 ? "M" : "L"}${x.toFixed(1)} ${y.toFixed(1)}`;
+    })
+    .join(" ");
+  const [sx, sy] = place(pts[0]);
+  const [ex, ey] = place(pts[pts.length - 1]);
+
   return (
-    <svg width="28" height="28" viewBox="0 0 32 32" fill="none" aria-hidden="true">
+    <svg viewBox="0 0 100 64" className="h-full w-full" aria-hidden="true">
       <path
-        d="M7 24c-2.2 0-4-1.8-4-4s1.8-4 4-4h18c2.2 0 4-1.8 4-4s-1.8-4-4-4H11"
-        stroke="currentColor" strokeWidth="2" strokeLinecap="round"
+        d={d}
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="1.25"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        vectorEffect="non-scaling-stroke"
       />
-      <circle cx="7" cy="24" r="2.5" fill="currentColor" />
-      <circle cx="11" cy="8" r="2.5" fill="currentColor" />
+      <circle
+        cx={sx}
+        cy={sy}
+        r="1.9"
+        fill="var(--san-surface)"
+        stroke="currentColor"
+        strokeWidth="1"
+        vectorEffect="non-scaling-stroke"
+      />
+      <circle cx={ex} cy={ey} r="1.9" fill="currentColor" />
     </svg>
   );
 }
 
 function formatDistance(meters: number | null) {
-  if (meters == null) return "거리 없음";
+  if (meters == null) return "–.– km";
   return meters >= 1000
     ? `${(meters / 1000).toFixed(1)} km`
     : `${Math.round(meters)} m`;
 }
 
-const dateFormatter = new Intl.DateTimeFormat("ko-KR", {
-  month: "short",
-  day: "numeric",
-});
-
 function formatDate(value: string | null | undefined) {
-  if (!value) return "날짜 없음";
+  if (!value) return "--.--";
   const date = new Date(value);
-  if (Number.isNaN(date.getTime())) return "날짜 없음";
-  return dateFormatter.format(date);
+  if (Number.isNaN(date.getTime())) return "--.--";
+  return `${String(date.getMonth() + 1).padStart(2, "0")}.${String(
+    date.getDate(),
+  ).padStart(2, "0")}`;
 }
 
 type DeleteRouteModalProps = {
@@ -106,7 +177,7 @@ function DeleteRouteModal({
 
   return (
     <motion.div
-      className="fixed inset-0 z-[60] flex items-center justify-center bg-black/70 px-5 backdrop-blur-md"
+      className="san-scrim-layer fixed inset-0 z-[60] flex items-center justify-center px-5"
       role="presentation"
       {...scrimMotion(reducedMotion)}
       onMouseDown={(event) => {
@@ -118,38 +189,38 @@ function DeleteRouteModal({
         role="alertdialog"
         aria-modal="true"
         aria-labelledby={headingId}
-        className="w-full max-w-sm rounded-[24px] border border-white/10 bg-[linear-gradient(145deg,rgba(14,23,34,.96),rgba(5,11,20,.98))] p-5 text-white shadow-[0_24px_80px_rgba(0,0,0,.55)] backdrop-blur-2xl"
+        className="w-full max-w-sm rounded-[28px] bg-san-bg p-6 text-san-text"
       >
-        <div className="mb-5 h-px w-10 bg-[#00bfff]/70" aria-hidden="true" />
-        <h2 id={headingId} className="text-lg font-semibold tracking-[-0.02em]">
-          루트를 삭제할까요?
+        <p className="san-eyebrow">DELETE</p>
+        <h2 id={headingId} className="san-title mt-2">
+          이 걸음을 지울까요
         </h2>
-        <p className="mt-2 text-sm leading-6 text-neutral-400">
-          <span className="font-medium text-neutral-200">{title}</span>{" "}
-          기록은 삭제 후 복구할 수 없습니다.
+        <p className="mt-2 text-[13px] leading-relaxed text-san-text">
+          <span className="font-medium">{title}</span> 기록은 지우면 되돌릴 수
+          없어요.
         </p>
         {errorMessage && (
-          <p role="alert" className="mt-3 text-sm text-[#ff8b78]">
+          <p role="alert" className="mt-3 text-[13px] text-san-error">
             {errorMessage}
           </p>
         )}
-        <div className="mt-6 grid grid-cols-2 gap-2.5">
+        <div className="mt-6 grid grid-cols-2 gap-2">
           <button
             ref={cancelRef}
             type="button"
             onClick={onCancel}
             disabled={isBusy}
-            className="min-h-12 rounded-full border border-white/10 bg-white/[0.04] text-sm font-semibold text-neutral-300 transition active:scale-[0.98] disabled:opacity-40"
+            className="san-pill"
           >
-            취소
+            그대로 두기
           </button>
           <button
             type="button"
             onClick={onConfirm}
             disabled={isBusy}
-            className="min-h-12 rounded-full bg-[#ff715c] text-sm font-semibold text-[#180806] transition hover:bg-[#ff856f] active:scale-[0.98] disabled:opacity-40"
+            className="san-pill san-pill-danger"
           >
-            {isBusy ? "삭제 중…" : "삭제"}
+            {isBusy ? "지우는 중…" : "지우기"}
           </button>
         </div>
       </motion.section>
@@ -157,7 +228,8 @@ function DeleteRouteModal({
   );
 }
 
-export function RouteGrid({ onSelect, view = "grid" }: RouteGridProps) {
+export function RouteGrid({ owner, onSelect, view = "grid" }: RouteGridProps) {
+  const ownerKey = owner.kind === "user" ? owner.userId : "guest";
   const reducedMotion = useReducedMotion();
   const [routes, setRoutes] = useState<SavedRoute[]>([]);
   const [loading, setLoading] = useState(true);
@@ -175,35 +247,26 @@ export function RouteGrid({ onSelect, view = "grid" }: RouteGridProps) {
     let cancelled = false;
 
     async function load() {
-      const { data, error: loadError } = await supabase
-        .from("routes")
-        .select(
-          `
-          id, title, coordinates, distance_meters, duration_seconds,
-          started_at, ended_at, created_at,
-          route_places (
-            id, name, category, lat, lng, accuracy_meters,
-            dwell_minutes, source, saved_at, created_at, place_id, region_dong
-          )
-        `,
-        )
-        .order("created_at", { ascending: false });
-
-      if (cancelled) return;
-      if (loadError) {
+      try {
+        const data = await listRoutes(owner);
+        if (cancelled) return;
+        setRoutes(data);
+        setError(null);
+      } catch (loadError) {
+        if (cancelled) return;
         console.error("루트 목록 조회 실패:", loadError);
-        setError("루트를 불러오지 못했습니다.");
-      } else {
-        setRoutes((data ?? []) as unknown as SavedRoute[]);
+        setError("걸음을 불러오지 못했어요.");
       }
-      setLoading(false);
+      if (!cancelled) setLoading(false);
     }
 
     void load();
     return () => {
       cancelled = true;
     };
-  }, []);
+    // owner는 매 렌더 새 객체일 수 있어 식별 키로만 다시 불러옴
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [ownerKey]);
 
   useEffect(
     () => () => {
@@ -262,21 +325,18 @@ export function RouteGrid({ onSelect, view = "grid" }: RouteGridProps) {
     const targetId = editTarget.id;
     setIsBusy(true);
     setActionError(null);
-    const { data, error: updateError } = await supabase
-      .from("routes")
-      .update({ title })
-      .eq("id", targetId)
-      .select("id");
-    setIsBusy(false);
-
-    if (updateError) {
+    try {
+      const ok = await renameRoute(owner, targetId, title);
+      if (!ok) {
+        setActionError("이미 지워졌거나 고칠 수 없는 걸음이에요.");
+        return;
+      }
+    } catch (updateError) {
       console.error("루트 수정 실패:", updateError);
-      setActionError("수정에 실패했습니다. 잠시 후 다시 시도해 주세요.");
+      setActionError("고치지 못했어요. 잠시 뒤 다시 시도해 주세요.");
       return;
-    }
-    if (!data?.length) {
-      setActionError("수정 권한이 없거나 이미 삭제된 루트입니다.");
-      return;
+    } finally {
+      setIsBusy(false);
     }
 
     setRoutes((previous) =>
@@ -293,21 +353,18 @@ export function RouteGrid({ onSelect, view = "grid" }: RouteGridProps) {
     const targetId = deleteTarget.id;
     setIsBusy(true);
     setActionError(null);
-    const { data, error: deleteError } = await supabase
-      .from("routes")
-      .delete()
-      .eq("id", targetId)
-      .select("id");
-    setIsBusy(false);
-
-    if (deleteError) {
+    try {
+      const ok = await deleteRoute(owner, targetId);
+      if (!ok) {
+        setActionError("이미 지워졌거나 지울 수 없는 걸음이에요.");
+        return;
+      }
+    } catch (deleteError) {
       console.error("루트 삭제 실패:", deleteError);
-      setActionError("삭제에 실패했습니다. 잠시 후 다시 시도해 주세요.");
+      setActionError("지우지 못했어요. 잠시 뒤 다시 시도해 주세요.");
       return;
-    }
-    if (!data?.length) {
-      setActionError("삭제 권한이 없거나 이미 삭제된 루트입니다.");
-      return;
+    } finally {
+      setIsBusy(false);
     }
 
     setRoutes((previous) => previous.filter((route) => route.id !== targetId));
@@ -321,39 +378,26 @@ export function RouteGrid({ onSelect, view = "grid" }: RouteGridProps) {
     setActionError(null);
   }, [isBusy]);
 
-  if (loading && view === "log") {
-    return (
-      <div className={logStyles.skeleton} aria-label="루트 불러오는 중">
-        {Array.from({ length: 12 }, (_, index) => (
-          <span
-            key={index}
-            className={logStyles.skeletonLine}
-            style={{ width: `${[78, 42, 64, 58, 70, 36][index % 6]}%` }}
-          />
-        ))}
-      </div>
-    );
-  }
-
   if (loading) {
     return (
       <div
-        className="grid grid-cols-2 gap-3 p-4 sm:grid-cols-3"
+        className="flex h-full flex-col items-center justify-center gap-5 pb-24"
+        role="status"
         aria-label="루트 불러오는 중"
       >
-        {Array.from({ length: 6 }, (_, index) => (
-          <div
-            key={index}
-            className="aspect-[1.05] animate-pulse rounded-[24px] border border-white/[0.06] bg-white/[0.04]"
-          />
-        ))}
+        <span className="san-ripples">
+          <i />
+          <i />
+          <i />
+        </span>
+        <p className="m-0 text-[13px] text-san-text">걸음을 펼치고 있어요</p>
       </div>
     );
   }
 
   if (error) {
     return (
-      <div className="flex h-full items-center justify-center px-6 text-center text-sm text-[#ff8b78]">
+      <div className="flex h-full items-center justify-center px-6 pb-24 text-center text-[13px] text-san-error">
         {error}
       </div>
     );
@@ -361,16 +405,13 @@ export function RouteGrid({ onSelect, view = "grid" }: RouteGridProps) {
 
   if (!routes.length) {
     return (
-      <div className="flex h-full flex-col items-center justify-center px-8 text-center">
-        <span className="text-neutral-600">
-          <RouteGlyph />
+      <div className="flex h-full flex-col items-center justify-center px-8 pb-24 text-center">
+        <span className="san-ripples" style={{ ["--size" as string]: "96px" }}>
+          <i />
+          <i />
+          <i />
         </span>
-        <p className="mt-5 text-base font-semibold text-neutral-200">
-          아직 저장한 루트가 없어요
-        </p>
-        <p className="mt-2 max-w-[28ch] text-sm leading-6 text-neutral-500">
-          기록 탭에서 이동을 시작하면 여기에 나만의 루트가 쌓입니다.
-        </p>
+        <p className="san-title mt-8">아직 남은 걸음이 없어요</p>
       </div>
     );
   }
@@ -397,28 +438,22 @@ export function RouteGrid({ onSelect, view = "grid" }: RouteGridProps) {
         if (editing && event.target === event.currentTarget) setEditing(false);
       }}
     >
-      <style>{`
-        @keyframes routeJiggle { from { transform: rotate(-.7deg); } to { transform: rotate(.7deg); } }
-        @keyframes routeBadgePop { 0% { transform: scale(0); opacity: 0; } 65% { transform: scale(1.12); opacity: 1; } 100% { transform: scale(1); opacity: 1; } }
-        @media (prefers-reduced-motion: reduce) { .route-jiggle { animation: none !important; } }
-      `}</style>
-
       {editing && (
-        <div className="sticky top-0 z-20 flex items-center justify-between border-b border-white/[0.06] bg-[#050b14]/80 px-4 py-3 backdrop-blur-2xl">
-          <span className="text-xs font-medium text-neutral-400">
-            수정하거나 삭제할 루트를 선택하세요
+        <div className="sticky top-0 z-20 flex items-center justify-between bg-san-veil px-5 py-2 backdrop-blur-md">
+          <span className="text-[12.5px] text-san-text">
+            고치거나 지울 걸음을 골라주세요
           </span>
           <button
             type="button"
             onClick={() => setEditing(false)}
-            className="min-h-11 rounded-full border border-white/10 bg-white/[0.07] px-4 text-sm font-semibold text-white transition hover:bg-white/[0.11] active:scale-95"
+            className="san-pill min-h-11 px-5 text-[13px]"
           >
             완료
           </button>
         </div>
       )}
 
-      <div className="grid grid-cols-2 content-start gap-3 p-4 sm:grid-cols-3 md:gap-4 md:p-6">
+      <div className="mx-auto grid max-w-3xl grid-cols-2 content-start gap-3 p-4 sm:grid-cols-3 md:gap-4 md:p-6">
         {routes.map((route, index) => (
           <motion.article
             key={route.id}
@@ -434,14 +469,7 @@ export function RouteGrid({ onSelect, view = "grid" }: RouteGridProps) {
                     ease: [0.22, 1, 0.36, 1],
                   },
             }}
-            className={`relative ${editing ? "route-jiggle" : ""}`}
-            style={
-              editing
-                ? {
-                    animation: `routeJiggle .3s ease-in-out -${(index % 5) * 0.05}s infinite alternate`,
-                  }
-                : undefined
-            }
+            className="relative"
           >
             <button
               type="button"
@@ -452,29 +480,34 @@ export function RouteGrid({ onSelect, view = "grid" }: RouteGridProps) {
               onPointerLeave={clearPress}
               onPointerCancel={clearPress}
               onContextMenu={(event) => event.preventDefault()}
-              className="group flex aspect-[1.05] w-full touch-pan-y select-none flex-col justify-between overflow-hidden rounded-[24px] border border-white/[0.08] bg-[#0e1722]/90 bg-[radial-gradient(circle_at_100%_0%,rgba(0,191,255,.12),transparent_55%)] p-4 text-left shadow-[0_16px_40px_rgba(0,0,0,.18)] backdrop-blur-xl transition duration-200 [-webkit-touch-callout:none] hover:border-[#00bfff]/30 active:scale-[0.98]"
+              className={`flex aspect-[1.02] w-full touch-pan-y select-none flex-col justify-between overflow-hidden rounded-[22px] border-0 bg-san-surface p-4 text-left text-san-text transition-opacity duration-500 ease-ambient [-webkit-touch-callout:none] active:opacity-70 ${
+                editing ? "opacity-60" : ""
+              }`}
               aria-label={`${route.title} 루트 열기`}
             >
-              <span className="text-[#00bfff]/85 transition group-hover:text-[#33ccff]">
-                <RouteGlyph />
+              <span className="block h-[46%] w-full text-san-text">
+                <RouteTrace coordinates={route.coordinates} />
               </span>
               <span className="block min-w-0">
-                <span className="line-clamp-2 block break-words text-sm font-semibold leading-5 text-neutral-100">
+                <span className="line-clamp-2 block break-words text-[14px] font-normal leading-5">
                   {route.title}
                 </span>
-                <span className="mt-2 flex items-center gap-2 text-xs tabular-nums text-neutral-500">
+                <span className="san-data mt-2 flex items-center gap-2">
                   <span>{formatDistance(route.distance_meters)}</span>
-                  <span
-                    className="h-0.5 w-0.5 rounded-full bg-neutral-600"
-                    aria-hidden="true"
-                  />
+                  <span className="san-dot h-[3px] w-[3px]" aria-hidden="true" />
                   <span>{formatDate(route.started_at ?? route.created_at)}</span>
+                  {(route.route_places?.length ?? 0) > 0 && (
+                    <span
+                      className="san-dot san-dot-star ml-auto"
+                      aria-label={`장소 ${route.route_places.length}곳`}
+                    />
+                  )}
                 </span>
               </span>
             </button>
 
             {editing && (
-              <div className="absolute -right-1.5 -top-1.5 flex gap-1.5">
+              <div className="absolute right-2 top-2 flex gap-1.5">
                 <button
                   type="button"
                   aria-label={`${route.title} 이름 수정`}
@@ -482,10 +515,7 @@ export function RouteGrid({ onSelect, view = "grid" }: RouteGridProps) {
                     setActionError(null);
                     setEditTarget(route);
                   }}
-                  className="grid h-11 w-11 place-items-center rounded-full border border-white/15 bg-[#0a2233]/95 text-white shadow-xl backdrop-blur-xl transition active:scale-90"
-                  style={{
-                    animation: "routeBadgePop .3s cubic-bezier(.34,1.56,.64,1) both",
-                  }}
+                  className="san-icon-btn h-11 w-11 bg-san-bg"
                 >
                   <PencilIcon />
                 </button>
@@ -496,10 +526,7 @@ export function RouteGrid({ onSelect, view = "grid" }: RouteGridProps) {
                     setActionError(null);
                     setDeleteTarget(route);
                   }}
-                  className="grid h-11 w-11 place-items-center rounded-full border border-[#ff715c]/25 bg-[#4a1c18]/95 text-[#ff9c8d] shadow-xl backdrop-blur-xl transition active:scale-90"
-                  style={{
-                    animation: "routeBadgePop .3s cubic-bezier(.34,1.56,.64,1) .05s both",
-                  }}
+                  className="san-icon-btn h-11 w-11 bg-san-bg text-san-error"
                 >
                   <TrashIcon />
                 </button>
@@ -517,9 +544,9 @@ export function RouteGrid({ onSelect, view = "grid" }: RouteGridProps) {
               <RouteTitleModal
                 key="edit-route"
                 defaultTitle={editTarget.title}
-                heading="루트 이름 수정"
-                description="새로운 루트 이름을 입력해 주세요."
-                confirmLabel="수정"
+                heading="이름을 고쳐 적기"
+                description="이 걸음에 새 이름을 붙여주세요."
+                confirmLabel="고치기"
                 isSaving={isBusy}
                 errorMessage={actionError}
                 onConfirm={handleEditConfirm}

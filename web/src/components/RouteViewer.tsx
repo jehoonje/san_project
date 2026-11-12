@@ -3,7 +3,10 @@
 import { useEffect, useRef } from "react";
 import * as maplibregl from "maplibre-gl";
 import "maplibre-gl/dist/maplibre-gl.css";
-import { addPlaceLayer } from "@/lib/placeMap";
+import { addPlaceLayer, applyPlacePalette } from "@/lib/placeMap";
+import { applyMapPalette, buildMapStyle, readMapPalette } from "@/lib/mapStyle";
+import { onThemeChange } from "@/lib/themeTokens";
+import "@/styles/map-3d.css";
 import type { SavedRoute } from "@/types/route";
 
 type RouteViewerProps = {
@@ -14,7 +17,7 @@ type RouteViewerProps = {
 const SOURCE_ID = "saved-route";
 const LAYER_ID = "saved-route-line";
 const PLACE_PREFIX = "saved";
-const MAX_PAD = { top: 150, right: 44, bottom: 300, left: 44 };
+const MAX_PAD = { top: 150, right: 44, bottom: 340, left: 44 };
 const GESTURES = [
   "dragPan",
   "scrollZoom",
@@ -90,83 +93,29 @@ function fitRoute(
   return unlock;
 }
 
-function makeDot(color: string) {
-  const container = document.createElement("div");
-  Object.assign(container.style, {
-    position: "relative",
-    width: "24px",
-    height: "24px",
-    display: "flex",
-    alignItems: "center",
-    justifyContent: "center",
-  });
-
-  const ring = document.createElement("div");
-  Object.assign(ring.style, {
-    position: "absolute",
-    inset: "0",
-    borderRadius: "50%",
-    background: color,
-    opacity: "0.2",
-  });
-
+function makeDot(kind: "start" | "end") {
   const dot = document.createElement("div");
-  Object.assign(dot.style, {
-    position: "relative",
-    width: "14px",
-    height: "14px",
-    borderRadius: "50%",
-    background: color,
-    border: "3px solid #ffffff",
-    boxShadow: "0 4px 14px rgba(0,0,0,.45)",
-  });
-
-  container.append(ring, dot);
-  return container;
+  dot.className = kind === "end" ? "san-route-dot is-end" : "san-route-dot";
+  return dot;
 }
 
-function RouteIcon() {
-  return (
-    <svg width="17" height="17" viewBox="0 0 24 24" fill="none" aria-hidden="true">
-      <path
-        d="M6 19c-1.7 0-3-1.3-3-3s1.3-3 3-3h12c1.7 0 3-1.3 3-3s-1.3-3-3-3H9"
-        stroke="currentColor"
-        strokeWidth="2"
-        strokeLinecap="round"
-      />
-      <circle cx="6" cy="19" r="2" fill="currentColor" />
-      <circle cx="9" cy="7" r="2" fill="currentColor" />
-    </svg>
-  );
+function formatClock(value: string | null | undefined) {
+  if (!value) return "--:--";
+  const d = new Date(value);
+  if (Number.isNaN(d.getTime())) return "--:--";
+  return `${String(d.getHours()).padStart(2, "0")}:${String(d.getMinutes()).padStart(2, "0")}`;
 }
 
-function ClockIcon() {
-  return (
-    <svg width="17" height="17" viewBox="0 0 24 24" fill="none" aria-hidden="true">
-      <circle cx="12" cy="12" r="9" stroke="currentColor" strokeWidth="2" />
-      <path
-        d="M12 7v5l3.5 2"
-        stroke="currentColor"
-        strokeWidth="2"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      />
-    </svg>
-  );
+function formatDay(value: string | null | undefined) {
+  if (!value) return "----.--.--";
+  const d = new Date(value);
+  if (Number.isNaN(d.getTime())) return "----.--.--";
+  return `${d.getFullYear()}.${String(d.getMonth() + 1).padStart(2, "0")}.${String(d.getDate()).padStart(2, "0")}`;
 }
 
-function PlaceIcon() {
-  return (
-    <svg width="17" height="17" viewBox="0 0 24 24" fill="none" aria-hidden="true">
-      <path
-        d="M12 21s7-6.1 7-12a7 7 0 1 0-14 0c0 5.9 7 12 7 12Z"
-        stroke="currentColor"
-        strokeWidth="2"
-        strokeLinejoin="round"
-      />
-      <circle cx="12" cy="9" r="2.4" fill="currentColor" />
-    </svg>
-  );
+function formatCoord(coord: [number, number] | undefined) {
+  if (!coord) return "—";
+  return `${coord[1].toFixed(5)}, ${coord[0].toFixed(5)}`;
 }
 
 export function RouteViewer({ route, open }: RouteViewerProps) {
@@ -220,7 +169,7 @@ export function RouteViewer({ route, open }: RouteViewerProps) {
 
     const map = new maplibregl.Map({
       container,
-      style: "https://tiles.openfreemap.org/styles/dark",
+      style: buildMapStyle(),
       center: coords[0],
       zoom: 12,
       minZoom: 8,
@@ -270,20 +219,20 @@ export function RouteViewer({ route, open }: RouteViewerProps) {
         type: "line",
         source: SOURCE_ID,
         layout: { "line-join": "round", "line-cap": "round" },
+        // 잉크로 그은 가는 선
         paint: {
-          "line-color": "#00bfff",
-          "line-width": 6,
+          "line-color": readMapPalette().route,
+          "line-width": ["interpolate", ["linear"], ["zoom"], 10, 1.5, 17, 2.25],
           "line-opacity": 0.95,
-          "line-blur": 0.25,
         },
       });
 
       addPlaceLayer(map, PLACE_PREFIX, places);
-      new maplibregl.Marker({ element: makeDot("#5fd39a"), anchor: "center" })
+      new maplibregl.Marker({ element: makeDot("start"), anchor: "center" })
         .setLngLat(coords[0])
         .addTo(map);
       if (coords.length > 1) {
-        new maplibregl.Marker({ element: makeDot("#00bfff"), anchor: "center" })
+        new maplibregl.Marker({ element: makeDot("end"), anchor: "center" })
           .setLngLat(coords[coords.length - 1])
           .addTo(map);
       }
@@ -304,8 +253,17 @@ export function RouteViewer({ route, open }: RouteViewerProps) {
 
     map.on("error", (event) => console.error("VIEWER MAP ERROR:", event.error));
 
+    const stopThemeWatch = onThemeChange(() => {
+      if (disposed || !map.getLayer(LAYER_ID)) return;
+      const palette = readMapPalette();
+      applyMapPalette(map, palette);
+      applyPlacePalette(map, PLACE_PREFIX, palette);
+      map.setPaintProperty(LAYER_ID, "line-color", palette.route);
+    });
+
     return () => {
       disposed = true;
+      stopThemeWatch();
       unlockRef.current?.();
       unlockRef.current = null;
       resizeObserver.disconnect();
@@ -318,10 +276,13 @@ export function RouteViewer({ route, open }: RouteViewerProps) {
   const distanceMeters = Number(route.distance_meters) || 0;
   const km = (distanceMeters / 1000).toFixed(2);
   const placeCount = route.route_places?.length ?? 0;
+  const coords = route.coordinates ?? [];
+  const first = coords[0];
+  const last = coords[coords.length - 1];
 
   return (
     <div
-      className={`san-route-viewer absolute inset-0 z-10 h-full min-h-0 w-full overflow-hidden bg-[#050b14] transition duration-300 ease-[cubic-bezier(0.22,1,0.36,1)] ${open ? "visible scale-100 opacity-100 blur-0" : "pointer-events-none invisible scale-[0.97] opacity-0 blur-[8px]"}`}
+      className={`san-route-viewer absolute inset-0 z-10 h-full min-h-0 w-full overflow-hidden bg-san-bg transition duration-500 ease-ambient ${open ? "visible opacity-100 blur-0" : "pointer-events-none invisible opacity-0 blur-[8px]"}`}
       aria-hidden={!open}
     >
       <div
@@ -329,72 +290,79 @@ export function RouteViewer({ route, open }: RouteViewerProps) {
         className="absolute inset-0 h-full min-h-0 w-full"
       />
       {!hasCoords && (
-        <div className="absolute inset-0 z-[5] grid place-items-center px-8 text-center text-sm text-neutral-500">
-          이 루트에는 표시할 경로 좌표가 없어요
+        <div className="absolute inset-0 z-[5] grid place-items-center px-8 text-center text-[13px] text-san-text">
+          이 걸음에는 그릴 수 있는 선이 없어요
         </div>
       )}
-      <div className="pointer-events-none absolute inset-0 bg-[linear-gradient(180deg,rgba(5,7,10,.28)_0%,transparent_28%,transparent_52%,rgba(5,7,10,.86)_100%)]" />
+
+      {/* 정보가 읽히도록 아래쪽에 종이 색이 번져 올라옴 */}
+      <div
+        aria-hidden="true"
+        className="pointer-events-none absolute inset-x-0 bottom-0 h-[58%]"
+        style={{
+          background:
+            "linear-gradient(to bottom, transparent 0%, color-mix(in oklab, var(--san-background) 78%, transparent) 38%, var(--san-background) 70%)",
+        }}
+      />
 
       <section
-        className="pointer-events-auto absolute inset-x-4 z-20 rounded-[24px] border border-white/10 bg-[linear-gradient(145deg,rgba(14,23,34,.92),rgba(5,11,20,.96))] p-4 text-white shadow-[0_22px_60px_rgba(0,0,0,.42)] backdrop-blur-2xl"
-        style={{ bottom: "calc(max(16px, env(safe-area-inset-bottom)) + 72px + 12px)" }}
+        className="pointer-events-auto absolute inset-x-0 z-20 mx-auto max-w-xl px-6 text-san-text"
+        style={{ bottom: "calc(max(16px, env(safe-area-inset-bottom)) + 92px)" }}
         onClick={(event) => event.stopPropagation()}
         onPointerDown={(event) => event.stopPropagation()}
         aria-label={`${route.title} 루트 정보`}
       >
-        <div className="flex items-start justify-between gap-4">
-          <div className="min-w-0">
-            <p className="text-xs font-medium uppercase tracking-[0.14em] text-neutral-500">
-              Saved route
-            </p>
-            <h2 className="mt-1 truncate text-lg font-semibold tracking-[-0.02em] text-white">
-              {route.title}
-            </h2>
-          </div>
-          <span
-            className="mt-1 h-2 w-2 shrink-0 rounded-full bg-[#00bfff] shadow-[0_0_14px_rgba(0,191,255,.55)]"
-            aria-hidden="true"
-          />
-        </div>
+        <p className="san-eyebrow">{formatDay(route.started_at)}</p>
+        <h2 className="san-display mt-2 line-clamp-2">{route.title}</h2>
 
-        <dl
-          className={`mt-4 grid gap-2 ${placeCount > 0 ? "grid-cols-3" : "grid-cols-2"}`}
-        >
-          <div className="min-w-0 rounded-2xl border border-white/[0.06] bg-[#0a2233]/60 px-3 py-3">
-            <dt className="flex items-center gap-2 text-xs font-medium text-neutral-500">
-              <span className="text-[#00bfff]">
-                <RouteIcon />
-              </span>
-              거리
-            </dt>
-            <dd className="mt-2 truncate text-sm font-semibold tabular-nums text-neutral-100">
-              {km} km
+        {/* 큰 수치 하나 + 정밀한 보조 수치 */}
+        <dl className="m-0 mt-5 flex items-end gap-6">
+          <div>
+            <dt className="sr-only">거리</dt>
+            <dd className="m-0 font-mono text-[34px] font-light leading-none tracking-[-0.02em] tabular-nums">
+              {km}
+              <span className="ml-1.5 text-[11px] tracking-[0.16em]">KM</span>
             </dd>
           </div>
-          <div className="min-w-0 rounded-2xl border border-white/[0.06] bg-[#0a2233]/60 px-3 py-3">
-            <dt className="flex items-center gap-2 text-xs font-medium text-neutral-500">
-              <span className="text-[#8fa3b8]">
-                <ClockIcon />
-              </span>
-              시간
-            </dt>
-            <dd className="mt-2 truncate text-sm font-semibold tabular-nums text-neutral-100">
+          <div className="pb-0.5">
+            <dt className="san-eyebrow">TIME</dt>
+            <dd className="san-data m-0 mt-1">
               {formatDuration(route.duration_seconds)}
             </dd>
           </div>
           {placeCount > 0 && (
-            <div className="min-w-0 rounded-2xl border border-white/[0.06] bg-[#0a2233]/60 px-3 py-3">
-              <dt className="flex items-center gap-2 text-xs font-medium text-neutral-500">
-                <span className="text-[#5fd39a]">
-                  <PlaceIcon />
-                </span>
-                장소
+            <div className="pb-0.5">
+              <dt className="san-eyebrow flex items-center gap-1.5">
+                <span className="san-dot san-dot-star" aria-hidden="true" />
+                PLACES
               </dt>
-              <dd className="mt-2 truncate text-sm font-semibold tabular-nums text-neutral-100">
-                {placeCount}개
-              </dd>
+              <dd className="san-data m-0 mt-1">{placeCount}</dd>
             </div>
           )}
+        </dl>
+
+        {/* 시작/종료: 시각과 좌표 */}
+        <dl className="m-0 mt-5 grid gap-2">
+          <div className="flex items-center gap-3">
+            <dt className="flex w-[74px] items-center gap-2">
+              <span className="san-route-dot h-2 w-2" aria-hidden="true" />
+              <span className="san-eyebrow">START</span>
+            </dt>
+            <dd className="san-data m-0 flex min-w-0 gap-3">
+              <span>{formatClock(route.started_at)}</span>
+              <span className="truncate">{formatCoord(first)}</span>
+            </dd>
+          </div>
+          <div className="flex items-center gap-3">
+            <dt className="flex w-[74px] items-center gap-2">
+              <span className="san-dot h-2 w-2" aria-hidden="true" />
+              <span className="san-eyebrow">END</span>
+            </dt>
+            <dd className="san-data m-0 flex min-w-0 gap-3">
+              <span>{formatClock(route.ended_at)}</span>
+              <span className="truncate">{formatCoord(last)}</span>
+            </dd>
+          </div>
         </dl>
       </section>
 
@@ -405,23 +373,6 @@ export function RouteViewer({ route, open }: RouteViewerProps) {
         }
         .san-route-viewer .maplibregl-ctrl-attrib {
           max-width: min(240px, calc(100vw - 32px));
-          border: 1px solid rgba(255, 255, 255, 0.1);
-          border-radius: 12px;
-          color: rgba(244, 245, 247, 0.7);
-          background: rgba(5, 11, 20, 0.72);
-          box-shadow: 0 8px 24px rgba(0, 0, 0, 0.2);
-          font-size: 10px;
-          line-height: 1.3;
-          backdrop-filter: blur(12px);
-          -webkit-backdrop-filter: blur(12px);
-        }
-        .san-route-viewer .maplibregl-ctrl-attrib a {
-          color: rgba(244, 245, 247, 0.82);
-        }
-        .san-route-viewer .maplibregl-ctrl-attrib-button {
-          display: block;
-          filter: invert(1);
-          opacity: 0.8;
         }
         @media (prefers-reduced-motion: reduce) {
           .san-route-viewer {

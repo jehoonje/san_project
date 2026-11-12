@@ -4,6 +4,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { AnimatePresence, motion, type Variants } from "motion/react";
 import { SocialButtons } from "@/components/auth/SocialButtons";
 import { useTheme } from "@/hooks/useTheme";
+import { enterGuestMode } from "@/lib/guest";
 import { supabase } from "@/lib/supabaseClient";
 import type { SocialProvider } from "@/lib/oauth";
 
@@ -26,43 +27,9 @@ const MENU: { key: MenuKey; label: string }[] = [
 const SIGNUP_STEPS = 4;
 const EASE_OUT = [0.16, 1, 0.3, 1] as const;
 
-/* ───────── 스탠드 조명 ───────── */
-
-// 전원이 들어오듯 깜빡이다 안정되는 곡선
-const LAMP_FLICKER = [0, 0.35, 0.08, 0.6, 0.25, 0.85, 0.7, 1];
-const LAMP_TIMES = [0, 0.1, 0.18, 0.32, 0.42, 0.62, 0.74, 1];
-
-const lampConeVariants: Variants = {
-  off: { opacity: 0 },
-  on: {
-    opacity: LAMP_FLICKER,
-    transition: { duration: 1.6, times: LAMP_TIMES, ease: "linear", delay: 0.2 },
-  },
-  focus: {
-    opacity: 0.75,
-    transition: { duration: 0.9, ease: EASE_OUT },
-  },
-};
-
-const lampPoolVariants: Variants = {
-  off: { opacity: 0, scale: 0.8, top: "66%" },
-  on: {
-    opacity: LAMP_FLICKER,
-    scale: 1,
-    top: "66%",
-    transition: { duration: 1.6, times: LAMP_TIMES, ease: "linear", delay: 0.2 },
-  },
-  focus: {
-    opacity: 1,
-    scale: 1.18,
-    top: "50%",
-    transition: { duration: 1.1, ease: EASE_OUT },
-  },
-};
-
 const menuVariants: Variants = {
   hidden: {},
-  show: { transition: { delayChildren: 1.1, staggerChildren: 0.42 } },
+  show: { transition: { delayChildren: 0.5, staggerChildren: 0.28 } },
   away: {
     opacity: 0,
     filter: "blur(6px)",
@@ -127,42 +94,25 @@ const stepVariants: Variants = {
 
 function BackIcon() {
   return (
-    <svg width="21" height="21" viewBox="0 0 24 24" fill="none" aria-hidden="true">
-      <path
-        d="m15 18-6-6 6-6"
-        stroke="currentColor"
-        strokeWidth="2"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      />
+    <svg className="san-icon" viewBox="0 0 24 24" aria-hidden="true">
+      <path d="m14.5 18-6-6 6-6" />
     </svg>
   );
 }
 
 function MoonIcon() {
   return (
-    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" aria-hidden="true">
-      <path
-        d="M20.7 15.2A8.5 8.5 0 0 1 8.8 3.3 8.5 8.5 0 1 0 20.7 15.2Z"
-        stroke="currentColor"
-        strokeWidth="1.9"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      />
+    <svg className="san-icon" viewBox="0 0 24 24" aria-hidden="true">
+      <path d="M20.2 14.9A8.2 8.2 0 0 1 9.1 3.8a8.2 8.2 0 1 0 11.1 11.1Z" />
     </svg>
   );
 }
 
 function SunIcon() {
   return (
-    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" aria-hidden="true">
-      <circle cx="12" cy="12" r="4" stroke="currentColor" strokeWidth="1.9" />
-      <path
-        d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"
-        stroke="currentColor"
-        strokeWidth="1.9"
-        strokeLinecap="round"
-      />
+    <svg className="san-icon" viewBox="0 0 24 24" aria-hidden="true">
+      <circle cx="12" cy="12" r="3.8" />
+      <path d="M12 2.5v2M12 19.5v2M5.3 5.3l1.4 1.4M17.3 17.3l1.4 1.4M2.5 12h2M19.5 12h2M5.3 18.7l1.4-1.4M17.3 6.7l1.4-1.4" />
     </svg>
   );
 }
@@ -183,7 +133,6 @@ function normalizeAuthMessage(message: string) {
 export function AuthPortal({ onAuthenticated, onSocialLogin }: AuthPortalProps) {
   const { theme, setTheme } = useTheme();
 
-  const [bg, setBg] = useState(0);
   const [panel, setPanel] = useState<Panel>(null);
   const [authView, setAuthView] = useState<AuthView>("login");
   const [email, setEmail] = useState("");
@@ -201,14 +150,6 @@ export function AuthPortal({ onAuthenticated, onSocialLogin }: AuthPortalProps) 
   const noticeTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const hasId = email.trim().length > 0;
-
-  useEffect(() => {
-    const n =
-      typeof crypto !== "undefined" && crypto.getRandomValues
-        ? crypto.getRandomValues(new Uint32Array(1))[0]
-        : Date.now();
-    setBg(n % 6);
-  }, []);
 
   useEffect(() => {
     return () => {
@@ -289,7 +230,13 @@ export function AuthPortal({ onAuthenticated, onSocialLogin }: AuthPortalProps) 
 
   function onMenu(key: MenuKey) {
     if (panel) return;
-    if (key === "guest") return showNotice("Guest 모드는 아직 준비 중이에요.");
+    if (key === "guest") {
+      // 게스트: 로그인 없이 둘러보기. 기록은 이 기기에만 남음
+      enterGuestMode();
+      showNotice("로그인 없이 둘러볼게요.");
+      onAuthenticated();
+      return;
+    }
     openPanel(key);
   }
 
@@ -394,12 +341,21 @@ export function AuthPortal({ onAuthenticated, onSocialLogin }: AuthPortalProps) 
         : authView;
 
   return (
-    <main className={`san-entry san-gradient-${bg}`}>
+    <main className="san-entry">
       <div className="san-ambient" aria-hidden="true">
         <span />
         <span />
         <span />
       </div>
+
+      <header className={`san-entry-head ${panel ? "is-away" : ""}`}>
+        <p className="san-eyebrow">SAN · WALK LOG</p>
+        <h1>
+          걸은 자리가
+          <br />
+          조용히 남는 곳
+        </h1>
+      </header>
 
       <motion.nav
         className="san-menu"
@@ -417,7 +373,7 @@ export function AuthPortal({ onAuthenticated, onSocialLogin }: AuthPortalProps) 
             aria-label={item.label}
             className={`san-menu-item ${item.key === "guest" ? "is-soft" : ""}`}
             variants={rowVariants}
-            whileTap={{ x: 4, scale: 0.985 }}
+            whileTap={{ opacity: 0.6 }}
             onClick={() => onMenu(item.key)}
           >
             <span className="san-menu-text" aria-hidden="true">
@@ -482,8 +438,8 @@ export function AuthPortal({ onAuthenticated, onSocialLogin }: AuthPortalProps) 
                     <div className="san-theme-list">
                       {(
                         [
-                          { id: "dark", name: "Dark", icon: <MoonIcon /> },
-                          { id: "light", name: "Light", icon: <SunIcon /> },
+                          { id: "light", name: "종이 · Light", icon: <SunIcon /> },
+                          { id: "dark", name: "먹 · Dark", icon: <MoonIcon /> },
                         ] as const
                       ).map((o) => (
                         <button
@@ -660,14 +616,8 @@ export function AuthPortal({ onAuthenticated, onSocialLogin }: AuthPortalProps) 
                     exit="exit"
                   >
                     <div className="san-done-mark" aria-hidden="true">
-                      <svg viewBox="0 0 48 48" fill="none">
-                        <path
-                          d="m13 25 7 7 15-17"
-                          stroke="currentColor"
-                          strokeWidth="3"
-                          strokeLinecap="round"
-                          strokeLinejoin="round"
-                        />
+                      <svg viewBox="0 0 24 24" className="san-icon">
+                        <path d="m6 12.5 4 4 8-9" />
                       </svg>
                     </div>
 
@@ -700,8 +650,8 @@ export function AuthPortal({ onAuthenticated, onSocialLogin }: AuthPortalProps) 
             key="notice"
             className="san-notice"
             role="status"
-            initial={{ opacity: 0, y: 12, scale: 0.96 }}
-            animate={{ opacity: 1, y: 0, scale: 1 }}
+            initial={{ opacity: 0, y: 12, filter: "blur(6px)" }}
+            animate={{ opacity: 1, y: 0, filter: "blur(0px)" }}
             exit={{ opacity: 0, y: 8 }}
             transition={{ duration: 0.3, ease: EASE_OUT }}
           >

@@ -40,82 +40,27 @@ export default function AuthBridgePage() {
   }, []);
 
   return (
-    <main
-      style={{
-        display: "grid",
-        minHeight: "100dvh",
-        placeItems: "center",
-        padding: "24px",
-        color: "#f5f5f5",
-        background: "#090a0c",
-        fontFamily:
-          "Pretendard Variable, Pretendard, system-ui, sans-serif",
-      }}
-    >
-      <section style={{ textAlign: "center" }}>
+    <main className="grid min-h-dvh place-items-center bg-san-bg p-6 text-san-text">
+      <section className="text-center">
         {error ? (
           <>
-            <h1
-              style={{
-                margin: 0,
-                fontSize: "18px",
-                fontWeight: 650,
-              }}
-            >
-              로그인 연결 실패
-            </h1>
-
+            <p className="san-eyebrow">SIGN IN</p>
+            <h1 className="san-title mt-2">연결이 닿지 않았어요</h1>
             <p
               role="alert"
-              style={{
-                maxWidth: "320px",
-                margin: "12px auto 0",
-                color: "#ff9e9e",
-                fontSize: "14px",
-                lineHeight: 1.6,
-              }}
+              className="mx-auto mt-3 max-w-xs text-[13px] leading-relaxed text-san-error"
             >
               {error}
             </p>
           </>
         ) : (
           <>
-            <div
-              aria-hidden="true"
-              style={{
-                width: "28px",
-                height: "28px",
-                margin: "0 auto",
-                border: "2px solid rgb(255 255 255 / 18%)",
-                borderTopColor: "#ffffff",
-                borderRadius: "999px",
-                animation: "oauth-spin 700ms linear infinite",
-              }}
-            />
-
-            <p
-              style={{
-                margin: "16px 0 0",
-                color: "rgb(255 255 255 / 70%)",
-                fontSize: "14px",
-              }}
-            >
-              앱으로 돌아가는 중
-            </p>
-
-            <style jsx>{`
-              @keyframes oauth-spin {
-                to {
-                  transform: rotate(360deg);
-                }
-              }
-
-              @media (prefers-reduced-motion: reduce) {
-                div {
-                  animation: none !important;
-                }
-              }
-            `}</style>
+            <span className="san-ripples mx-auto" aria-hidden="true">
+              <i />
+              <i />
+              <i />
+            </span>
+            <p className="mt-5 text-[13px] text-san-text">앱으로 돌아가는 중</p>
           </>
         )}
       </section>

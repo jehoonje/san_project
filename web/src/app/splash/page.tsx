@@ -4,6 +4,7 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useSession } from "@/hooks/useSession";
+import { isGuestMode } from "@/lib/guest";
 
 export default function SplashPage() {
   const router = useRouter();
@@ -17,18 +18,20 @@ export default function SplashPage() {
 
   useEffect(() => {
     if (loading || !minDone) return;
-    router.replace(session ? "/" : "/login");
+    router.replace(session || isGuestMode() ? "/" : "/login");
   }, [loading, minDone, session, router]);
 
   return (
-    <main className="fixed inset-0 flex flex-col items-center justify-center gap-4 bg-[#ff5a36]">
-      <div className="flex h-20 w-20 animate-pulse items-center justify-center rounded-3xl bg-white/20 text-4xl">
-        {"\u{1F4CD}"}
+    <main className="fixed inset-0 flex flex-col items-center justify-center gap-8 bg-san-bg text-san-text">
+      <span className="san-ripples" style={{ ["--size" as string]: "96px" }}>
+        <i />
+        <i />
+        <i />
+      </span>
+      <div className="text-center">
+        <p className="san-eyebrow">SAN</p>
+        <h1 className="san-title mt-2">걸은 자리가 조용히 남는 곳</h1>
       </div>
-      <h1 className="text-2xl font-bold tracking-tight text-white">
-        나만의 루트
-      </h1>
-      <p className="text-sm text-white/80">걷고, 기록하고, 다시 만나기</p>
     </main>
   );
 }

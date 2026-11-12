@@ -2,11 +2,14 @@ import * as THREE from "three";
 import * as maplibregl from "maplibre-gl";
 
 /**
- * three.js 미니멀 화이트 아바타 (MapLibre 커스텀 레이어).
- * - 둥근 머리 + 목 없는 통통한 몸 + 짧은 팔다리의 도자기 인형 스타일
+ * three.js 미니멀 아바타 (MapLibre 커스텀 레이어).
+ * - 둥근 머리 + 목 없는 통통한 몸 + 짧은 팔다리의 인형 스타일
  * - 팔다리는 스키닝(SkinnedMesh)으로 하나의 매끈한 형태가 휘어져 관절 이음새가 없습니다.
  * - 이동 속도에 따라 idle → 걷기 → 달리기 모션이 부드럽게 섞입니다.
- * - 건물 뒤에 가려져도 흰 실루엣이 비쳐 보입니다.
+ * - 건물 뒤에 가려져도 실루엣이 비쳐 보입니다.
+ * - 색은 테마 토큰(라이트: 잉크 / 다크: 골드)을 setPalette()로 받아 칠합니다.
+ * - 나 외에 근처 산책자(peer)도 같은 장면에 흐릿하게 그리고,
+ *   감정 표현(손 흔들기·말 건네기·꾸벅·박수·환호) 모션을 겹쳐 재생합니다.
  */
 
 export type AvatarPose = {
@@ -30,7 +33,19 @@ export type AvatarScreenRect = {
 const CHAR_HEIGHT = 1.78; // 모델 단위 키
 const SCREEN_HEIGHT_PX = 124; // 화면에서 보이는 캐릭터 높이(px)
 
-const WHITE = new THREE.Color(0xffffff);
+const DEFAULT_TONE = new THREE.Color(0x6b6a4f);
+
+/** 감정 표현 (월드 속 캐릭터가 서로에게 건네는 짧은 몸짓) */
+export type EmoteId = "wave" | "talk" | "bow" | "clap" | "cheer";
+
+/** 각 감정 표현의 길이(초) */
+export const EMOTE_SECONDS: Record<EmoteId, number> = {
+  wave: 2.6,
+  talk: 3.4,
+  bow: 2.4,
+  clap: 2.4,
+  cheer: 2.4,
+};
 
 const clamp = (v: number, a: number, b: number) => Math.min(b, Math.max(a, v));
 const lerp = (a: number, b: number, t: number) => a + (b - a) * t;
@@ -128,27 +143,29 @@ type Rig = {
   legR: THREE.Object3D;
   kneeL: THREE.Object3D;
   kneeR: THREE.Object3D;
+  bodyMat: THREE.MeshPhysicalMaterial;
+  xrayMat: THREE.MeshBasicMaterial;
   disposables: Array<THREE.BufferGeometry | THREE.Material | THREE.Texture>;
 };
 
 function buildRig(): Rig {
   const disposables: Rig["disposables"] = [];
 
-  // 순백색 도자기: 자체 발광을 높여 음영이 져도 회색으로 죽지 않게 하고, 광택은 코팅으로 표현
+  // 무광에 가까운 단색: 자체 발광을 섞어 음영이 져도 톤이 탁해지지 않게 함
   const bodyMat = new THREE.MeshPhysicalMaterial({
-    color: WHITE,
-    roughness: 0.35,
+    color: DEFAULT_TONE,
+    roughness: 0.62,
     metalness: 0,
-    clearcoat: 0.8,
-    clearcoatRoughness: 0.18,
-    emissive: WHITE,
-    emissiveIntensity: 0.5,
+    clearcoat: 0.25,
+    clearcoatRoughness: 0.5,
+    emissive: DEFAULT_TONE,
+    emissiveIntensity: 0.55,
   });
 
   const xrayMat = new THREE.MeshBasicMaterial({
-    color: 0xffffff,
+    color: DEFAULT_TONE,
     transparent: true,
-    opacity: 0.36,
+    opacity: 0.3,
     depthFunc: THREE.GreaterDepth,
     depthWrite: false,
     polygonOffset: true,
@@ -288,6 +305,8 @@ function buildRig(): Rig {
     legR: R.b0,
     kneeL: L.b1,
     kneeR: R.b1,
+    bodyMat,
+    xrayMat,
     disposables,
   };
 }
@@ -398,97 +417,372 @@ export function sampleAvatarPoints(count: number): Float32Array {
   return raw;
 }
 
+export type PeerPose = {
+  id: string;
+  lngLat: [number, number];
+};
+
+export type AvatarPalette = {
+  /** 내 아바타 색 */
+  self: string;
+  /** 근처 산책자 색 (한 톤 흐리게) */
+  peer: string;
+};
+
 export type AvatarLayerHandle = {
   layer: maplibregl.CustomLayerInterface;
   update: (pose: AvatarPose) => void;
+  /** 근처 산책자 목록 갱신. 사라진 산책자는 서서히 옅어진 뒤 정리됩니다. */
+  setPeers: (peers: PeerPose[]) => void;
+  /** 산책자의 현재 표시 위치 (보간 중인 좌표). 터치 영역 마커를 맞추는 데 사용 */
+  getPeerLngLat: (id: string) => [number, number] | null;
+  /** 감정 표현 재생. face를 주면 그 좌표를 바라본 채로 재생합니다. (self의 방향은 호출 측이 pose로 제어) */
+  playEmote: (
+    target: "self" | string,
+    emote: EmoteId,
+    face?: [number, number] | null,
+  ) => void;
+  setPalette: (palette: AvatarPalette) => void;
   /** 마지막으로 그려진 아바타의 화면 위치. 아직 그려지지 않았으면 null */
   getScreenRect: () => AvatarScreenRect | null;
   /** true면 지도 repaint를 약 30fps로 제한 (인트로처럼 지도가 가려져 있을 때 GPU 절약) */
   setLowPower: (v: boolean) => void;
 };
 
+type EmoteState = { id: EmoteId; t: number };
+
+type Actor = {
+  rig: Rig;
+  phase: number;
+  walkBlend: number;
+  runBlend: number;
+  clock: number;
+  emote: EmoteState | null;
+};
+
+type PeerActor = Actor & {
+  id: string;
+  shown: [number, number];
+  target: [number, number];
+  moveSpeed: number;
+  heading: number;
+  headingShown: number;
+  face: [number, number] | null;
+  faceUntil: number;
+  fade: number;
+  leaving: boolean;
+};
+
+const MAX_PEERS = 8;
+const PEER_OPACITY = 0.58;
+const PEER_SCALE = 0.94;
+
+function metersBetween(a: [number, number], b: [number, number]) {
+  const R = 6371000;
+  const toRad = (d: number) => (d * Math.PI) / 180;
+  const dLat = toRad(b[1] - a[1]);
+  const dLng = toRad(b[0] - a[0]);
+  const s =
+    Math.sin(dLat / 2) ** 2 +
+    Math.cos(toRad(a[1])) * Math.cos(toRad(b[1])) * Math.sin(dLng / 2) ** 2;
+  return 2 * R * Math.asin(Math.sqrt(s));
+}
+
+function bearingDeg(a: [number, number], b: [number, number]) {
+  const toRad = (d: number) => (d * Math.PI) / 180;
+  const y = Math.sin(toRad(b[0] - a[0])) * Math.cos(toRad(b[1]));
+  const x =
+    Math.cos(toRad(a[1])) * Math.sin(toRad(b[1])) -
+    Math.sin(toRad(a[1])) * Math.cos(toRad(b[1])) * Math.cos(toRad(b[0] - a[0]));
+  return ((Math.atan2(y, x) * 180) / Math.PI + 360) % 360;
+}
+
+function angleDelta(from: number, to: number) {
+  return ((((to - from) % 360) + 540) % 360) - 180;
+}
+
+function newActor(): Actor {
+  return {
+    rig: buildRig(),
+    phase: 0,
+    walkBlend: 0,
+    runBlend: 0,
+    clock: Math.random() * 10,
+    emote: null,
+  };
+}
+
+function tint(rig: Rig, color: string) {
+  rig.bodyMat.color.set(color);
+  rig.bodyMat.emissive.set(color);
+  rig.xrayMat.color.set(color);
+}
+
+/** 걷기/달리기/숨쉬기 기본 모션 */
+function animateBase(actor: Actor, dt: number, speed: number) {
+  const { rig } = actor;
+  actor.clock += dt;
+  const clock = actor.clock;
+
+  const targetWalk = clamp((speed - 0.12) / 0.8, 0, 1);
+  const targetRun = clamp((speed - 2.3) / 1.8, 0, 1);
+  actor.walkBlend += (targetWalk - actor.walkBlend) * Math.min(1, dt * 6);
+  actor.runBlend += (targetRun - actor.runBlend) * Math.min(1, dt * 4.5);
+
+  const w = actor.walkBlend;
+  const r = actor.runBlend;
+
+  if (w > 0.03) {
+    const eff = Math.max(speed, 0.8);
+    const stepLen = clamp(0.4 + 0.16 * eff, 0.45, 1.1);
+    const cyclesPerSec = eff / (2 * stepLen);
+    actor.phase += Math.PI * 2 * cyclesPerSec * dt;
+  }
+
+  const phase = actor.phase;
+  const s = Math.sin(phase);
+  const sR = Math.sin(phase + Math.PI);
+  const c = Math.cos(phase);
+  const cR = Math.cos(phase + Math.PI);
+  const c2 = Math.cos(phase * 2);
+
+  const legAmp = lerp(0.5, 0.9, r) * w;
+  const kneeAmp = lerp(0.35, 1.45, r) * w;
+  // 통통한 몸통에 팔이 끼지 않도록 흔드는 폭을 약간 줄임
+  const armAmp = lerp(0.4, 0.8, r) * w;
+
+  rig.legL.rotation.x = -legAmp * s;
+  rig.legR.rotation.x = -legAmp * sR;
+  rig.kneeL.rotation.x = 0.05 * w + kneeAmp * Math.max(0, c);
+  rig.kneeR.rotation.x = 0.05 * w + kneeAmp * Math.max(0, cR);
+
+  rig.armL.rotation.x = armAmp * s;
+  rig.armR.rotation.x = armAmp * sR;
+
+  // 통통한 배를 피해 팔이 살짝 벌어져 내려옴
+  const idleSway = (1 - w) * 0.03 * Math.sin(clock * 1.6);
+  rig.armL.rotation.z = 0.22 + idleSway;
+  rig.armR.rotation.z = -0.22 - idleSway;
+
+  const elbow = 0.1 + w * 0.2 + r * w * 1.05;
+  rig.elbowL.rotation.x = -elbow;
+  rig.elbowR.rotation.x = -elbow;
+
+  rig.hips.rotation.y = -0.1 * w * s;
+  rig.torso.rotation.y = 0.14 * w * s * (1 + r * 0.5);
+  rig.torso.rotation.x = 0.03 * w + 0.22 * r * w;
+
+  const bounce = lerp(0.03, -0.05, r) * w * c2;
+  rig.body.position.y = bounce - 0.035 * r * w;
+
+  const breathe = (1 - w) * 0.016 * Math.sin(clock * 2.1);
+  rig.torso.scale.set(1 + breathe * 0.5, 1 + breathe, 1);
+  rig.head.rotation.y = (1 - w) * 0.3 * Math.sin(clock * 0.55);
+  rig.head.rotation.z = (1 - w) * 0.07 * Math.sin(clock * 0.8) + 0.05 * w * s;
+  rig.head.rotation.x =
+    (1 - w) * 0.04 * Math.sin(clock * 0.9) + 0.04 * r * w - 0.04 * w * c2;
+}
+
+/**
+ * 감정 표현을 기본 모션 위에 겹칩니다. (걷기 시작하면 자연스럽게 풀림)
+ * 좌표 기준: 팔 rotation.z 는 몸 옆으로 들어 올리는 방향(왼팔 +, 오른팔 -),
+ * rotation.x 는 음수가 앞쪽, 몸통 rotation.x 는 양수가 앞으로 숙임.
+ */
+function animateEmote(actor: Actor, dt: number) {
+  const emote = actor.emote;
+  if (!emote) return;
+
+  emote.t += dt;
+  const dur = EMOTE_SECONDS[emote.id];
+  if (emote.t >= dur) {
+    actor.emote = null;
+    return;
+  }
+
+  const { rig } = actor;
+  const t = emote.t;
+  const k =
+    smooth(clamp(t / 0.42, 0, 1)) *
+    (1 - smooth(clamp((t - (dur - 0.5)) / 0.5, 0, 1))) *
+    (1 - actor.walkBlend);
+  if (k <= 0.001) return;
+
+  const to = (obj: THREE.Object3D, axis: "x" | "y" | "z", value: number) => {
+    obj.rotation[axis] = lerp(obj.rotation[axis], value, k);
+  };
+
+  switch (emote.id) {
+    case "wave": {
+      // 한 손을 높이 들어 좌우로 흔듦
+      const swing = Math.sin(t * 9.5);
+      to(rig.armR, "z", -2.55 + 0.32 * swing);
+      to(rig.armR, "x", -0.12);
+      to(rig.elbowR, "x", -0.28 - 0.14 * swing);
+      to(rig.head, "z", -0.1);
+      to(rig.head, "y", 0);
+      to(rig.torso, "y", 0.08 * Math.sin(t * 4.75));
+      break;
+    }
+    case "talk": {
+      // 두 손을 앞으로 들어 번갈아 움직이며 말하는 듯한 몸짓
+      const a = Math.sin(t * 5.2);
+      const b = Math.sin(t * 4.1 + 1.3);
+      to(rig.armL, "x", -0.62 + 0.22 * a);
+      to(rig.armR, "x", -0.78 + 0.26 * b);
+      to(rig.armL, "z", 0.34);
+      to(rig.armR, "z", -0.3);
+      to(rig.elbowL, "x", -1.2 - 0.3 * b);
+      to(rig.elbowR, "x", -1.05 - 0.34 * a);
+      to(rig.head, "x", 0.07 * Math.sin(t * 6.4));
+      to(rig.head, "y", 0.14 * Math.sin(t * 2.2));
+      to(rig.torso, "y", 0.06 * Math.sin(t * 2.2));
+      to(rig.torso, "x", 0.05);
+      break;
+    }
+    case "bow": {
+      // 허리를 천천히 숙였다 일어나는 인사
+      to(rig.torso, "x", 0.74);
+      to(rig.head, "x", 0.22);
+      to(rig.head, "y", 0);
+      to(rig.head, "z", 0);
+      to(rig.armL, "z", 0.14);
+      to(rig.armR, "z", -0.14);
+      to(rig.armL, "x", 0.08);
+      to(rig.armR, "x", 0.08);
+      break;
+    }
+    case "clap": {
+      // 가슴 앞에서 손뼉
+      const beat = Math.abs(Math.sin(t * 10));
+      to(rig.armL, "x", -0.98);
+      to(rig.armR, "x", -0.98);
+      to(rig.armL, "z", -0.2 - 0.3 * beat);
+      to(rig.armR, "z", 0.2 + 0.3 * beat);
+      to(rig.elbowL, "x", -0.95);
+      to(rig.elbowR, "x", -0.95);
+      to(rig.head, "x", -0.05);
+      to(rig.head, "y", 0);
+      rig.body.position.y += 0.012 * beat * k;
+      break;
+    }
+    case "cheer": {
+      // 두 팔을 번쩍 들고 가볍게 뜀
+      const hop = Math.abs(Math.sin(t * 6.4));
+      const sway = Math.sin(t * 6.4);
+      to(rig.armL, "z", 2.6 + 0.16 * sway);
+      to(rig.armR, "z", -2.6 + 0.16 * sway);
+      to(rig.armL, "x", -0.1);
+      to(rig.armR, "x", -0.1);
+      to(rig.elbowL, "x", -0.2);
+      to(rig.elbowR, "x", -0.2);
+      to(rig.head, "x", -0.16);
+      to(rig.head, "y", 0);
+      to(rig.kneeL, "x", 0.22 * (1 - hop));
+      to(rig.kneeR, "x", 0.22 * (1 - hop));
+      to(rig.legL, "x", -0.1 * (1 - hop));
+      to(rig.legR, "x", -0.1 * (1 - hop));
+      rig.body.position.y += 0.1 * hop * k;
+      break;
+    }
+  }
+}
+
 export function createAvatarLayer(id = "san-avatar-3d"): AvatarLayerHandle {
   let pose: AvatarPose | null = null;
 
   let map: maplibregl.Map | null = null;
   let renderer: THREE.WebGLRenderer | null = null;
-  let rig: Rig | null = null;
+  let self: Actor | null = null;
+  const peers = new Map<string, PeerActor>();
+  let pendingPeers: PeerPose[] = [];
+  let palette: AvatarPalette = { self: "#6b6a4f", peer: "#a9a68a" };
+  const pendingEmotes: Array<{
+    target: "self" | string;
+    emote: EmoteId;
+    face: [number, number] | null;
+  }> = [];
+
   const scene = new THREE.Scene();
   const camera = new THREE.Camera();
   const rotX = new THREE.Matrix4().makeRotationX(Math.PI / 2);
 
-  let phase = 0;
-  let walkBlend = 0;
-  let runBlend = 0;
   let lastTime = performance.now();
-  let clock = 0;
-
   let screenRect: AvatarScreenRect | null = null;
   let bounds = { minY: 0, maxY: 1 };
 
   let lowPower = false;
   let repaintTimer = 0;
 
-  function animate(dt: number, speed: number) {
-    if (!rig) return;
-    clock += dt;
+  function disposeActor(actor: Actor) {
+    scene.remove(actor.rig.root);
+    actor.rig.disposables.forEach((d) => d.dispose());
+  }
 
-    const targetWalk = clamp((speed - 0.12) / 0.8, 0, 1);
-    const targetRun = clamp((speed - 2.3) / 1.8, 0, 1);
-    walkBlend += (targetWalk - walkBlend) * Math.min(1, dt * 6);
-    runBlend += (targetRun - runBlend) * Math.min(1, dt * 4.5);
+  function syncPeers() {
+    if (!renderer) return;
+    const wanted = new Map(pendingPeers.slice(0, MAX_PEERS).map((p) => [p.id, p]));
 
-    const w = walkBlend;
-    const r = runBlend;
-
-    if (w > 0.03) {
-      const eff = Math.max(speed, 0.8);
-      const stepLen = clamp(0.4 + 0.16 * eff, 0.45, 1.1);
-      const cyclesPerSec = eff / (2 * stepLen);
-      phase += Math.PI * 2 * cyclesPerSec * dt;
+    for (const actor of peers.values()) {
+      if (!wanted.has(actor.id)) actor.leaving = true;
     }
 
-    const s = Math.sin(phase);
-    const sR = Math.sin(phase + Math.PI);
-    const c = Math.cos(phase);
-    const cR = Math.cos(phase + Math.PI);
-    const c2 = Math.cos(phase * 2);
+    for (const next of wanted.values()) {
+      const existing = peers.get(next.id);
+      if (existing) {
+        existing.leaving = false;
+        const moved = metersBetween(existing.target, next.lngLat);
+        if (moved > 0.5) {
+          existing.target = next.lngLat;
+          const gap = metersBetween(existing.shown, next.lngLat);
+          if (gap > 400) {
+            existing.shown = next.lngLat;
+          } else {
+            // 듬성듬성 들어오는 위치를 걸음 속도로 이어 붙임
+            existing.moveSpeed = clamp(gap / 5, 1.1, 5);
+          }
+        }
+        continue;
+      }
 
-    const legAmp = lerp(0.5, 0.9, r) * w;
-    const kneeAmp = lerp(0.35, 1.45, r) * w;
-    // 통통한 몸통에 팔이 끼지 않도록 흔드는 폭을 약간 줄임
-    const armAmp = lerp(0.4, 0.8, r) * w;
+      const base = newActor();
+      base.rig.bodyMat.transparent = true;
+      base.rig.bodyMat.opacity = 0;
+      base.rig.xrayMat.opacity = 0;
+      base.rig.root.visible = false;
+      tint(base.rig, palette.peer);
+      scene.add(base.rig.root);
+      peers.set(next.id, {
+        ...base,
+        id: next.id,
+        shown: next.lngLat,
+        target: next.lngLat,
+        moveSpeed: 0,
+        heading: Math.random() * 360,
+        headingShown: Math.random() * 360,
+        face: null,
+        faceUntil: 0,
+        fade: 0,
+        leaving: false,
+      });
+    }
+  }
 
-    rig.legL.rotation.x = -legAmp * s;
-    rig.legR.rotation.x = -legAmp * sR;
-    rig.kneeL.rotation.x = 0.05 * w + kneeAmp * Math.max(0, c);
-    rig.kneeR.rotation.x = 0.05 * w + kneeAmp * Math.max(0, cR);
-
-    rig.armL.rotation.x = armAmp * s;
-    rig.armR.rotation.x = armAmp * sR;
-
-    // 통통한 배를 피해 팔이 살짝 벌어져 내려옴
-    const idleSway = (1 - w) * 0.03 * Math.sin(clock * 1.6);
-    rig.armL.rotation.z = 0.22 + idleSway;
-    rig.armR.rotation.z = -0.22 - idleSway;
-
-    const elbow = 0.1 + w * 0.2 + r * w * 1.05;
-    rig.elbowL.rotation.x = -elbow;
-    rig.elbowR.rotation.x = -elbow;
-
-    rig.hips.rotation.y = -0.1 * w * s;
-    rig.torso.rotation.y = 0.14 * w * s * (1 + r * 0.5);
-    rig.torso.rotation.x = 0.03 * w + 0.22 * r * w;
-
-    const bounce = lerp(0.03, -0.05, r) * w * c2;
-    rig.body.position.y = bounce - 0.035 * r * w;
-
-    const breathe = (1 - w) * 0.016 * Math.sin(clock * 2.1);
-    rig.torso.scale.set(1 + breathe * 0.5, 1 + breathe, 1);
-    rig.head.rotation.y = (1 - w) * 0.3 * Math.sin(clock * 0.55);
-    rig.head.rotation.z = (1 - w) * 0.07 * Math.sin(clock * 0.8) + 0.05 * w * s;
-    rig.head.rotation.x =
-      (1 - w) * 0.04 * Math.sin(clock * 0.9) + 0.04 * r * w - 0.04 * w * c2;
+  function startEmote(
+    target: "self" | string,
+    emote: EmoteId,
+    face: [number, number] | null,
+  ) {
+    if (target === "self") {
+      if (self) self.emote = { id: emote, t: 0 };
+      return;
+    }
+    const actor = peers.get(target);
+    if (!actor) return;
+    actor.emote = { id: emote, t: 0 };
+    if (face) {
+      actor.face = face;
+      actor.faceUntil = performance.now() + (EMOTE_SECONDS[emote] + 1.6) * 1000;
+    }
   }
 
   const layer: maplibregl.CustomLayerInterface = {
@@ -506,41 +800,44 @@ export function createAvatarLayer(id = "san-avatar-3d"): AvatarLayerHandle {
       });
       renderer.autoClear = false;
 
-      rig = buildRig();
-      scene.add(rig.root);
+      self = newActor();
+      tint(self.rig, palette.self);
+      scene.add(self.rig.root);
 
       // 화면 위치 계산용: 모델 단위에서 몸이 차지하는 세로 범위
-      const box = new THREE.Box3().setFromObject(rig.root, true);
+      const box = new THREE.Box3().setFromObject(self.rig.root, true);
       bounds = { minY: box.min.y, maxY: box.max.y };
 
-      // 모두 흰색 조명 (색 조명은 흰색을 탁하게 만들기 때문)
-      scene.add(new THREE.HemisphereLight(0xffffff, 0xeef2fb, 2.0));
+      // 무채색 조명 (색 조명은 톤을 탁하게 만들기 때문)
+      scene.add(new THREE.HemisphereLight(0xffffff, 0xf2efe6, 1.5));
 
-      const key = new THREE.DirectionalLight(0xffffff, 2.2);
+      const key = new THREE.DirectionalLight(0xffffff, 1.5);
       key.position.set(2.5, 6, 5);
       scene.add(key);
 
-      const fill = new THREE.DirectionalLight(0xffffff, 1.0);
+      const fill = new THREE.DirectionalLight(0xffffff, 0.7);
       fill.position.set(-4, 3, 2);
       scene.add(fill);
 
-      const back = new THREE.DirectionalLight(0xffffff, 0.8);
-      back.position.set(0, 4, -5);
-      scene.add(back);
+      syncPeers();
+      for (const item of pendingEmotes.splice(0)) {
+        startEmote(item.target, item.emote, item.face);
+      }
     },
 
     render(gl, args: unknown) {
-      if (!map || !renderer || !rig) return;
+      if (!map || !renderer || !self) return;
 
       const now = performance.now();
       const dt = Math.min((now - lastTime) / 1000, 0.1);
       lastTime = now;
 
       if (!pose) {
-        rig.root.visible = false;
+        self.rig.root.visible = false;
+        for (const actor of peers.values()) actor.rig.root.visible = false;
         return;
       }
-      rig.root.visible = true;
+      self.rig.root.visible = true;
 
       // MapLibre 5: { defaultProjectionData: { mainMatrix } }, 4.x: 행렬 배열
       const a = args as
@@ -553,7 +850,8 @@ export function createAvatarLayer(id = "san-avatar-3d"): AvatarLayerHandle {
           : (a as ArrayLike<number>);
       if (!matrix) return;
 
-      animate(dt, pose.speedMps);
+      animateBase(self, dt, pose.speedMps);
+      animateEmote(self, dt);
 
       const [lng, lat] = pose.lngLat;
       const mc = maplibregl.MercatorCoordinate.fromLngLat({ lng, lat }, 0);
@@ -565,8 +863,63 @@ export function createAvatarLayer(id = "san-avatar-3d"): AvatarLayerHandle {
       const unit = (SCREEN_HEIGHT_PX * metersPerPixel) / CHAR_HEIGHT;
 
       // 모델 앞(+Z)이 남쪽을 향하는 기준 → 북쪽 기준 방위로 환산
-      rig.root.rotation.y = Math.PI - (pose.headingDeg * Math.PI) / 180;
-      rig.root.scale.setScalar(unit);
+      self.rig.root.position.set(0, 0, 0);
+      self.rig.root.rotation.y = Math.PI - (pose.headingDeg * Math.PI) / 180;
+      self.rig.root.scale.setScalar(unit);
+
+      // ---- 근처 산책자: 내 위치를 원점으로 한 미터 좌표에 배치 ----
+      for (const actor of peers.values()) {
+        const gap = metersBetween(actor.shown, actor.target);
+        let speed = 0;
+
+        if (gap > 0.6 && actor.moveSpeed > 0) {
+          const step = Math.min(gap, actor.moveSpeed * dt);
+          const f = step / gap;
+          actor.heading = bearingDeg(actor.shown, actor.target);
+          actor.shown = [
+            actor.shown[0] + (actor.target[0] - actor.shown[0]) * f,
+            actor.shown[1] + (actor.target[1] - actor.shown[1]) * f,
+          ];
+          speed = actor.moveSpeed;
+        } else if (actor.face && now < actor.faceUntil) {
+          actor.heading = bearingDeg(actor.shown, actor.face);
+        }
+
+        actor.headingShown =
+          (actor.headingShown +
+            angleDelta(actor.headingShown, actor.heading) *
+              (1 - Math.exp(-dt / 0.22)) +
+            360) %
+          360;
+
+        animateBase(actor, dt, speed);
+        animateEmote(actor, dt);
+
+        // 범위에 들어오면 서서히 나타나고, 벗어나면 서서히 옅어짐
+        const fadeTarget = actor.leaving ? 0 : 1;
+        actor.fade += (fadeTarget - actor.fade) * Math.min(1, dt * 1.8);
+        actor.rig.bodyMat.opacity = PEER_OPACITY * actor.fade;
+        actor.rig.xrayMat.opacity = 0.22 * actor.fade;
+
+        if (actor.leaving && actor.fade < 0.02) {
+          disposeActor(actor);
+          peers.delete(actor.id);
+          continue;
+        }
+
+        const pc = maplibregl.MercatorCoordinate.fromLngLat(
+          { lng: actor.shown[0], lat: actor.shown[1] },
+          0,
+        );
+        actor.rig.root.visible = true;
+        actor.rig.root.position.set(
+          (pc.x - mc.x) / meterUnit,
+          0,
+          (pc.y - mc.y) / meterUnit,
+        );
+        actor.rig.root.rotation.y = Math.PI - (actor.headingShown * Math.PI) / 180;
+        actor.rig.root.scale.setScalar(unit * PEER_SCALE);
+      }
 
       const l = new THREE.Matrix4()
         .makeTranslation(mc.x, mc.y, mc.z)
@@ -619,9 +972,11 @@ export function createAvatarLayer(id = "san-avatar-3d"): AvatarLayerHandle {
         window.clearTimeout(repaintTimer);
         repaintTimer = 0;
       }
-      rig?.disposables.forEach((d) => d.dispose());
+      if (self) disposeActor(self);
+      for (const actor of peers.values()) disposeActor(actor);
+      peers.clear();
       renderer?.dispose();
-      rig = null;
+      self = null;
       renderer = null;
       map = null;
       screenRect = null;
@@ -632,6 +987,28 @@ export function createAvatarLayer(id = "san-avatar-3d"): AvatarLayerHandle {
     layer,
     update(next) {
       pose = next;
+      map?.triggerRepaint();
+    },
+    setPeers(next) {
+      pendingPeers = next;
+      syncPeers();
+      map?.triggerRepaint();
+    },
+    getPeerLngLat(peerId) {
+      return peers.get(peerId)?.shown ?? null;
+    },
+    playEmote(target, emote, face = null) {
+      if (!renderer) {
+        pendingEmotes.push({ target, emote, face });
+        return;
+      }
+      startEmote(target, emote, face);
+      map?.triggerRepaint();
+    },
+    setPalette(next) {
+      palette = next;
+      if (self) tint(self.rig, next.self);
+      for (const actor of peers.values()) tint(actor.rig, next.peer);
       map?.triggerRepaint();
     },
     getScreenRect: () => screenRect,

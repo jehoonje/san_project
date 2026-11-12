@@ -55,8 +55,6 @@ const INSIGHT_BATCH_SIZE = 500;
 type RequestOptions = {
   force: boolean;
   allowPartial: boolean;
-  // 통계와 마지막으로 저장된 리포트만 즉시 반환 (Gemini 호출 없음)
-  statsOnly: boolean;
 };
 
 function jsonResponse(
@@ -111,7 +109,6 @@ async function readOptions(
     force: body.force === true,
     allowPartial:
       body.allowPartial === true,
-    statsOnly: body.statsOnly === true,
   };
 }
 
@@ -326,35 +323,6 @@ export async function POST(
         places,
         insights,
       );
-
-    // 첫 화면용 빠른 응답: 비교 집계·리포트 생성 없이 통계와 직전 리포트만 돌려줌
-    if (options.statsOnly) {
-      const { data: last } = await admin
-        .from("analysis_reports")
-        .select("report, generated_at")
-        .eq("user_id", userId)
-        .maybeSingle();
-
-      let lastReport: PersonalReport | null = null;
-      try {
-        lastReport = last?.report ? sanitizeReport(last.report) : null;
-      } catch {
-        lastReport = null;
-      }
-
-      return jsonResponse({
-        status:
-          missingPlaces.length > 0
-            ? "needs_enrichment"
-            : "ready",
-        analysis: baseAnalysis,
-        comparison: emptyComparison(),
-        report: lastReport,
-        generatedAt: last?.generated_at ?? null,
-        cached: true,
-        missingPlaces,
-      });
-    }
 
     if (places.length === 0) {
       return jsonResponse({

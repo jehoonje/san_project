@@ -5,6 +5,7 @@ import * as THREE from "three";
 import gsap from "gsap";
 import WaterRippleSpinner from "./WaterRippleSpinner";
 import { sampleAvatarPoints, type AvatarScreenRect } from "@/lib/avatar3d";
+import { currentTheme, hexToRgb01, readToken } from "@/lib/themeTokens";
 
 export type BootMode = "full" | "quick";
 
@@ -33,6 +34,11 @@ type BootUniforms = {
   uBurstScale: { value: number };
   uTargetPos: { value: THREE.Vector2 };
   uTargetScale: { value: number };
+  /** 입자 색 (테마 토큰): 응축된 형태 / 번지는 원반 */
+  uInk: { value: THREE.Vector3 };
+  uInkSoft: { value: THREE.Vector3 };
+  /** 1 = 먹(가산 혼합, 빛나는 골드) / 0 = 종이(일반 혼합, 잉크 점) */
+  uGlow: { value: number };
 };
 
 /* ------------------------------ constants ------------------------------ */
@@ -129,6 +135,9 @@ uniform float uRing;
 uniform float uBurstScale;
 uniform vec2 uTargetPos;
 uniform float uTargetScale;
+uniform vec3 uInk;
+uniform vec3 uInkSoft;
+uniform float uGlow;
 
 varying vec3 vColor;
 varying float vAlpha;
@@ -189,19 +198,16 @@ void main() {
     1.0, 9.0 * uPixelRatio
   );
 
-  // ---- 색상: 원반(내부 화이트골드 -> 외곽 앰버) -> 아바타(순백/연한 푸른 화이트) ----
-  vec3 hot = vec3(1.0, 0.93, 0.72);
-  vec3 amber = vec3(0.72, 0.45, 0.08);
-  vec3 discCol = mix(hot, amber, smoothstep(0.4, 1.2, radial));
-  if (aSeed > 0.86 && aSeed < 0.93) discCol = vec3(1.0);
-
-  vec3 shapeCol = mix(vec3(0.86, 0.9, 1.0), vec3(1.0), aSeed);
+  // ---- 색상: 테마 팔레트 (종이 = 잉크, 먹 = 골드) ----
+  // 원반은 한 톤 옅게 번지고, 아바타로 응축될수록 또렷한 본색이 된다.
+  vec3 discCol = mix(uInkSoft, uInk, smoothstep(0.4, 1.2, radial));
+  vec3 shapeCol = mix(uInk, uInkSoft, aSeed * 0.35 * uGlow);
 
   vColor = mix(discCol, shapeCol, em);
 
   float twinkle = 0.6 + 0.4 * sin(uTime * (0.8 + aSeed * 1.6) + aSeed * 60.0);
   float discA = mix(0.35, 0.9, 1.0 - smoothstep(0.3, 1.1, radial));
-  vAlpha = mix(discA, 0.95, em)
+  vAlpha = mix(discA, mix(0.72, 0.95, uGlow), em)
     * mix(twinkle, 1.0, em * 0.6)
     * smoothstep(0.0, 0.4, uIntro)
     * mix(1.0, 0.75, uBlur)
@@ -242,6 +248,9 @@ function createUniforms(): BootUniforms {
     uBurstScale: { value: 1 },
     uTargetPos: { value: new THREE.Vector2(0, 0) },
     uTargetScale: { value: 1 },
+    uInk: { value: new THREE.Vector3(0.42, 0.42, 0.31) },
+    uInkSoft: { value: new THREE.Vector3(0.66, 0.65, 0.54) },
+    uGlow: { value: 0 },
   };
 }
 
@@ -513,6 +522,14 @@ export default function BootIntroScreen({
       const camera = new THREE.PerspectiveCamera(CAMERA_FOV, 1, 0.1, 50);
       camera.position.set(0, 0, CAMERA_Z);
 
+      // 새 팔레트: 종이 위에서는 잉크 점(일반 혼합), 먹 위에서는 골드 빛(가산 혼합)
+      const dark = currentTheme() === "dark";
+      uniforms.uInk.value.set(...hexToRgb01(readToken("--san-particle", "#6b6a4f")));
+      uniforms.uInkSoft.value.set(
+        ...hexToRgb01(readToken("--san-particle-soft", "#a9a68a")),
+      );
+      uniforms.uGlow.value = dark ? 1 : 0;
+
       const material = new THREE.ShaderMaterial({
         vertexShader: VERTEX_SHADER,
         fragmentShader: FRAGMENT_SHADER,
@@ -520,7 +537,7 @@ export default function BootIntroScreen({
         transparent: true,
         depthWrite: false,
         depthTest: false,
-        blending: THREE.AdditiveBlending,
+        blending: dark ? THREE.AdditiveBlending : THREE.NormalBlending,
       });
       const points = new THREE.Points(geometry, material);
       points.frustumCulled = false;
@@ -682,8 +699,8 @@ export default function BootIntroScreen({
       role="presentation"
       aria-hidden
     >
-      {/* 검은 배경: 리빌 때 페이드아웃되며 아래 지도를 드러냄 */}
-      <div ref={bgRef} className="absolute inset-0 bg-black" />
+      {/* 종이(먹) 배경: 리빌 때 페이드아웃되며 아래 지도를 드러냄 */}
+      <div ref={bgRef} className="absolute inset-0 bg-san-bg" />
 
       {/* 파티클 */}
       <div ref={hostRef} className="absolute inset-0 will-change-[opacity,transform]" />
@@ -693,7 +710,7 @@ export default function BootIntroScreen({
         ref={spinnerWrapRef}
         className="absolute inset-0 flex items-center justify-center will-change-transform"
       >
-        <WaterRippleSpinner size={96} color="white" />
+        <WaterRippleSpinner size={120} />
       </div>
     </div>
   );
