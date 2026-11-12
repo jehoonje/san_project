@@ -7,7 +7,7 @@ import * as maplibregl from "maplibre-gl";
 import "maplibre-gl/dist/maplibre-gl.css";
 
 import { dialogMotion, toastMotion } from "@/lib/motion";
-import { MAP_ATTRIBUTION, MAP_FONT, buildMapStyle, readMapPalette } from "@/lib/mapStyle";
+import { MAP_ATTRIBUTION, buildMapStyle, readMapPalette } from "@/lib/mapStyle";
 import { onThemeChange, readToken } from "@/lib/themeTokens";
 import { postToNative } from "@/lib/nativeBridge";
 import { listRoutes, type RouteOwner } from "@/lib/routeStore";
@@ -339,6 +339,63 @@ export function GlobeView({ owner, getLocation, onClose }: GlobeViewProps) {
 
     const fillIds = HEAT_LEVELS.map((item) => `heat-${item.id}-fill`);
 
+    // ── 색칠된 구역 위의 개수: HTML 라벨 (가는 모노스페이스, 작은 반투명 면) ──
+    type LabelItem = { key: string; v: number; at: [number, number] };
+    const labelCache = new Map<HeatLevel, LabelItem[]>();
+    const markers = new Map<string, maplibregl.Marker>();
+    const MAX_LABELS = 80;
+
+    const placeLabels = () => {
+      const current = levelAtZoom(map.getZoom());
+      const items = [...(labelCache.get(current) ?? [])].sort((a, b) => b.v - a.v);
+      const canvas = map.getCanvas();
+      const width = canvas.clientWidth;
+      const height = canvas.clientHeight;
+      const taken: Array<[number, number, number, number]> = [];
+      const keep = new Set<string>();
+
+      for (const item of items) {
+        if (keep.size >= MAX_LABELS) break;
+        const p = map.project(item.at);
+        if (p.x < 0 || p.y < 0 || p.x > width || p.y > height) continue;
+        // 겹치면 많이 남긴 곳부터 (나라·도·시는 구역이 적어 모두 보여줌)
+        const w = 14 + String(item.v).length * 7;
+        const box: [number, number, number, number] = [p.x - w / 2, p.y - 10, p.x + w / 2, p.y + 10];
+        const overlap = taken.some(
+          (t) => box[0] < t[2] && box[2] > t[0] && box[1] < t[3] && box[3] > t[1],
+        );
+        if (overlap && current !== "country" && current !== "sido" && current !== "city") continue;
+        taken.push(box);
+
+        const id = `${current}:${item.key}`;
+        keep.add(id);
+        let marker = markers.get(id);
+        if (!marker) {
+          const el = document.createElement("span");
+          el.className = "san-heat-count";
+          el.textContent = String(item.v);
+          el.setAttribute("aria-hidden", "true");
+          marker = new maplibregl.Marker({ element: el, anchor: "center" })
+            .setLngLat(item.at)
+            .addTo(map);
+          markers.set(id, marker);
+        }
+        // 나 ↔ 모두 전환 등으로 값이 바뀌면 숫자만 갈아끼움
+        const el = marker.getElement();
+        const text = String(item.v);
+        if (el.textContent !== text) el.textContent = text;
+      }
+
+      for (const [id, marker] of markers) {
+        if (!keep.has(id)) {
+          marker.remove();
+          markers.delete(id);
+        }
+      }
+    };
+
+    map.on("moveend", placeLabels);
+
     const paint = () => {
       const data = heatRef.current;
       // 타일이 늦게 와도 칠할 수 있도록 스타일 전체 로드가 아니라 소스 존재만 확인
@@ -346,11 +403,13 @@ export function GlobeView({ owner, getLocation, onClose }: GlobeViewProps) {
       for (const item of HEAT_LEVELS) {
         const source = map.getSource(`heat-${item.id}`) as maplibregl.GeoJSONSource | undefined;
         source?.setData(paintLevel(data, item.id));
-        const labels = map.getSource(`heat-${item.id}-labels`) as
-          | maplibregl.GeoJSONSource
-          | undefined;
-        labels?.setData(labelPoints(data, item.id));
+        labelCache.set(item.id, labelPoints(data, item.id).features.map((f) => ({
+          key: String((f.properties as { key: string }).key),
+          v: Number((f.properties as { v: number }).v) || 0,
+          at: (f.geometry as unknown as { coordinates: [number, number] }).coordinates,
+        })));
       }
+      placeLabels();
     };
 
     const addLayers = () => {
@@ -390,39 +449,6 @@ export function GlobeView({ owner, getLocation, onClose }: GlobeViewProps) {
         }
       });
 
-      // 색칠된 구역마다 총 개수: 면 위에 작은 숫자 (가독성을 위해 바탕색 테두리)
-      const ink = readToken("--san-text", "#2e3440");
-      const paper = readToken("--san-background", "#f2f2ef");
-      HEAT_LEVELS.forEach((item, index) => {
-        const id = `heat-${item.id}-labels`;
-        map.addSource(id, { type: "geojson", data: { type: "FeatureCollection", features: [] } });
-        // 단계마다 자기 줌 범위에서만 존재 (안 보이는 단계의 숫자가 자리를 차지하지 않게)
-        const minzoom = index === 0 ? 0 : item.minZoom;
-        const maxzoom = HEAT_LEVELS[index + 1]?.minZoom ?? 24;
-        map.addLayer({
-          id,
-          type: "symbol",
-          source: id,
-          minzoom,
-          maxzoom,
-          layout: {
-            "text-field": ["get", "t"],
-            "text-font": MAP_FONT,
-            "text-size": ["interpolate", ["linear"], ["zoom"], 2, 11, 10, 13],
-            "text-letter-spacing": 0.06,
-            // 나라·도·시는 구역이 적어 숫자를 모두 보여주고, 구·동은 겹치면 큰 수부터
-            "text-allow-overlap": index <= 2,
-            "text-padding": 4,
-            // 많이 남긴 곳의 숫자가 먼저 자리를 차지
-            "symbol-sort-key": ["-", 0, ["get", "v"]],
-          },
-          paint: {
-            "text-color": ink,
-            "text-halo-color": paper,
-            "text-halo-width": 1.8,
-          },
-        });
-      });
       paint();
     };
 
@@ -458,13 +484,6 @@ export function GlobeView({ owner, getLocation, onClose }: GlobeViewProps) {
           map.setPaintProperty(`heat-${item.id}-line`, "line-color", line);
         }
       }
-      for (const item of HEAT_LEVELS) {
-        const id = `heat-${item.id}-labels`;
-        if (map.getLayer(id)) {
-          map.setPaintProperty(id, "text-color", readToken("--san-text", "#2e3440"));
-          map.setPaintProperty(id, "text-halo-color", readToken("--san-background", "#f2f2ef"));
-        }
-      }
       map.setSky(sky());
     });
 
@@ -473,6 +492,8 @@ export function GlobeView({ owner, getLocation, onClose }: GlobeViewProps) {
     window.addEventListener("san-heat-ready", onData);
 
     return () => {
+      for (const marker of markers.values()) marker.remove();
+      markers.clear();
       stopTheme();
       window.removeEventListener("san-heat-ready", onData);
       observer.disconnect();
@@ -691,6 +712,36 @@ export function GlobeView({ owner, getLocation, onClose }: GlobeViewProps) {
         }
         .san-globe .maplibregl-canvas {
           outline: none;
+        }
+        /* 구역 위 개수: 가는 모노스페이스, 작은 반투명 면 위 */
+        .san-globe .san-heat-count {
+          padding: 1px 7px;
+          border-radius: 999px;
+          color: var(--san-text);
+          background: var(--san-veil);
+          font-family: var(--san-font-mono);
+          font-size: 10.5px;
+          font-weight: 400;
+          line-height: 16px;
+          letter-spacing: 0.04em;
+          font-variant-numeric: tabular-nums;
+          pointer-events: none;
+          animation: san-heat-count-in 420ms cubic-bezier(0.22, 1, 0.36, 1);
+        }
+        @keyframes san-heat-count-in {
+          from {
+            opacity: 0;
+            filter: blur(3px);
+          }
+          to {
+            opacity: 1;
+            filter: blur(0);
+          }
+        }
+        @media (prefers-reduced-motion: reduce) {
+          .san-globe .san-heat-count {
+            animation: none;
+          }
         }
       `}</style>
     </motion.div>,
