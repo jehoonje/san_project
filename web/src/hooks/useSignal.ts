@@ -11,13 +11,15 @@ import {
   makeSessionOffset,
   neighborCells,
   sanitizeEmote,
+  sanitizeKey,
   signalDistance,
   SIGNAL_RADIUS_M,
   type EmoteId,
   type SignalPresence,
 } from "@/lib/signal";
 import { SignalChannels } from "@/lib/signalChannels";
-import { saveEncounter } from "@/lib/encounters";
+import { loadEncounters, saveEncounter, setPeerKey } from "@/lib/encounters";
+import { mySignalKey } from "@/lib/signalKey";
 
 export type SignalStatus = "off" | "connecting" | "live" | "error";
 
@@ -37,6 +39,10 @@ export type Relation = {
   theirs: EmoteId | null;
   /** 서로 주고받아 교차 로그에 남긴 상태 */
   crossed: boolean;
+  /** 이 교차의 기록 id (토큰이 뒤늦게 오면 여기에 적습니다) */
+  encounterId: string | null;
+  /** 지금까지 이 상대를 스친 횟수 (토큰을 받은 뒤에만 2 이상) */
+  meetings: number;
 };
 
 export type SignalNotice = {
@@ -66,7 +72,13 @@ type Options = {
   ghost: boolean;
 };
 
-const EMPTY: Relation = { mine: null, theirs: null, crossed: false };
+const EMPTY: Relation = {
+  mine: null,
+  theirs: null,
+  crossed: false,
+  encounterId: null,
+  meetings: 1,
+};
 
 type KnownPeer = { cs: string; ch: string | null; ghost: boolean };
 
@@ -132,6 +144,10 @@ export function useSignal({
   const callSignRef = useRef(callSign);
   // 채널·타이머에서 부르는 최신 처리기 (아래에서 정의 후 갱신)
   const emoteHandlerRef = useRef<(raw: unknown) => void>(() => undefined);
+  const keyHandlerRef = useRef<(raw: unknown) => void>(() => undefined);
+  const myKeyRef = useRef<string | null>(null);
+  // 지난 교차 기록 (다시 스친 상대를 세는 데 씁니다)
+  const pastRef = useRef<Awaited<ReturnType<typeof loadEncounters>>>([]);
 
   useEffect(() => {
     regionRef.current = region;
@@ -179,16 +195,27 @@ export function useSignal({
       const owner = ownerRef.current;
       if (!peer || !owner) return false;
 
-      updateRelation(peerSid, (r) => ({ ...r, crossed: true }));
+      const encounterId = crypto.randomUUID();
+      updateRelation(peerSid, (r) => ({ ...r, crossed: true, encounterId }));
 
       void saveEncounter(owner, remoteRef.current, {
-        id: crypto.randomUUID(),
+        id: encounterId,
         peerCallSign: peer.cs,
         myEmote: relation.mine,
         peerEmote: relation.theirs,
         region: regionRef.current,
         metAt: new Date().toISOString(),
+        peerKey: null,
       });
+
+      // 교차가 이뤄진 뒤에만 내 토큰을 건넵니다 (한쪽만 인사한 상대에게는 가지 않습니다)
+      const myKey = myKeyRef.current;
+      if (myKey && !peer.ghost) {
+        managerRef.current?.sendKey(
+          { from: sid, to: peerSid, k: myKey },
+          peer.ch,
+        );
+      }
 
       pushNotice({
         id: noticeId(),
@@ -247,12 +274,71 @@ export function useSignal({
     emoteHandlerRef.current = handleEmote;
   }, [handleEmote]);
 
+  // 내 토큰과 지난 교차 기록은 신호를 켤 때 한 번만 읽습니다
+  useEffect(() => {
+    if (!active || !ownerId) return;
+    let cancelled = false;
+
+    if (remote) {
+      void mySignalKey().then((key) => {
+        if (!cancelled) myKeyRef.current = key;
+      });
+    }
+    void loadEncounters(ownerId, remote)
+      .then((list) => {
+        if (!cancelled) pastRef.current = list;
+      })
+      .catch(() => undefined);
+
+    return () => {
+      cancelled = true;
+    };
+  }, [active, ownerId, remote]);
+
+  // 교차한 상대가 보내 온 토큰: 그 기록에 적고, 몇 번째 스침인지 셉니다
+  const handleKey = useCallback(
+    (raw: unknown) => {
+      const message = sanitizeKey(raw);
+      if (!message || message.to !== sid) return;
+
+      const relation = relationsRef.current[message.from];
+      const owner = ownerRef.current;
+      if (!relation?.crossed || !relation.encounterId || !owner) return;
+
+      const before = pastRef.current.filter(
+        (item) => item.peerKey === message.k,
+      ).length;
+
+      void setPeerKey(owner, remoteRef.current, relation.encounterId, message.k);
+      pastRef.current = [
+        ...pastRef.current.filter((item) => item.id !== relation.encounterId),
+        {
+          id: relation.encounterId,
+          peerCallSign: knownRef.current.get(message.from)?.cs ?? "",
+          myEmote: relation.mine ?? "wave",
+          peerEmote: relation.theirs ?? "wave",
+          region: regionRef.current,
+          metAt: new Date().toISOString(),
+          peerKey: message.k,
+        },
+      ];
+
+      updateRelation(message.from, (r) => ({ ...r, meetings: before + 1 }));
+    },
+    [sid, updateRelation],
+  );
+
+  useEffect(() => {
+    keyHandlerRef.current = handleKey;
+  }, [handleKey]);
+
   // 채널 관리자: 신호가 켜져 있는 동안만 존재
   useEffect(() => {
     if (!active) return;
     const manager = new SignalChannels(sid, {
       onPresence: (list) => setPresence(list),
       onEmote: (payload) => emoteHandlerRef.current(payload),
+      onKey: (payload) => keyHandlerRef.current(payload),
       onOwnStatus: (status) => setOwnStatus(status),
     });
     managerRef.current = manager;

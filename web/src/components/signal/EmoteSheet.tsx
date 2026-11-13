@@ -35,8 +35,11 @@ export function EmoteSheet({ peer, relation, onEmote, onClose }: Props) {
     return () => window.removeEventListener("keydown", onKey);
   }, [onClose]);
 
+  const meetings = relation?.meetings ?? 1;
   const line = relation?.crossed
-    ? "서로 인사를 나눈 사이예요"
+    ? meetings > 1
+      ? `${meetings}번째 스침이에요`
+      : "서로 인사를 나눈 사이예요"
     : relation?.theirs
       ? `방금 ${emoteInfo(relation.theirs).got}`
       : relation?.mine

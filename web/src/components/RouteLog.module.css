@@ -182,6 +182,22 @@
   content: "";
 }
 
+/* 걷지 않은 날: 한 줄만 남은 날 */
+.noteLine .lead {
+  color: var(--log-faint);
+}
+
+.note {
+  flex: 0 1 auto;
+  min-width: 3em;
+  overflow: hidden;
+  color: var(--log-muted);
+  font-family: var(--log-sans);
+  font-size: 13px;
+  font-weight: 400;
+  text-overflow: ellipsis;
+}
+
 /* 루트 종료 줄은 또렷하게, 시작 줄은 한 톤 낮게 */
 .endLine .lead,
 .endLine .clock {

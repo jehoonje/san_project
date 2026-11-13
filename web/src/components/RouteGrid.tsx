@@ -12,6 +12,10 @@ import {
 } from "@/lib/routeStore";
 import { RouteTitleModal } from "@/components/RouteTitleModal";
 import { RouteLog } from "@/components/RouteLog";
+import { TodayNoteRow } from "@/components/TodayNoteRow";
+import { today } from "@/lib/dayNotes";
+import type { ReactNode } from "react";
+import type { DayNote } from "@/lib/dayNotes";
 import type { SavedRoute } from "@/types/route";
 
 export type RouteViewMode = "grid" | "log";
@@ -20,6 +24,16 @@ type RouteGridProps = {
   owner: RouteOwner;
   onSelect: (route: SavedRoute) => void;
   view?: RouteViewMode;
+  /** 걷지 않은 날 한 줄 (로그 보기에 섞어 보여줍니다) */
+  dayNotes?: DayNote[];
+  onSelectDay?: (day: string) => void;
+  /** 목록 위에 얹을 것 (주간 잔향) */
+  header?: ReactNode;
+  /** 오늘 적어 둔 한 줄 (오늘 걸은 기록이 없을 때만 자리를 둡니다) */
+  todayNote?: string;
+  onOpenToday?: () => void;
+  /** 목록 아래에 둘 것 (건네받은 장소) */
+  footer?: ReactNode;
 };
 
 const LONG_PRESS_MS = 600;
@@ -228,7 +242,17 @@ function DeleteRouteModal({
   );
 }
 
-export function RouteGrid({ owner, onSelect, view = "grid" }: RouteGridProps) {
+export function RouteGrid({
+  owner,
+  onSelect,
+  view = "grid",
+  dayNotes = [],
+  onSelectDay,
+  header,
+  footer,
+  todayNote = "",
+  onOpenToday,
+}: RouteGridProps) {
   const ownerKey = owner.kind === "user" ? owner.userId : "guest";
   const reducedMotion = useReducedMotion();
   const [routes, setRoutes] = useState<SavedRoute[]>([]);
@@ -402,15 +426,41 @@ export function RouteGrid({ owner, onSelect, view = "grid" }: RouteGridProps) {
     );
   }
 
-  if (!routes.length) {
+  // 오늘 걸은 기록이 있으면 한 줄 자리는 두지 않습니다
+  const walkedToday = routes.some(
+    (route) =>
+      new Date(
+        new Date(route.started_at ?? route.created_at).getTime() + 9 * 3600 * 1000,
+      )
+        .toISOString()
+        .slice(0, 10) === today(),
+  );
+
+  const head = (
+    <>
+      {header}
+      {!walkedToday && onOpenToday && (
+        <TodayNoteRow note={todayNote} onOpen={onOpenToday} />
+      )}
+    </>
+  );
+
+  if (!routes.length && dayNotes.length === 0) {
     return (
-      <div className="flex h-full flex-col items-center justify-center px-8 pb-24 text-center">
-        <span className="san-ripples" style={{ ["--size" as string]: "96px" }}>
-          <i />
-          <i />
-          <i />
-        </span>
-        <p className="mt-8 text-[14px] text-san-text">저장된 루트가 없어요</p>
+      <div
+        className="san-no-scrollbar h-full overflow-y-auto overscroll-contain"
+        style={{ paddingBottom: "calc(env(safe-area-inset-bottom, 0px) + 108px)" }}
+      >
+        {head}
+        <div className="flex flex-col items-center px-8 py-16 text-center">
+          <span className="san-ripples" style={{ ["--size" as string]: "96px" }}>
+            <i />
+            <i />
+            <i />
+          </span>
+          <p className="mt-8 text-[14px] text-san-text">저장된 루트가 없어요</p>
+        </div>
+        {footer}
       </div>
     );
   }
@@ -422,7 +472,14 @@ export function RouteGrid({ owner, onSelect, view = "grid" }: RouteGridProps) {
         className="h-full"
         {...screenMotion(reducedMotion)}
       >
-        <RouteLog routes={routes} onSelect={onSelect} />
+        <RouteLog
+          routes={routes}
+          onSelect={onSelect}
+          dayNotes={dayNotes}
+          onSelectDay={onSelectDay}
+          header={head}
+          footer={footer}
+        />
       </motion.div>
     );
   }
@@ -451,6 +508,8 @@ export function RouteGrid({ owner, onSelect, view = "grid" }: RouteGridProps) {
           </button>
         </div>
       )}
+
+      {head}
 
       <div className="mx-auto grid max-w-3xl grid-cols-2 content-start gap-3 p-4 sm:grid-cols-3 md:gap-4 md:p-6">
         {routes.map((route, index) => (
@@ -534,6 +593,8 @@ export function RouteGrid({ owner, onSelect, view = "grid" }: RouteGridProps) {
           </motion.article>
         ))}
       </div>
+
+      {footer}
 
       {typeof document !== "undefined" &&
         createPortal(

@@ -12,6 +12,11 @@ export type Encounter = {
   peerEmote: EmoteId;
   region: string | null;
   metAt: string;
+  /**
+   * 상대의 재식별 토큰.
+   * 양쪽이 인사를 주고받은 뒤에만 건네받습니다. 같은 토큰이 다시 보이면 다시 스친 것입니다.
+   */
+  peerKey: string | null;
 };
 
 const LOCAL_PREFIX = "san-encounters-v2:";
@@ -28,6 +33,7 @@ type Row = {
   peer_emote: string | null;
   region: string | null;
   met_at: string;
+  peer_key: string | null;
 };
 
 function fromRow(row: Row): Encounter {
@@ -38,6 +44,7 @@ function fromRow(row: Row): Encounter {
     peerEmote: isEmoteId(row.peer_emote) ? row.peer_emote : "wave",
     region: row.region,
     metAt: row.met_at,
+    peerKey: row.peer_key,
   };
 }
 
@@ -49,6 +56,7 @@ function toRow(e: Encounter) {
     peer_emote: e.peerEmote,
     region: e.region,
     met_at: e.metAt,
+    peer_key: e.peerKey,
   };
 }
 
@@ -100,7 +108,7 @@ export async function loadEncounters(
 
   const { data, error } = await supabase
     .from("encounters")
-    .select("id, peer_call_sign, my_emote, peer_emote, region, met_at")
+    .select("id, peer_call_sign, my_emote, peer_emote, region, met_at, peer_key")
     .order("met_at", { ascending: false })
     .limit(MAX_LOCAL);
 
@@ -140,4 +148,44 @@ export async function saveEncounter(
 export function onEncountersChange(listener: () => void) {
   window.addEventListener(EVENT, listener);
   return () => window.removeEventListener(EVENT, listener);
+}
+
+/**
+ * 교차 뒤에 건네받은 상대 토큰을 그 기록에 적습니다.
+ * (교차가 이뤄진 순간에는 아직 토큰이 오기 전입니다)
+ */
+export async function setPeerKey(
+  ownerId: string,
+  remote: boolean,
+  encounterId: string,
+  peerKey: string,
+) {
+  const local = readLocal(ownerId);
+  const found = local.find((item) => item.id === encounterId);
+  if (found) {
+    writeLocal(
+      ownerId,
+      sortDesc(
+        local.map((item) =>
+          item.id === encounterId ? { ...item, peerKey } : item,
+        ),
+      ),
+    );
+    window.dispatchEvent(new CustomEvent(EVENT));
+  }
+
+  if (!remote || remoteAvailable === false) return;
+  const { error } = await supabase
+    .from("encounters")
+    .update({ peer_key: peerKey })
+    .eq("id", encounterId);
+  if (error && !isMissingTable(error)) {
+    console.error("재식별 토큰 저장 실패:", error);
+  }
+}
+
+/** 이 토큰의 상대를 지금까지 몇 번 스쳤는지 (이번 것 포함) */
+export function meetingCount(list: Encounter[], peerKey: string | null) {
+  if (!peerKey) return 1;
+  return Math.max(1, list.filter((item) => item.peerKey === peerKey).length);
 }

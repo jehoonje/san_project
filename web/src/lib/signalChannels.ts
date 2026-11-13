@@ -13,6 +13,8 @@ import {
 type Hooks = {
   onPresence: (list: SignalPresence[]) => void;
   onEmote: (payload: unknown) => void;
+  /** 교차한 상대가 보내 온 재식별 토큰 */
+  onKey: (payload: unknown) => void;
   onOwnStatus: (status: "live" | "connecting" | "error") => void;
 };
 
@@ -69,12 +71,20 @@ export class SignalChannels {
     }
   }
 
+  sendKey(payload: unknown, cell?: string | null) {
+    this.broadcast("key", payload, cell);
+  }
+
   sendEmote(payload: unknown, cell?: string | null) {
+    this.broadcast("emote", payload, cell);
+  }
+
+  private broadcast(event: "emote" | "key", payload: unknown, cell?: string | null) {
     const target = cell ? this.channels.get(cell) : undefined;
     const list = target ? [target] : [...this.channels.values()];
     for (const channel of list) {
       if (channel.state !== "joined") continue;
-      void channel.send({ type: "broadcast", event: "emote", payload });
+      void channel.send({ type: "broadcast", event, payload });
     }
   }
 
@@ -100,6 +110,9 @@ export class SignalChannels {
       .on("presence", { event: "sync" }, () => this.emitPresence())
       .on("broadcast", { event: "emote" }, ({ payload }) =>
         this.hooks.onEmote(payload),
+      )
+      .on("broadcast", { event: "key" }, ({ payload }) =>
+        this.hooks.onKey(payload),
       )
       .subscribe((status) => {
         if (this.destroyed || this.channels.get(cell) !== channel) return;

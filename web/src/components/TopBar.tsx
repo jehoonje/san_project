@@ -87,6 +87,9 @@ export function TopBar({
   viewToggle = null,
 }: TopBarProps) {
   const reduce = useReducedMotion();
+  // 오른쪽에 놓이는 버튼 수만큼 제목이 쓸 수 있는 너비가 줄어듭니다
+  const rightSlots = (viewToggle ? 1 : 0) + 1;
+
   const swap = reduce
     ? { duration: 0 }
     : { duration: 0.36, ease: EASE_AMBIENT };
@@ -120,9 +123,10 @@ export function TopBar({
           animate={{ opacity: 1, filter: "blur(0px)" }}
           exit={{ opacity: 0, filter: "blur(6px)" }}
           transition={swap}
-          className={`absolute left-1/2 m-0 flex -translate-x-1/2 items-center gap-2 ${
-            viewToggle ? "max-w-[calc(100vw-252px)]" : "max-w-[56vw]"
-          }`}
+          className="absolute left-1/2 m-0 flex -translate-x-1/2 items-center gap-2"
+          style={{
+            maxWidth: `calc(100vw - ${96 + rightSlots * 54}px)`,
+          }}
         >
           <span className="san-eyebrow truncate">{title}</span>
         </motion.p>

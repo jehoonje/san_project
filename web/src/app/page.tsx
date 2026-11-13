@@ -25,6 +25,11 @@ import { SideDrawer } from "@/components/SideDrawer";
 import { RegionOverview } from "@/components/RegionOverview";
 import { RouteGrid, type RouteViewMode } from "@/components/RouteGrid";
 import { GlobeView } from "@/components/GlobeView";
+import { CircleSheet } from "@/components/circle/CircleSheet";
+import { HandoverSheet, type HandoverTarget } from "@/components/HandoverSheet";
+import { ReceivedPlaces, ReceivedList } from "@/components/ReceivedPlaces";
+import { WeeklyEchoCard } from "@/components/WeeklyEchoCard";
+import { DayNoteModal } from "@/components/DayNoteModal";
 import { RouteViewer } from "@/components/RouteViewer";
 import { RouteTitleModal } from "@/components/RouteTitleModal";
 import {
@@ -39,6 +44,17 @@ import { usePlaceLocation } from "@/hooks/usePlaceLocation";
 import { useSession } from "@/hooks/useSession";
 import { useSignal } from "@/hooks/useSignal";
 import { isDevPanelEnabled } from "@/lib/devLocation";
+import { useWhisper } from "@/hooks/useWhisper";
+import { circleMates, listCircles, onCirclesChange, type Circle } from "@/lib/circles";
+import {
+  deleteDayNote,
+  listDayNotes,
+  onDayNotesChange,
+  saveDayNote,
+  today,
+  type DayNote,
+} from "@/lib/dayNotes";
+import type { Handover } from "@/lib/handovers";
 
 import { makePlaceKey } from "@/lib/placeKey";
 import { supabase } from "@/lib/supabaseClient";
@@ -159,6 +175,11 @@ export default function Home() {
 
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [globeOpen, setGlobeOpen] = useState(false);
+  const [circlesOpen, setCirclesOpen] = useState(false);
+  const [circles, setCircles] = useState<Circle[]>([]);
+  const [handover, setHandover] = useState<HandoverTarget | null>(null);
+  const [dayNotes, setDayNotes] = useState<DayNote[]>([]);
+  const [noteDay, setNoteDay] = useState<string | null>(null);
   const [selectedRoute, setSelectedRoute] = useState<SavedRoute | null>(null);
   const [viewerOpen, setViewerOpen] = useState(false);
   const [analysisOpen, setAnalysisOpen] = useState(false);
@@ -188,6 +209,37 @@ export default function Home() {
       return next;
     });
   }
+
+  // 서클과 걷지 않은 날 한 줄
+  useEffect(() => {
+    if (!userId) {
+      queueMicrotask(() => setCircles([]));
+      return;
+    }
+    const load = () =>
+      listCircles()
+        .then(setCircles)
+        .catch(() => setCircles([]));
+    void load();
+    return onCirclesChange(load);
+  }, [userId]);
+
+  useEffect(() => {
+    if (!owner) return;
+    const load = () =>
+      listDayNotes(owner)
+        .then(setDayNotes)
+        .catch(() => setDayNotes([]));
+    void load();
+    return onDayNotesChange(load);
+    // owner 는 식별 키로만
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [userId, isGuest]);
+
+  const mates = useMemo(
+    () => (userId ? circleMates(circles, userId) : []),
+    [circles, userId],
+  );
 
   // ── 근처 신호 ─────────────────────────────
   const [signalOn, setSignalOn] = useState(true);
@@ -415,6 +467,17 @@ export default function Home() {
       window.clearInterval(timer);
     };
   }, [signalActive, requestLocation, handleSelfLocation]);
+
+  // 걷는 중 한 줄
+  const liveDistanceForWhisper = useMemo(() => calcTotalDistance(coords), [coords]);
+  const whisper = useWhisper({
+    owner,
+    status,
+    coords,
+    distanceMeters: liveDistanceForWhisper,
+    startedAt,
+    regionDong: regionSummary.localName || regionSummary.displayName || null,
+  });
 
   const peerMarkers = useMemo<PeerMarker[]>(
     () =>
@@ -855,6 +918,17 @@ export default function Home() {
     setPlaceSheet(null);
 
     showToast("장소를 저장했어요.");
+
+    // 서클이 있으면 곧바로 건넬 수 있게
+    if (mates.length > 0) {
+      setHandover({
+        name: draft.name,
+        category: draft.category,
+        lat: draft.lat,
+        lng: draft.lng,
+        regionDong: null,
+      });
+    }
   }
 
   async function handleLogout() {
@@ -868,6 +942,31 @@ export default function Home() {
     }
 
     router.replace("/login");
+  }
+
+  /** 건네받은 장소를 지도에서 보여줍니다 */
+  function handleShowHandover(place: Handover) {
+    setTab("map");
+    tabRef.current = "map";
+    setSelectedRoute(null);
+    setViewerOpen(false);
+    setAnalysisOpen(false);
+    requestAnimationFrame(() => {
+      mapViewRef.current?.focusPlace([place.lng, place.lat], place.name);
+    });
+    showToast(
+      place.note ? `${place.name} · ${place.note}` : `${place.name}을(를) 받았어요.`,
+    );
+  }
+
+  async function handleSaveDayNote(body: string) {
+    if (!owner || !noteDay) return;
+    await saveDayNote(owner, noteDay, body);
+  }
+
+  async function handleDeleteDayNote() {
+    if (!owner || !noteDay) return;
+    await deleteDayNote(owner, noteDay);
   }
 
   function handleGoLogin() {
@@ -985,6 +1084,9 @@ export default function Home() {
       : null;
 
   const liveDistance = useMemo(() => calcTotalDistance(coords), [coords]);
+
+  // 오늘 적어 둔 한 줄 (걸은 기록이 있는 날에는 RouteGrid 가 이 자리를 숨깁니다)
+  const todayNote = dayNotes.find((note) => note.day === today())?.body ?? "";
 
   const canSavePlace =
     (status === "recording" || status === "paused") &&
@@ -1124,6 +1226,26 @@ export default function Home() {
                             owner={owner}
                             onSelect={handleSelectRoute}
                             view={routeView}
+                            dayNotes={dayNotes}
+                            onSelectDay={setNoteDay}
+                            header={
+                              <>
+                                {session && userId && (
+                                  <WeeklyEchoCard
+                                    accessToken={session.access_token}
+                                    myId={userId}
+                                    hasCircle={mates.length > 0}
+                                  />
+                                )}
+                              </>
+                            }
+                            todayNote={todayNote}
+                            onOpenToday={() => setNoteDay(today())}
+                            footer={
+                              isGuest ? null : (
+                                <ReceivedList onShow={handleShowHandover} />
+                              )
+                            }
                           />
                         </motion.div>
                       )}
@@ -1158,7 +1280,45 @@ export default function Home() {
               onToggle: handleToggleSignal,
             }}
             ownerId={ownerId}
+            onOpenCircles={
+              userId
+                ? () => {
+                    setDrawerOpen(false);
+                    setCirclesOpen(true);
+                  }
+                : undefined
+            }
+            circleMates={mates.length}
           />
+
+          {circlesOpen && userId && (
+            <CircleSheet myId={userId} onClose={() => setCirclesOpen(false)} />
+          )}
+
+          <AnimatePresence>
+            {handover && (
+              <HandoverSheet
+                key="handover"
+                place={handover}
+                mates={mates}
+                onDone={showToast}
+                onClose={() => setHandover(null)}
+              />
+            )}
+          </AnimatePresence>
+
+          <AnimatePresence>
+            {noteDay && (
+              <DayNoteModal
+                key={noteDay}
+                day={noteDay}
+                initial={dayNotes.find((note) => note.day === noteDay)?.body ?? ""}
+                onSave={handleSaveDayNote}
+                onDelete={handleDeleteDayNote}
+                onClose={() => setNoteDay(null)}
+              />
+            )}
+          </AnimatePresence>
 
           <AnimatePresence>
             {globeOpen && (
@@ -1201,6 +1361,26 @@ export default function Home() {
               />
             )}
           </AnimatePresence>
+
+          {/* 걷는 중 한 줄 */}
+          <AnimatePresence>
+            {whisper && tab === "record" && !placeSheet && !dwellPrompt && (
+              <motion.div
+                key={whisper.key}
+                {...toastMotion(reduceMotion)}
+                role="status"
+                className="pointer-events-none fixed inset-x-0 z-[54] flex justify-center px-5"
+                style={{ top: "calc(env(safe-area-inset-top, 0px) + 84px)" }}
+              >
+                <span className="san-toast">{whisper.text}</span>
+              </motion.div>
+            )}
+          </AnimatePresence>
+
+          {/* 건네받은 장소 */}
+          {!isGuest && tab !== "routes" && (
+            <ReceivedPlaces onShow={handleShowHandover} />
+          )}
 
           <AnimatePresence>
             {toast && (

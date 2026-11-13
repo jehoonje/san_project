@@ -15,11 +15,18 @@ import {
   formatLogTime,
   type VisitMark,
 } from "@/lib/routeLog";
+import type { ReactNode } from "react";
+import type { DayNote } from "@/lib/dayNotes";
 import styles from "./RouteLog.module.css";
 
 type RouteLogProps = {
   routes: SavedRoute[];
   onSelect: (route: SavedRoute) => void;
+  /** 걷지 않은 날 한 줄 (날짜 내림차순) */
+  dayNotes?: DayNote[];
+  onSelectDay?: (day: string) => void;
+  header?: ReactNode;
+  footer?: ReactNode;
 };
 
 const REGION_CACHE_KEY = "san-region-cache-v1";
@@ -123,14 +130,22 @@ type Row =
       mark: VisitMark | undefined;
       cumulative: number | null;
     }
-  | { kind: "start"; route: SavedRoute; isLast: boolean };
+  | { kind: "start"; route: SavedRoute; isLast: boolean }
+  | { kind: "note"; note: DayNote; isLast: boolean };
 
 function Region({ value }: { value: string | null | undefined }) {
   if (value === undefined) return <span className={styles.pending}>…</span>;
   return <>{value ?? "—"}</>;
 }
 
-export function RouteLog({ routes, onSelect }: RouteLogProps) {
+export function RouteLog({
+  routes,
+  onSelect,
+  dayNotes = [],
+  onSelectDay,
+  header,
+  footer,
+}: RouteLogProps) {
   const reduceMotion = useReducedMotion();
   const regionOf = useEndpointRegions(routes);
 
@@ -139,7 +154,35 @@ export function RouteLog({ routes, onSelect }: RouteLogProps) {
     const out: Row[] = [];
     let totalMeters = 0;
 
+    // 걸은 날과 걷지 않은 날을 한 흐름으로 섞습니다 (둘 다 최신순)
+    const notes = [...dayNotes].sort((a, b) => b.day.localeCompare(a.day));
+    let noteIndex = 0;
+    const dayOf = (route: SavedRoute) =>
+      new Date(
+        new Date(route.started_at ?? route.created_at).getTime() + 9 * 3600 * 1000,
+      )
+        .toISOString()
+        .slice(0, 10);
+    /** day 보다 나중(또는 같은) 날의 한 줄을 먼저 내보냅니다 */
+    const flushNotes = (day: string | null, includeSameDay = false) => {
+      while (
+        noteIndex < notes.length &&
+        (day === null ||
+          notes[noteIndex].day > day ||
+          (includeSameDay && notes[noteIndex].day === day))
+      ) {
+        const note = notes[noteIndex];
+        noteIndex += 1;
+        out.push({
+          kind: "note",
+          note,
+          isLast: noteIndex >= notes.length && routes.length === 0,
+        });
+      }
+    };
+
     routes.forEach((route, index) => {
+      flushNotes(dayOf(route));
       totalMeters += route.distance_meters ?? 0;
       const coords = (route.coordinates ?? []) as LngLat[];
       const places = [...(route.route_places ?? [])].sort(
@@ -157,8 +200,15 @@ export function RouteLog({ routes, onSelect }: RouteLogProps) {
           cumulative: cumulativeDistanceTo(coords, [place.lng, place.lat]),
         });
       }
-      out.push({ kind: "start", route, isLast: index === routes.length - 1 });
+      out.push({
+        kind: "start",
+        route,
+        isLast: index === routes.length - 1 && noteIndex >= notes.length,
+      });
+      // 같은 날에 한 줄도 남겼다면 그 루트 바로 뒤에
+      flushNotes(dayOf(route), true);
     });
+    flushNotes(null);
 
     return {
       rows: out,
@@ -168,7 +218,7 @@ export function RouteLog({ routes, onSelect }: RouteLogProps) {
         meters: totalMeters,
       },
     };
-  }, [routes]);
+  }, [routes, dayNotes]);
 
   function rowMotion(index: number) {
     if (reduceMotion) return {};
@@ -187,6 +237,8 @@ export function RouteLog({ routes, onSelect }: RouteLogProps) {
         paddingBottom: "calc(env(safe-area-inset-bottom, 0px) + 120px)",
       }}
     >
+      {header}
+
       <div className={styles.log}>
         <p className={styles.summary}>
           {stats.routes} routes <span className={styles.dot}>·</span>{" "}
@@ -196,6 +248,31 @@ export function RouteLog({ routes, onSelect }: RouteLogProps) {
 
         <ol className={styles.list} aria-label="루트 기록">
           {rows.map((row, index) => {
+            if (row.kind === "note") {
+              return (
+                <motion.li
+                  key={`note-${row.note.day}`}
+                  className={row.isLast ? undefined : styles.routeEnd}
+                  {...rowMotion(index)}
+                >
+                  <button
+                    type="button"
+                    onClick={() => onSelectDay?.(row.note.day)}
+                    className={`${styles.line} ${styles.noteLine}`}
+                    aria-label={`${row.note.day} 한 줄`}
+                  >
+                    <span className={styles.lead}>
+                      {formatLogDate(`${row.note.day}T12:00:00+09:00`)}
+                    </span>
+                    <span className={styles.main}>
+                      <span className={styles.note}>{row.note.body}</span>
+                    </span>
+                    <span className={styles.meta}>—</span>
+                  </button>
+                </motion.li>
+              );
+            }
+
             const open = () => onSelect(row.route);
             const coords = (row.route.coordinates ?? []) as LngLat[];
 
@@ -292,6 +369,8 @@ export function RouteLog({ routes, onSelect }: RouteLogProps) {
           })}
         </ol>
       </div>
+
+      {footer}
     </div>
   );
 }

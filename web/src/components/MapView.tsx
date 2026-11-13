@@ -127,6 +127,8 @@ export type MapViewHandle = {
   playPeerEmote: (peerId: string, emote: EmoteId) => void;
   /** 지금 화면에 그려진 내 위치 (아직 모르면 null) */
   getLocation: () => [number, number] | null;
+  /** 건네받은 장소처럼, 특정 지점을 지도에 잠시 짚어 줍니다 */
+  focusPlace: (coord: [number, number], label: string) => void;
 };
 
 type LocationState = "loading" | "ready" | "error";
@@ -258,6 +260,8 @@ export const MapView = forwardRef<MapViewHandle, MapViewProps>(function MapView(
   const headingAnchorRef = useRef<[number, number] | null>(null);
   const gpsHeadingRef = useRef<number | null>(null);
   const compassHeadingRef = useRef(0);
+  // 건네받은 장소를 짚어 둔 마커 (한 번에 하나)
+  const guestMarkerRef = useRef<maplibregl.Marker | null>(null);
   const devOverrideRef = useRef(false);
   // 감정 표현: 상대를 바라보는 동안의 방향 고정
   const faceRef = useRef<{ coord: [number, number]; until: number } | null>(null);
@@ -945,6 +949,8 @@ export const MapView = forwardRef<MapViewHandle, MapViewProps>(function MapView(
 
       groundMarkerRef.current?.remove();
       groundMarkerRef.current = null;
+      guestMarkerRef.current?.remove();
+      guestMarkerRef.current = null;
       for (const entry of peerEntries.values()) entry.marker.remove();
       peerEntries.clear();
       avatarLayerRef.current = null;
@@ -1107,6 +1113,36 @@ export const MapView = forwardRef<MapViewHandle, MapViewProps>(function MapView(
       );
     },
     getLocation: () => displayCoordRef.current ?? latestCoordRef.current,
+    focusPlace: (coord, label) => {
+      const map = mapRef.current;
+      if (!map) return;
+
+      // 따라가기를 멈추고 그 자리로
+      isFollowingRef.current = false;
+      setIsFollowing(false);
+      map.easeTo({
+        center: coord,
+        zoom: Math.max(map.getZoom(), 16.4),
+        duration: reducedMotion() ? 0 : 900,
+      });
+
+      guestMarkerRef.current?.remove();
+      const element = document.createElement("div");
+      element.className = "san-handed-place";
+      const dot = document.createElement("span");
+      dot.className = "san-handed-dot";
+      const name = document.createElement("span");
+      name.className = "san-handed-label";
+      name.textContent = label;
+      element.append(dot, name);
+
+      guestMarkerRef.current = new maplibregl.Marker({
+        element,
+        anchor: "bottom",
+      })
+        .setLngLat(coord)
+        .addTo(map);
+    },
     playPeerEmote: (peerId, emote) => {
       avatarLayerRef.current?.playEmote(
         peerId,

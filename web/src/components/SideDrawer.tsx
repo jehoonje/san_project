@@ -27,6 +27,10 @@ type SideDrawerProps = {
   };
   /** 교차 로그의 주인 (계정 id 또는 게스트 id) */
   ownerId: string | null;
+  /** 동행 서클 열기 (게스트는 없음) */
+  onOpenCircles?: () => void;
+  /** 내가 속한 서클에서 함께 걷는 사람 수 */
+  circleMates?: number;
 };
 
 const DURATION_MS = 460;
@@ -46,6 +50,8 @@ export function SideDrawer({
   onLogin,
   signal,
   ownerId,
+  onOpenCircles,
+  circleMates = 0,
 }: SideDrawerProps) {
   const profile = useProfile();
   const { theme, setTheme } = useTheme();
@@ -206,6 +212,27 @@ export function SideDrawer({
             ))}
           </div>
         </section>
+
+        {/* 동행 서클 */}
+        {!guest && onOpenCircles && (
+          <section className="mt-9" aria-label="동행 서클">
+            <h3 className="san-eyebrow">CIRCLE</h3>
+            <div className="mt-3 flex items-center justify-between gap-4">
+              <p className="m-0 min-w-0 flex-1 truncate text-[14px] text-san-text">
+                {circleMates > 0
+                  ? `${circleMates}명과 함께 걷고 있어요`
+                  : "아직 함께 걷는 사람이 없어요"}
+              </p>
+              <button
+                type="button"
+                className="san-pill min-h-11 shrink-0 px-5 text-[13px]"
+                onClick={onOpenCircles}
+              >
+                {circleMates > 0 ? "서클" : "만들기"}
+              </button>
+            </div>
+          </section>
+        )}
 
         {/* 근처 신호 */}
         <section className="mt-9" aria-label="근처 신호">

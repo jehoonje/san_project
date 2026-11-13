@@ -6,6 +6,7 @@ import {
   onEncountersChange,
   type Encounter,
 } from "@/lib/encounters";
+import { meetingCount } from "@/lib/encounters";
 import { emoteInfo } from "@/lib/signal";
 
 type Props = {
@@ -58,7 +59,9 @@ export function CrossingLog({ ownerId, remote }: Props) {
         </p>
       ) : (
         <ul className="m-0 mt-2 list-none p-0">
-          {items.slice(0, 12).map((item) => (
+          {items.slice(0, 12).map((item) => {
+            const times = meetingCount(items, item.peerKey);
+            return (
             <li
               key={item.id}
               className="flex min-h-11 items-center gap-3 whitespace-nowrap"
@@ -68,13 +71,22 @@ export function CrossingLog({ ownerId, remote }: Props) {
               <span className="min-w-0 flex-1 truncate text-[12.5px] text-san-text">
                 {emoteInfo(item.myEmote).label} ↔ {emoteInfo(item.peerEmote).label}
               </span>
+              {times > 1 && (
+                <span
+                  className="san-data shrink-0"
+                  aria-label={`${times}번째 스침`}
+                >
+                  ×{times}
+                </span>
+              )}
               {item.region && (
                 <span className="shrink-0 text-[12px] text-san-muted">
                   {item.region}
                 </span>
               )}
             </li>
-          ))}
+            );
+          })}
         </ul>
       )}
     </section>

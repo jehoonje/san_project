@@ -104,3 +104,29 @@
     opacity: 0;
   }
 }
+
+/* ---- 건네받은 장소: 별빛 점 하나와 이름 ---- */
+.san-handed-place {
+  display: grid;
+  justify-items: center;
+  gap: 5px;
+  pointer-events: none;
+}
+
+.san-handed-dot {
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  background: var(--san-star);
+  box-shadow: 0 0 0 3px var(--san-background);
+}
+
+.san-handed-label {
+  padding: 2px 9px;
+  border-radius: 999px;
+  color: var(--san-text);
+  background: var(--san-veil);
+  font-size: 11.5px;
+  line-height: 16px;
+  white-space: nowrap;
+}

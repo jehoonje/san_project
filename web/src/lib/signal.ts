@@ -56,6 +56,13 @@ export type SignalPresence = {
 
 export type EmoteMessage = { from: string; to: string; cs: string; e: EmoteId };
 
+/**
+ * 재식별 토큰 교환.
+ * 양쪽이 인사를 주고받아 교차가 이뤄진 뒤에만 보냅니다.
+ * 한쪽만 인사한 상대에게는 가지 않습니다.
+ */
+export type KeyMessage = { from: string; to: string; k: string };
+
 export function cellOf([lng, lat]: LngLat) {
   return `${Math.floor(lat / CELL_LAT)}:${Math.floor(lng / CELL_LNG)}`;
 }
@@ -70,7 +77,7 @@ export function neighborCells(cell: string) {
 }
 
 export function channelName(cell: string) {
-  return `san-signal-v2:${cell}`;
+  return `san-signal-v3:${cell}`;
 }
 
 export function makeSessionOffset(): LngLat {
@@ -153,6 +160,18 @@ export function sanitizePresence(raw: unknown): SignalPresence | null {
   if (typeof v.ch !== "string" || !/^-?\d+:-?\d+$/.test(v.ch)) return null;
   const at = typeof v.at === "number" && Number.isFinite(v.at) ? v.at : 0;
   return { v: 2, sid: v.sid, cs: v.cs, p: v.p, ch: v.ch, at };
+}
+
+const UUID_RE =
+  /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+export function sanitizeKey(raw: unknown): KeyMessage | null {
+  if (!raw || typeof raw !== "object") return null;
+  const v = raw as Record<string, unknown>;
+  if (typeof v.from !== "string" || !SID_RE.test(v.from)) return null;
+  if (typeof v.to !== "string" || !SID_RE.test(v.to)) return null;
+  if (typeof v.k !== "string" || !UUID_RE.test(v.k)) return null;
+  return { from: v.from, to: v.to, k: v.k };
 }
 
 export function sanitizeEmote(raw: unknown): EmoteMessage | null {
