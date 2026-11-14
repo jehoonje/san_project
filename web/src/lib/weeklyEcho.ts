@@ -122,20 +122,17 @@ export async function fetchEcho(
 }
 
 /** 서클에 건네기 (되돌리려면 share=false) */
-export async function shareEcho(weekStart: string, share: boolean) {
+export async function shareEcho(myId: string, weekStart: string, share: boolean) {
   const { error } = await supabase
     .from("weekly_echoes")
     .update({ shared_at: share ? new Date().toISOString() : null })
+    .eq("user_id", myId)
     .eq("week_start", weekStart);
   if (error && !isMissingTable(error)) throw error;
   window.dispatchEvent(new CustomEvent(EVENT));
 }
 
-export type CircleEcho = WeeklyEcho & {
-  userId: string;
-  displayName: string;
-  avatarUrl: string | null;
-};
+export type CircleEcho = WeeklyEcho & { userId: string };
 
 /** 서클이 건넨 잔향들 */
 export async function listCircleEchoes(
@@ -145,7 +142,7 @@ export async function listCircleEchoes(
   const { data, error } = await supabase
     .from("weekly_echoes")
     .select(
-      "user_id, week_start, stats, body, generated_at, shared_at, profiles ( display_name, avatar_url )",
+      "user_id, week_start, stats, body, generated_at, shared_at",
     )
     .eq("week_start", weekStart)
     .not("shared_at", "is", null);
@@ -162,15 +159,12 @@ export async function listCircleEchoes(
     body: EchoBody;
     generated_at: string;
     shared_at: string;
-    profiles: { display_name: string | null; avatar_url: string | null } | null;
   };
 
   return ((data ?? []) as unknown as Row[])
     .filter((row) => row.user_id !== myId)
     .map((row) => ({
       userId: row.user_id,
-      displayName: row.profiles?.display_name?.trim() || "산책자",
-      avatarUrl: row.profiles?.avatar_url ?? null,
       weekStart: row.week_start,
       stats: row.stats,
       body: row.body,

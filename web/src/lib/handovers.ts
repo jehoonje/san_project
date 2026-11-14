@@ -17,8 +17,6 @@ export type Handover = {
   note: string | null;
   sentAt: string;
   openedAt: string | null;
-  /** 보낸 사람 이름 (받은 목록에서만 채워짐) */
-  fromName: string | null;
 };
 
 export type HandoverDraft = {
@@ -50,7 +48,6 @@ type Row = {
   note: string | null;
   sent_at: string;
   opened_at: string | null;
-  profiles?: { display_name: string | null } | null;
 };
 
 const CATEGORIES = new Set([
@@ -76,18 +73,20 @@ function fromRow(row: Row): Handover {
     note: row.note,
     sentAt: row.sent_at,
     openedAt: row.opened_at,
-    fromName: row.profiles?.display_name?.trim() || null,
   };
 }
 
 /** 나에게 건네진 장소 (최근 것부터) */
 export async function listReceived(): Promise<Handover[]> {
+  const me = (await supabase.auth.getSession()).data.session?.user.id;
+  if (!me) return [];
+
   const { data, error } = await supabase
     .from("place_handovers")
     .select(
-      `id, from_user, to_user, name, category, lat, lng, region_dong, note,
-       sent_at, opened_at, profiles!place_handovers_from_user_fkey ( display_name )`,
+      "id, from_user, to_user, name, category, lat, lng, region_dong, note, sent_at, opened_at",
     )
+    .eq("to_user", me)
     .order("sent_at", { ascending: false })
     .limit(60);
 
@@ -95,11 +94,7 @@ export async function listReceived(): Promise<Handover[]> {
     if (isMissingTable(error)) return [];
     throw error;
   }
-  // 받은 것만 (RLS가 보낸 것도 같이 내려 주므로 여기서 거릅니다)
-  const me = (await supabase.auth.getUser()).data.user?.id;
-  return ((data ?? []) as unknown as Row[])
-    .filter((row) => row.to_user === me)
-    .map(fromRow);
+  return ((data ?? []) as unknown as Row[]).map(fromRow);
 }
 
 export async function sendHandover(draft: HandoverDraft) {

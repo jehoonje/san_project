@@ -8,6 +8,12 @@ import { CrossingLog } from "@/components/signal/CrossingLog";
 import { useProfile } from "@/hooks/useProfile";
 import { useTheme, type SanTheme } from "@/hooks/useTheme";
 import type { SignalStatus } from "@/hooks/useSignal";
+import { clearPeerKeys } from "@/lib/encounters";
+import {
+  loadSignalMemory,
+  setSignalMemory,
+  type SignalMemory,
+} from "@/lib/signalKey";
 
 type SideDrawerProps = {
   open: boolean;
@@ -59,6 +65,37 @@ export function SideDrawer({
   const dialogRef = useRef<HTMLDialogElement>(null);
   const [visible, setVisible] = useState(false);
   const titleId = useId();
+
+  // 다시 스친 사람 알아보기 (로그인 사용자만, 테이블이 준비된 경우에만 보입니다)
+  const [memory, setMemory] = useState<SignalMemory | null>(null);
+  const [memoryBusy, setMemoryBusy] = useState(false);
+  const memoryOwner = guest ? null : ownerId;
+
+  useEffect(() => {
+    if (!open || !memoryOwner) return;
+    let cancelled = false;
+    void loadSignalMemory(memoryOwner).then((value) => {
+      if (!cancelled) setMemory(value);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [open, memoryOwner]);
+
+  async function toggleMemory() {
+    if (!memoryOwner || !memory || memoryBusy) return;
+    const next = !memory.enabled;
+    setMemoryBusy(true);
+    try {
+      // 끌 때는 그동안 받아 둔 상대 토큰도 함께 지웁니다
+      if (!next) await clearPeerKeys(memoryOwner, true);
+      setMemory(await setSignalMemory(memoryOwner, next));
+    } catch (error) {
+      console.error("재식별 설정 변경 실패:", error);
+    } finally {
+      setMemoryBusy(false);
+    }
+  }
 
   const displayName = guest ? "게스트" : (profile?.displayName ?? "산책자");
   const emailText = guest
@@ -265,6 +302,32 @@ export function SideDrawer({
             정확한 위치 대신 대략적인 위치만 공유돼요. 근처 산책자의
             아바타를 누르면 내 아바타가 그쪽을 보고 인사해요.
           </p>
+
+          {memoryOwner && memory?.available && (
+            <div className="mt-5">
+              <div className="flex items-center justify-between gap-4">
+                <p className="m-0 min-w-0 flex-1 text-[14px] text-san-text">
+                  다시 스친 사람 알아보기
+                </p>
+                <button
+                  type="button"
+                  role="switch"
+                  aria-checked={memory.enabled}
+                  aria-label="다시 스친 사람 알아보기"
+                  aria-pressed={memory.enabled}
+                  disabled={memoryBusy}
+                  className="san-pill min-h-11 shrink-0 px-5 text-[13px]"
+                  onClick={() => void toggleMemory()}
+                >
+                  {memory.enabled ? "켜짐" : "꺼짐"}
+                </button>
+              </div>
+              <p className="mt-3 text-[12.5px] leading-relaxed text-san-text">
+                서로 인사를 주고받은 사람끼리만 다음에 다시 알아봐요. 끄면
+                지금까지의 연결이 지워지고, 아무도 나를 다시 알아보지 못해요.
+              </p>
+            </div>
+          )}
 
           {ownerId && (
             <div className="mt-6">

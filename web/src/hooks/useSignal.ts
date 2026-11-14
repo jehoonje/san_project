@@ -19,7 +19,7 @@ import {
 } from "@/lib/signal";
 import { SignalChannels } from "@/lib/signalChannels";
 import { loadEncounters, saveEncounter, setPeerKey } from "@/lib/encounters";
-import { mySignalKey } from "@/lib/signalKey";
+import { mySignalKey, onSignalMemoryChange } from "@/lib/signalKey";
 
 export type SignalStatus = "off" | "connecting" | "live" | "error";
 
@@ -227,7 +227,7 @@ export function useSignal({
       haptic("crossing");
       return true;
     },
-    [pushNotice, updateRelation],
+    [pushNotice, sid, updateRelation],
   );
 
   const handleEmote = useCallback(
@@ -279,19 +279,27 @@ export function useSignal({
     if (!active || !ownerId) return;
     let cancelled = false;
 
-    if (remote) {
-      void mySignalKey().then((key) => {
-        if (!cancelled) myKeyRef.current = key;
-      });
-    }
-    void loadEncounters(ownerId, remote)
-      .then((list) => {
-        if (!cancelled) pastRef.current = list;
-      })
-      .catch(() => undefined);
+    const refresh = () => {
+      if (remote) {
+        void mySignalKey(ownerId).then((key) => {
+          if (!cancelled) myKeyRef.current = key;
+        });
+      } else {
+        myKeyRef.current = null;
+      }
+      void loadEncounters(ownerId, remote)
+        .then((list) => {
+          if (!cancelled) pastRef.current = list;
+        })
+        .catch(() => undefined);
+    };
+    refresh();
+    // 설정에서 끄거나 켜면 곧바로 따라갑니다
+    const off = onSignalMemoryChange(refresh);
 
     return () => {
       cancelled = true;
+      off();
     };
   }, [active, ownerId, remote]);
 
@@ -300,6 +308,9 @@ export function useSignal({
     (raw: unknown) => {
       const message = sanitizeKey(raw);
       if (!message || message.to !== sid) return;
+
+      // 내가 토큰을 건네지 않는다면(게스트이거나 꺼 둠) 상대 것도 받아 적지 않습니다
+      if (!myKeyRef.current) return;
 
       const relation = relationsRef.current[message.from];
       const owner = ownerRef.current;
