@@ -15,7 +15,12 @@
  *
  * 두 테마는 구조가 같고 색만 다르다.
  * 모든 색은 여기의 --san-* 토큰으로만 정의하고, 컴포넌트는 토큰만 참조한다.
- * 순백·순흑은 쓰지 않는다. 강조색은 맥동 점(live)과 별(star) 두 가지뿐이다.
+ *
+ * 색은 두 가지만 쓴다.
+ *   프라이머리 = 잉크 (--san-accent, 채운 버튼·선택 상태)
+ *   포인트    = 호박색 (--san-star, 내가 남긴 장소와 새로 온 것 표시)
+ * 나머지는 모두 무채색이다. 오류색(--san-error)은 오류를 알릴 때만 쓴다.
+ * 그라데이션·블러·그림자는 쓰지 않는다. 구분은 얇은 선과 면 색 차이로 한다.
  */
 
 /*
@@ -39,7 +44,7 @@
   --san-text-muted: #5f6774;
   --san-text-faint: #9aa0a8;
 
-  /* 헤어라인 (장식 곡선·타원 전용) */
+  /* 구분선 */
   --san-border: rgba(46, 52, 64, 0.14);
   --san-border-strong: rgba(46, 52, 64, 0.3);
 
@@ -48,21 +53,15 @@
   --san-accent-hover: #3b4252;
   --san-accent-text: #f2f2ef;
 
-  /* 강조 2색 + 오류 */
-  --san-live: #3fa66b;
-  --san-star: #e8a93a;
+  /* 포인트 1색 + 오류 */
+  --san-star: #c98a2b;
+  --san-live: var(--san-text);
   --san-error: #b5523b;
 
-  --san-icon-fill: rgba(242, 242, 239, 0.7);
+  --san-icon-fill: #f2f2ef;
   --san-scrim: rgba(46, 52, 64, 0.22);
-  --san-veil: rgba(242, 242, 239, 0.88);
-  --san-shadow: none;
-  --san-gradient-base-start: #f2f2ef;
-  --san-gradient-base-end: #e6e7e3;
-
-  /* 큰 블러 오브젝트: 창밖 새벽빛(차가움) + 기내 조명(온기) */
-  --san-orb-warm: #ecd2c2;
-  --san-orb-cool: #bccadb;
+  /* 지도 위에 얹는 면: 비치지 않는 단색 */
+  --san-veil: #f2f2ef;
 
   /* 지도 */
   --san-map-land: #eeeeeb;
@@ -113,20 +112,13 @@
   --san-accent-hover: #e5e8ed;
   --san-accent-text: #0e1117;
 
-  --san-live: #3fa66b;
-  --san-star: #e8a93a;
+  --san-star: #e3a447;
+  --san-live: var(--san-text);
   --san-error: #d0786a;
 
-  --san-icon-fill: rgba(14, 17, 23, 0.7);
+  --san-icon-fill: #0e1117;
   --san-scrim: rgba(4, 6, 10, 0.56);
-  --san-veil: rgba(14, 17, 23, 0.86);
-  --san-shadow: none;
-  --san-gradient-base-start: #12161d;
-  --san-gradient-base-end: #0e1117;
-
-  /* 밤하늘(차가움) 위에 아주 작은 독서등(온기) */
-  --san-orb-warm: #4a3a36;
-  --san-orb-cool: #22314a;
+  --san-veil: #0e1117;
 
   --san-map-land: #10141b;
   --san-map-green: #121820;
@@ -164,12 +156,10 @@
     ui-monospace, "SF Mono", "JetBrains Mono", Menlo, Consolas,
     "Pretendard Variable", monospace;
 
-  --san-text-display: clamp(26px, 7.4vw, 34px);
+  /* 글자는 세 단계뿐: 제목 / 본문 / 보조 */
   --san-text-title: 20px;
   --san-text-body: 15px;
   --san-text-small: 13px;
-  --san-text-data: 11.5px;
-  --san-text-eyebrow: 10.5px;
 
   --san-space-1: 4px;
   --san-space-2: 8px;
@@ -321,7 +311,7 @@ input {
   color: var(--san-text);
   background: var(--san-veil);
   border-radius: var(--san-radius-sm);
-  font-size: 10px;
+  font-size: 13px;
   line-height: 1.4;
   box-shadow: none;
 }

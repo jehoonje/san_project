@@ -95,10 +95,13 @@ export function TopBar({
     : { duration: 0.36, ease: EASE_AMBIENT };
 
   return (
-    <header className="pointer-events-none fixed inset-x-0 top-0 z-[55] flex min-h-[76px] items-center justify-between px-4 pt-[env(safe-area-inset-top)]">
+    <header
+      className="pointer-events-none fixed inset-x-0 top-0 z-[55] flex min-h-[68px] items-center justify-between bg-san-bg px-3 pt-[env(safe-area-inset-top)]"
+      style={{ boxShadow: "inset 0 -1px 0 0 var(--san-border)" }}
+    >
       <button
         type="button"
-        className="san-icon-btn pointer-events-auto"
+        className="san-icon-btn san-icon-btn-plain pointer-events-auto"
         onClick={isBack ? onBack : onMenu}
         aria-label={isBack ? "뒤로 가기" : "메뉴 열기"}
       >
@@ -106,9 +109,9 @@ export function TopBar({
           <motion.span
             key={isBack ? "back" : "menu"}
             className="grid place-items-center"
-            initial={{ opacity: 0, filter: "blur(4px)" }}
-            animate={{ opacity: 1, filter: "blur(0px)" }}
-            exit={{ opacity: 0, filter: "blur(4px)" }}
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
             transition={swap}
           >
             {isBack ? <BackIcon /> : <MenuIcon />}
@@ -119,16 +122,16 @@ export function TopBar({
       <AnimatePresence mode="wait">
         <motion.p
           key={title}
-          initial={{ opacity: 0, filter: "blur(6px)" }}
-          animate={{ opacity: 1, filter: "blur(0px)" }}
-          exit={{ opacity: 0, filter: "blur(6px)" }}
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          exit={{ opacity: 0 }}
           transition={swap}
           className="absolute left-1/2 m-0 flex -translate-x-1/2 items-center gap-2"
           style={{
-            maxWidth: `calc(100vw - ${96 + rightSlots * 54}px)`,
+            maxWidth: `calc(100vw - ${80 + rightSlots * 54}px)`,
           }}
         >
-          <span className="san-eyebrow truncate">{title}</span>
+          <span className="san-t2 truncate">{title}</span>
         </motion.p>
       </AnimatePresence>
 
@@ -136,7 +139,7 @@ export function TopBar({
         {viewToggle && (
           <button
             type="button"
-            className="san-icon-btn pointer-events-auto"
+            className="san-icon-btn san-icon-btn-plain pointer-events-auto"
             onClick={viewToggle.onToggle}
             aria-label={
               viewToggle.mode === "grid" ? "목록형으로 보기" : "카드형으로 보기"
@@ -148,9 +151,9 @@ export function TopBar({
             <AnimatePresence mode="wait" initial={false}>
               <motion.span
                 key={viewToggle.mode}
-                initial={{ opacity: 0, filter: "blur(4px)" }}
-                animate={{ opacity: 1, filter: "blur(0px)" }}
-                exit={{ opacity: 0, filter: "blur(4px)" }}
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                exit={{ opacity: 0 }}
                 transition={swap}
                 className="grid place-items-center"
               >
@@ -163,7 +166,7 @@ export function TopBar({
         {rightAction ? (
           <button
             type="button"
-            className="san-icon-btn pointer-events-auto"
+            className="san-icon-btn san-icon-btn-plain pointer-events-auto"
             onClick={rightAction.onClick}
             aria-label={rightAction.label}
             title={rightAction.label}

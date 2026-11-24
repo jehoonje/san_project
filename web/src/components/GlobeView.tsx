@@ -236,7 +236,7 @@ export function GlobeView({ owner, getLocation, onClose }: GlobeViewProps) {
 
     const sky = () => ({
       "sky-color": readToken("--san-sky", "#e4e7ec"),
-      "horizon-color": readToken("--san-orb-cool", "#bccadb"),
+      "horizon-color": readToken("--san-sky", "#e4e7ec"),
       "fog-color": readToken("--san-sky", "#e4e7ec"),
       "sky-horizon-blend": 0.6,
       "horizon-fog-blend": 0.5,
@@ -565,9 +565,9 @@ export function GlobeView({ owner, getLocation, onClose }: GlobeViewProps) {
           <motion.p
             key={level}
             className="san-eyebrow absolute left-1/2 m-0 -translate-x-1/2"
-            initial={{ opacity: 0, filter: "blur(6px)" }}
-            animate={{ opacity: 1, filter: "blur(0px)" }}
-            exit={{ opacity: 0, filter: "blur(6px)" }}
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
             transition={{ duration: reduce ? 0 : 0.36 }}
           >
             {meta.code}
@@ -586,9 +586,9 @@ export function GlobeView({ owner, getLocation, onClose }: GlobeViewProps) {
             <motion.span
               key={near ? "out" : "in"}
               className="grid place-items-center"
-              initial={{ opacity: 0, filter: "blur(4px)" }}
-              animate={{ opacity: 1, filter: "blur(0px)" }}
-              exit={{ opacity: 0, filter: "blur(4px)" }}
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
               transition={{ duration: reduce ? 0 : 0.3 }}
             >
               {near ? <GlobeIcon /> : <NearIcon />}
@@ -646,7 +646,7 @@ export function GlobeView({ owner, getLocation, onClose }: GlobeViewProps) {
               className="san-veil pointer-events-auto flex items-center gap-3 rounded-full px-5 py-2.5"
               {...toastMotion(reduce)}
             >
-              <span className="text-[14px]">{picked.label}</span>
+              <span className="text-[15px]">{picked.label}</span>
               <span className="san-data">{picked.count}</span>
             </motion.div>
           )}
@@ -659,17 +659,17 @@ export function GlobeView({ owner, getLocation, onClose }: GlobeViewProps) {
                 <i />
                 <i />
               </span>
-              <span className="text-[12.5px]">불러오는 중</span>
+              <span className="text-[13px]">불러오는 중</span>
             </span>
           )}
 
           {status === "error" && (
-            <span className="text-[12.5px] text-san-error">{errorText}</span>
+            <span className="text-[13px] text-san-error">{errorText}</span>
           )}
 
           {status === "ready" && legend && (
             heat && heat.total === 0 ? (
-              <span className="text-[12.5px]">
+              <span className="text-[13px]">
                 {scope === "mine" ? "아직 남긴 장소가 없어요" : "아직 모인 장소가 없어요"}
               </span>
             ) : (
@@ -678,8 +678,8 @@ export function GlobeView({ owner, getLocation, onClose }: GlobeViewProps) {
                   className="san-data flex items-baseline gap-1.5"
                   aria-label={`총 ${heat?.total ?? 0}개, ${meta.label} 단위 ${legend.visited}곳`}
                 >
-                  <span className="text-[10px] tracking-[0.16em]">TOTAL</span>
-                  <span className="text-[14px] font-medium">{heat?.total ?? 0}</span>
+                  <span className="text-[13px]">TOTAL</span>
+                  <span className="text-[15px]">{heat?.total ?? 0}</span>
                 </span>
                 <span
                   className="flex items-center gap-1.5"
@@ -713,29 +713,26 @@ export function GlobeView({ owner, getLocation, onClose }: GlobeViewProps) {
         .san-globe .maplibregl-canvas {
           outline: none;
         }
-        /* 구역 위 개수: 가는 모노스페이스, 작은 반투명 면 위 */
+        /* 구역 위 개수: 보조 글자 크기, 비치지 않는 작은 면 위 */
         .san-globe .san-heat-count {
-          padding: 1px 7px;
+          padding: 1px 8px;
           border-radius: 999px;
           color: var(--san-text);
           background: var(--san-veil);
-          font-family: var(--san-font-mono);
-          font-size: 10.5px;
+          box-shadow: inset 0 0 0 1px var(--san-border);
+          font-size: 13px;
           font-weight: 400;
-          line-height: 16px;
-          letter-spacing: 0.04em;
+          line-height: 20px;
           font-variant-numeric: tabular-nums;
           pointer-events: none;
-          animation: san-heat-count-in 420ms cubic-bezier(0.22, 1, 0.36, 1);
+          animation: san-heat-count-in 240ms ease-out;
         }
         @keyframes san-heat-count-in {
           from {
             opacity: 0;
-            filter: blur(3px);
           }
           to {
             opacity: 1;
-            filter: blur(0);
           }
         }
         @media (prefers-reduced-motion: reduce) {

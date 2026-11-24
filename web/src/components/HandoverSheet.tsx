@@ -97,15 +97,12 @@ export function HandoverSheet({ place, mates, onDone, onClose }: HandoverSheetPr
 
         <header className="mb-6 flex items-start justify-between gap-4">
           <div className="min-w-0">
-            <p className="san-eyebrow flex items-center gap-2">
-              <span className="san-dot san-dot-star" aria-hidden="true" />
-              HAND OVER
-            </p>
-            <h2 id={titleId} className="san-title mt-2 truncate">
+            <p className="san-eyebrow">장소 건네기</p>
+            <h2 id={titleId} className="san-t1 mt-1 truncate">
               {place.name}
             </h2>
             {place.regionDong && (
-              <p className="m-0 mt-0.5 text-[12.5px] text-san-muted">
+              <p className="san-t3 mt-0.5">
                 {place.regionDong}
               </p>
             )}
@@ -123,13 +120,10 @@ export function HandoverSheet({ place, mates, onDone, onClose }: HandoverSheetPr
         </header>
 
         {mates.length === 0 ? (
-          <p className="pb-4 text-[13px] leading-relaxed text-san-text">
-            아직 함께 걷는 사람이 없어요. 계정 메뉴에서 서클을 만들면 장소를 건넬
-            수 있어요.
-          </p>
+          <p className="san-t2 pb-4">아직 함께 걷는 사람이 없어요.</p>
         ) : (
           <>
-            <h3 className="san-eyebrow">TO</h3>
+            <h3 className="san-eyebrow">받을 사람</h3>
             <ul className="m-0 mt-3 list-none space-y-1 p-0">
               {mates.map((mate) => {
                 const on = picked.includes(mate.userId);
@@ -150,7 +144,7 @@ export function HandoverSheet({ place, mates, onDone, onClose }: HandoverSheetPr
                           size={32}
                         />
                       </span>
-                      <span className="min-w-0 flex-1 truncate text-[14px] text-san-text">
+                      <span className="min-w-0 flex-1 truncate text-[15px] text-san-text">
                         {mate.displayName}
                       </span>
                       <span
@@ -171,14 +165,14 @@ export function HandoverSheet({ place, mates, onDone, onClose }: HandoverSheetPr
 
             <div className="mt-6">
               <label htmlFor={noteId} className="san-eyebrow">
-                NOTE
+                한 줄 메모
               </label>
               <input
                 id={noteId}
                 value={note}
                 onChange={(event) => setNote(event.target.value)}
                 maxLength={80}
-                placeholder="한 줄 덧붙이기 (선택)"
+                placeholder="선택"
                 className="san-field-input mt-3"
               />
             </div>

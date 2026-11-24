@@ -202,43 +202,27 @@ async function makeCard(title: string, summary: string, tags: string[]) {
   canvas.height = 1920;
   const ctx = canvas.getContext("2d");
   if (!ctx) throw new Error("canvas_unavailable");
-  // 공유 카드도 지금 테마의 종이/먹 색 그대로: 면 + 큰 블러 원 + 얇은 글자
+  // 공유 카드: 지금 테마의 바탕색과 잉크색, 글자 세 단계만
   const paper = readToken("--san-background", "#f2f2ef");
   const ink = readToken("--san-text", "#2e3440");
-  const warm = readToken("--san-orb-warm", "#ecd2c2");
-  const cool = readToken("--san-orb-cool", "#bccadb");
+  const muted = readToken("--san-text-muted", "#5f6774");
+  const line = readToken("--san-border-strong", "rgba(46,52,64,0.3)");
   ctx.fillStyle = paper;
   ctx.fillRect(0, 0, 1080, 1920);
-  ctx.save();
-  ctx.filter = "blur(90px)";
-  ctx.globalAlpha = 0.8;
-  ctx.fillStyle = warm;
-  ctx.beginPath();
-  ctx.arc(820, 420, 360, 0, Math.PI * 2);
-  ctx.fill();
-  ctx.fillStyle = cool;
-  ctx.beginPath();
-  ctx.arc(980, 700, 300, 0, Math.PI * 2);
-  ctx.fill();
-  ctx.restore();
-  ctx.save();
-  ctx.strokeStyle = ink;
-  ctx.globalAlpha = 0.34;
-  ctx.lineWidth = 1.5;
-  ctx.beginPath();
-  ctx.ellipse(840, 520, 620, 300, -0.28, 0, Math.PI * 2);
-  ctx.stroke();
-  ctx.restore();
   const sans = '"Pretendard Variable", Pretendard, sans-serif';
+  ctx.fillStyle = muted;
+  ctx.font = `400 32px ${sans}`;
+  ctx.fillText("SAN · 기록의 잔향", 90, 220);
   ctx.fillStyle = ink;
-  ctx.font = `500 30px ui-monospace, Menlo, monospace`;
-  ctx.fillText("S A N  ·  M Y  T A S T E", 90, 220);
-  ctx.font = `300 96px ${sans}`;
-  const bottom = draw(ctx, title, 520, 138, 4);
+  ctx.font = `500 72px ${sans}`;
+  const bottom = draw(ctx, title, 520, 104, 4);
   ctx.font = `400 42px ${sans}`;
-  draw(ctx, summary, bottom + 70, 74, 6);
-  ctx.font = `400 34px ${sans}`;
-  draw(ctx, tags.join("   ·   "), 1660, 58, 3);
+  draw(ctx, summary, bottom + 60, 70, 6);
+  ctx.fillStyle = line;
+  ctx.fillRect(90, 1600, 900, 2);
+  ctx.fillStyle = muted;
+  ctx.font = `400 32px ${sans}`;
+  draw(ctx, tags.join("   ·   "), 1680, 56, 3);
   const blob = await new Promise<Blob>((resolve, reject) =>
     canvas.toBlob(
       (value) =>
@@ -246,7 +230,7 @@ async function makeCard(title: string, summary: string, tags: string[]) {
       "image/png",
     ),
   );
-  const file = new File([blob], "my-taste.png", { type: "image/png" });
+  const file = new File([blob], "san-trace.png", { type: "image/png" });
   if (
     typeof navigator.share === "function" &&
     navigator.canShare?.({ files: [file] })
@@ -262,7 +246,7 @@ async function makeCard(title: string, summary: string, tags: string[]) {
     anchor = document.createElement("a");
   try {
     anchor.href = url;
-    anchor.download = "my-taste.png";
+    anchor.download = "san-trace.png";
     document.body.appendChild(anchor);
     anchor.click();
   } finally {
@@ -521,13 +505,13 @@ export function AnalysisReport({ accessToken }: Props) {
   );
 }
 const STYLES = `
-.ar-share p{margin-top:10px!important;color:var(--san-text);font-size:12px;line-height:1.7;}
+.ar-share p{margin-top:10px!important;color:var(--san-text);font-size: 13px;line-height:1.7;}
 .ar-share p:empty{display:none;}
 .ar-progress{width:min(240px,100%);margin-top:28px;}
 .ar-progress>div{height:2px;overflow:hidden;border-radius:99px;background:var(--san-surface-strong);}
 .ar-progress i{display:block;height:100%;border-radius:inherit;background:var(--san-text);transition:width .4s cubic-bezier(0.22,1,0.36,1);}
-.ar-progress>span{display:block;margin-top:12px;color:var(--san-text);font-family:var(--san-font-mono);font-size:10.5px;letter-spacing:.14em;font-variant-numeric:tabular-nums;}
-.ar-warning{width:calc(100% - 48px);max-width:720px;margin:14px auto 0!important;padding:12px 18px;border:0;border-radius:22px;background:var(--san-surface);color:var(--san-text);font-size:12px;line-height:1.8;}
+.ar-progress>span{display:block;margin-top:12px;color:var(--san-text);font-size: 13px;font-variant-numeric:tabular-nums;}
+.ar-warning{width:calc(100% - 48px);max-width:720px;margin:14px auto 0!important;padding:12px 18px;border:0;border-radius:22px;background:var(--san-surface);color:var(--san-text);font-size: 13px;line-height:1.8;}
 @media(prefers-reduced-motion:reduce){.ar-progress i{transition:none;}}
 `;
 export default AnalysisReport;

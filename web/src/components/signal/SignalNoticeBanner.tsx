@@ -40,14 +40,10 @@ export function SignalNoticeBanner({ notice, onReply, onDismiss }: Props) {
             aria-live="polite"
             {...toastMotion(reduce)}
           >
-            <span
-              className={`san-dot ${notice.kind === "crossing" ? "san-dot-star" : "san-dot-live"}`}
-              aria-hidden="true"
-            />
             <p className="m-0 min-w-0 flex-1 truncate text-[13px] text-san-text">
               <span className="san-data mr-2">{notice.cs}</span>
               {notice.kind === "crossing"
-                ? "서로 스쳤어요 · 교차 로그에 남겼어요"
+                ? "서로 인사했어요"
                 : `가까이서 ${emoteInfo(notice.emote).got}`}
             </p>
             {notice.kind === "emote" ? (

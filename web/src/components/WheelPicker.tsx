@@ -51,7 +51,7 @@ export function WheelPicker<T extends string>({
   const height = ROW * rows;
   const pad = (height - ROW) / 2;
 
-  // 중심에서의 거리에 따라 블러·투명도 갱신 (렌더 없이 스타일만)
+  // 중심에서 멀수록 옅게 (렌더 없이 스타일만)
   const paint = useCallback(() => {
     const scroller = scrollerRef.current;
     if (!scroller) return;
@@ -60,7 +60,6 @@ export function WheelPicker<T extends string>({
       if (!el) return;
       const d = Math.abs(index - center);
       el.style.opacity = String(Math.max(0.16, 1 - d * 0.34));
-      el.style.filter = d < 0.2 ? "none" : `blur(${Math.min(3.2, d * 1.3).toFixed(2)}px)`;
       el.dataset.center = d < 0.5 ? "true" : "false";
     });
   }, []);
@@ -164,7 +163,7 @@ export function WheelPicker<T extends string>({
               aria-selected={selected}
               tabIndex={-1}
               onClick={() => scrollToIndex(index, true)}
-              className="group relative flex w-full snap-center items-center justify-center border-0 bg-transparent text-[16px] font-light tracking-[0.02em] text-san-text"
+              className="group relative flex w-full snap-center items-center justify-center border-0 bg-transparent text-[15px] text-san-text"
               style={{ height: ROW, willChange: "opacity, filter" }}
             >
               {option.label}

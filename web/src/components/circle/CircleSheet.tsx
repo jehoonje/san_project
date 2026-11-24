@@ -138,7 +138,7 @@ export function CircleSheet({ myId, onClose }: CircleSheetProps) {
           </button>
         </header>
 
-        <p className="mb-7 text-[12.5px] leading-relaxed text-san-text">
+        <p className="mb-7 text-[13px] leading-relaxed text-san-text">
           서클 안에서만 서로의 걸음과 장소가 보여요. 최대 {CIRCLE_MAX}명까지
           함께할 수 있고, 나가면 그때부터 보이지 않아요.
         </p>
@@ -175,7 +175,7 @@ export function CircleSheet({ myId, onClose }: CircleSheetProps) {
                           size={28}
                         />
                       </span>
-                      <span className="text-[12.5px] text-san-text">
+                      <span className="text-[13px] text-san-text">
                         {member.userId === myId ? "나" : member.displayName}
                       </span>
                     </li>
@@ -190,7 +190,7 @@ export function CircleSheet({ myId, onClose }: CircleSheetProps) {
                     aria-label={`${circle.name} 초대 코드 복사`}
                   >
                     <CopyIcon />
-                    <span className="font-mono tracking-[0.14em]">
+                    <span className="font-mono">
                       {circle.inviteCode}
                     </span>
                   </button>
@@ -250,7 +250,7 @@ export function CircleSheet({ myId, onClose }: CircleSheetProps) {
               placeholder="초대 코드"
               autoCapitalize="characters"
               autoComplete="off"
-              className="san-field-input flex-1 font-mono tracking-[0.2em]"
+              className="san-field-input flex-1"
               aria-label="초대 코드"
             />
             <button
@@ -271,7 +271,7 @@ export function CircleSheet({ myId, onClose }: CircleSheetProps) {
 
         <p
           role="status"
-          className="mt-5 min-h-5 text-center text-[12.5px] text-san-text"
+          className="mt-5 min-h-5 text-center text-[13px] text-san-text"
         >
           {message}
         </p>

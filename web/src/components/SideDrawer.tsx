@@ -153,7 +153,6 @@ export function SideDrawer({
           paddingBottom: "calc(env(safe-area-inset-bottom, 0px) + 28px)",
           transform: visible ? "translate3d(0,0,0)" : "translate3d(0,36px,0)",
           opacity: visible ? 1 : 0,
-          filter: visible || reducedMotion ? "blur(0px)" : "blur(10px)",
           visibility: visible || open ? "visible" : "hidden",
           willChange: "transform",
           transition: `transform ${duration}ms ${EASE}, opacity ${duration}ms ${EASE}, filter ${duration}ms ${EASE}`,
@@ -218,7 +217,7 @@ export function SideDrawer({
           <section className="mt-9" aria-label="동행 서클">
             <h3 className="san-eyebrow">CIRCLE</h3>
             <div className="mt-3 flex items-center justify-between gap-4">
-              <p className="m-0 min-w-0 flex-1 truncate text-[14px] text-san-text">
+              <p className="m-0 min-w-0 flex-1 truncate text-[15px] text-san-text">
                 {circleMates > 0
                   ? `${circleMates}명과 함께 걷고 있어요`
                   : "아직 함께 걷는 사람이 없어요"}
@@ -238,7 +237,7 @@ export function SideDrawer({
         <section className="mt-9" aria-label="근처 신호">
           <h3 className="san-eyebrow">SIGNAL</h3>
           <div className="mt-3 flex items-center justify-between gap-4">
-            <p className="m-0 flex min-w-0 items-center gap-2.5 text-[14px] text-san-text">
+            <p className="m-0 flex min-w-0 items-center gap-2.5 text-[15px] text-san-text">
               <span
                 className={`san-dot ${
                   signal.on && signal.status === "live"
@@ -261,7 +260,7 @@ export function SideDrawer({
               {signal.on ? "켜짐" : "꺼짐"}
             </button>
           </div>
-          <p className="mt-3 text-[12.5px] leading-relaxed text-san-text">
+          <p className="mt-3 text-[13px] leading-relaxed text-san-text">
             정확한 위치 대신 대략적인 위치만 공유돼요. 근처 산책자의
             아바타를 누르면 내 아바타가 그쪽을 보고 인사해요.
           </p>
@@ -276,7 +275,7 @@ export function SideDrawer({
         <section className="mt-9">
           <h3 className="san-eyebrow">MAP</h3>
 
-          <p className="mt-3 text-[12px] leading-relaxed text-san-text">
+          <p className="mt-3 text-[13px] leading-relaxed text-san-text">
             지도 데이터 ©{" "}
             <a
               href="https://www.openstreetmap.org/copyright"

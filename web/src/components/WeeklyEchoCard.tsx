@@ -118,15 +118,15 @@ export function WeeklyEchoCard({ accessToken, myId, hasCircle }: WeeklyEchoCardP
       {...screenMotion(reduce)}
     >
       <div className="flex items-baseline justify-between gap-3">
-        <p className="san-eyebrow">ECHO · {weekLabel(echo.weekStart)}</p>
+        <p className="san-eyebrow">이번 주 · {weekLabel(echo.weekStart)}</p>
         <DayDots days={echo.stats.days} />
       </div>
 
-      <h2 className="san-display mt-3 text-[22px]">{echo.body.title}</h2>
+      <h2 className="san-t1 mt-3">{echo.body.title}</h2>
 
       <div className="mt-3 space-y-1.5">
         {echo.body.lines.map((line) => (
-          <p key={line} className="m-0 text-[14px] leading-relaxed text-san-text">
+          <p key={line} className="m-0 text-[15px] leading-relaxed text-san-text">
             {line}
           </p>
         ))}
@@ -135,17 +135,17 @@ export function WeeklyEchoCard({ accessToken, myId, hasCircle }: WeeklyEchoCardP
       <dl className="m-0 mt-5 flex items-baseline gap-6">
         <div>
           <dt className="sr-only">걸은 거리</dt>
-          <dd className="m-0 font-mono text-[24px] font-light leading-none tabular-nums">
+          <dd className="m-0 text-[15px] tabular-nums">
             {km}
-            <span className="ml-1 text-[10px] tracking-[0.16em]">KM</span>
+            <span className="ml-1 text-[13px] text-san-muted">km</span>
           </dd>
         </div>
         <div>
-          <dt className="san-eyebrow">WALKS</dt>
+          <dt className="san-eyebrow">걸음</dt>
           <dd className="san-data m-0 mt-1">{echo.stats.routeCount}</dd>
         </div>
         <div>
-          <dt className="san-eyebrow">PLACES</dt>
+          <dt className="san-eyebrow">장소</dt>
           <dd className="san-data m-0 mt-1">{echo.stats.placeCount}</dd>
         </div>
       </dl>
@@ -166,7 +166,7 @@ export function WeeklyEchoCard({ accessToken, myId, hasCircle }: WeeklyEchoCardP
 
       {others.length > 0 && (
         <section className="mt-8" aria-label="서클이 건넨 잔향">
-          <h3 className="san-eyebrow">FROM CIRCLE</h3>
+          <h3 className="san-eyebrow">서클이 건넨 한 주</h3>
           <ul className="m-0 mt-3 list-none space-y-1 p-0">
             {others.map((item) => {
               const isOpen = open === item.userId;
@@ -186,10 +186,10 @@ export function WeeklyEchoCard({ accessToken, myId, hasCircle }: WeeklyEchoCardP
                       />
                     </span>
                     <span className="min-w-0 flex-1">
-                      <span className="block truncate text-[14px] text-san-text">
+                      <span className="block truncate text-[15px] text-san-text">
                         {item.body.title}
                       </span>
-                      <span className="mt-0.5 block truncate text-[12px] text-san-muted">
+                      <span className="mt-0.5 block truncate text-[13px] text-san-muted">
                         {item.displayName}
                       </span>
                     </span>

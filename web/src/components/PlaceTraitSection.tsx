@@ -282,27 +282,23 @@ const STYLES = `
 }
 
 .place-traits-heading > span {
-  color: var(--san-text);
-  font-family: var(--san-font-mono);
-  font-size: 10.5px;
-  font-weight: 500;
-  letter-spacing: .2em;
-  text-transform: uppercase;
+  color: var(--san-text-muted);
+  font-size: 13px;
+  font-weight: 400;
 }
 
 .place-traits-heading h2 {
   margin-top: 12px;
   color: var(--san-text);
-  font-size: clamp(30px, 8vw, 42px);
-  font-weight:300;
+  font-size: 20px;
+  font-weight: 500;
   line-height: 1.2;
-  letter-spacing:0;
 }
 
 .place-traits-intro {
   margin-top: 16px !important;
   color: var(--san-text);
-  font-size: 12px;
+  font-size: 13px;
   line-height: 1.9;
   word-break: keep-all;
 }
@@ -326,37 +322,32 @@ const STYLES = `
 }
 
 .place-traits-group {
-  color: var(--san-text);
-  font-family: var(--san-font-mono);
-  font-size: 10.5px;
-  font-weight: 500;
-  letter-spacing: .2em;
-  text-transform: uppercase;
+  color: var(--san-text-muted);
+  font-size: 13px;
+  font-weight: 400;
 }
 
 .place-traits-item h3 {
   margin: 6px 0 0;
   color: var(--san-text);
   font-size: 20px;
-  font-weight:300;
+  font-weight: 500;
   line-height: 1.4;
-  letter-spacing:0;
   overflow-wrap: anywhere;
 }
 
 .place-traits-count {
   flex-shrink: 0;
   color: var(--san-text);
-  font-family: var(--san-font-mono);
-  font-size: 23px;
-  font-weight: 300;
+  font-size: 20px;
+  font-weight: 500;
   font-variant-numeric: tabular-nums;
 }
 
 .place-traits-count > span {
   margin-left: 3px;
   color: var(--san-text);
-  font-size:11px;
+  font-size:13px;
 }
 
 .place-traits-track {
@@ -376,7 +367,7 @@ const STYLES = `
 .place-traits-denominator {
   margin-top: 7px !important;
   color: var(--san-text);
-  font-size:11px;
+  font-size:13px;
   line-height: 1.7;
 }
 
@@ -388,7 +379,7 @@ const STYLES = `
   min-height: 44px;
   padding: 12px 0;
   color: var(--san-text);
-  font-size:11px;
+  font-size:13px;
   line-height: 1.8;
   cursor: pointer;
   overflow-wrap: anywhere;
@@ -418,19 +409,19 @@ const STYLES = `
   justify-content: space-between;
   gap: 5px 10px;
   color: var(--san-text);
-  font-size: 11px;
+  font-size: 13px;
   line-height: 1.7;
 }
 
 .place-traits-place small {
   color: var(--san-text);
-  font-size:11px;
+  font-size:13px;
 }
 
 .place-traits-evidence li > p {
   margin-top: 4px !important;
   color: var(--san-text);
-  font-size:11px;
+  font-size:13px;
   line-height: 1.8;
   overflow-wrap: anywhere;
 }
@@ -438,7 +429,7 @@ const STYLES = `
 .place-traits-scope {
   margin-top: 19px !important;
   color: var(--san-text);
-  font-size:11px;
+  font-size:13px;
   line-height: 1.9;
 }
 
@@ -448,8 +439,7 @@ const STYLES = `
   }
 
   .place-traits-item h3 {
-    font-size: 22px;
-  }
+    font-size: 20px; font-weight: 500}
 }
 `;
 

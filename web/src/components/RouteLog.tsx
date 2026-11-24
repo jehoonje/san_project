@@ -224,8 +224,8 @@ export function RouteLog({
     if (reduceMotion) return {};
     const delay = index < STAGGER_ROWS ? 0.08 + index * STAGGER_S : 0;
     return {
-      initial: { opacity: 0, y: 4, filter: "blur(6px)" },
-      animate: { opacity: 1, y: 0, filter: "blur(0px)" },
+      initial: { opacity: 0, y: 4 },
+      animate: { opacity: 1, y: 0 },
       transition: { duration: 0.6, delay, ease: [0.22, 1, 0.36, 1] as const },
     };
   }
@@ -241,8 +241,8 @@ export function RouteLog({
 
       <div className={styles.log}>
         <p className={styles.summary}>
-          {stats.routes} routes <span className={styles.dot}>·</span>{" "}
-          {stats.unique} places <span className={styles.dot}>·</span>{" "}
+          루트 {stats.routes} <span className={styles.dot}>·</span>{" "}
+          장소 {stats.unique} <span className={styles.dot}>·</span>{" "}
           {formatKm(stats.meters)}
         </p>
 
@@ -352,7 +352,7 @@ export function RouteLog({
                   </span>
                   <span className={styles.main}>
                     <span className={styles.name}>{place.name}</span>
-                    {mark?.isNew && <span className={styles.new}>new</span>}
+                    {mark?.isNew && <span className={styles.new}>처음</span>}
                     <span className={styles.faint}>
                       {categoryLabel(place.category)}
                     </span>

@@ -68,7 +68,6 @@
     "SF Mono",
     Menlo,
     monospace;
-  letter-spacing: 0.16em;
   white-space: nowrap;
   transform: translateX(-50%);
   pointer-events: none;

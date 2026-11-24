@@ -77,13 +77,9 @@ export function DayNoteModal({
         style={{ marginBottom: "env(safe-area-inset-bottom, 0px)" }}
         {...dialogMotion(reduce, "bottom")}
       >
-        <p className="san-eyebrow">REST DAY</p>
-        <h2 id={titleId} className="san-title mt-2">
+        <h2 id={titleId} className="san-t1">
           {dayLabel(day)}
         </h2>
-        <p className="mt-1.5 text-[13px] leading-relaxed text-san-text">
-          걷지 않은 날에도 한 줄은 남을 수 있어요.
-        </p>
 
         <label htmlFor={inputId} className="sr-only">
           오늘 한 줄
@@ -95,7 +91,7 @@ export function DayNoteModal({
           onChange={(event) => setBody(event.target.value)}
           maxLength={80}
           disabled={busy}
-          placeholder="오늘은 어땠나요"
+          placeholder="오늘 한 줄"
           className="san-field-input mt-6"
         />
 

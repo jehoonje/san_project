@@ -1203,7 +1203,7 @@ export default function Home() {
                             <AnalysisReport accessToken={session.access_token} />
                           ) : (
                             <div className="flex h-full flex-col items-center justify-center px-7 pb-28 text-center">
-                              <p className="m-0 text-[14px] text-san-text">
+                              <p className="m-0 text-[15px] text-san-text">
                                 로그인하면 기록의 잔향을 볼 수 있어요.
                               </p>
                               <button

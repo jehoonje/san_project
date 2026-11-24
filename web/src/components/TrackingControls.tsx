@@ -163,7 +163,7 @@ export function TrackingControls({
     onStop();
   }, [clearStopTimer, onStop, stopArmed]);
 
-  // 문구는 정지 확인에만 사용 (나머지는 아이콘과 맥동 점으로 상태 표시)
+  // 문구는 정지 확인에만 사용 (나머지는 아이콘으로 상태 표시)
   const statusMessage = stopArmed ? "한 번 더 누르면 종료" : (lastMessage?.trim() ?? "");
 
   const swap = reducedMotion
@@ -173,17 +173,15 @@ export function TrackingControls({
         exit: { opacity: 0, transition: { duration: 0 } },
       }
     : {
-        initial: { opacity: 0, y: 10, filter: "blur(8px)" },
+        initial: { opacity: 0, y: 10 },
         animate: {
           opacity: 1,
           y: 0,
-          filter: "blur(0px)",
           transition: { duration: DURATION.enter, ease: EASE_AMBIENT },
         },
         exit: {
           opacity: 0,
           y: 6,
-          filter: "blur(6px)",
           transition: { duration: DURATION.exit, ease: EASE_EXIT },
         },
       };
@@ -206,15 +204,6 @@ export function TrackingControls({
             {...swap}
           >
             <PlayIcon />
-            {/* 시작 전: 버튼 둘레로 번지는 가는 파문 */}
-            <span
-              aria-hidden="true"
-              className="san-ripples san-ripples-bare san-ripples-overlay"
-              style={{ ["--size" as string]: "112px" }}
-            >
-              <i />
-              <i />
-            </span>
           </motion.button>
         ) : (
           <motion.div
@@ -238,7 +227,7 @@ export function TrackingControls({
                 className="san-pill relative h-[56px] w-[56px] san-pill-icon"
               >
                 <PlaceIcon />
-                {/* 숫자 배지 대신: 저장한 장소가 있으면 별빛 점 하나 */}
+                {/* 저장한 장소가 있으면 포인트 색 점 하나 */}
                 {normalizedPlaceCount > 0 && (
                   <span
                     className="san-dot san-dot-star absolute right-2.5 top-2.5"
@@ -270,18 +259,13 @@ export function TrackingControls({
               className={`san-pill relative h-[56px] w-[56px] san-pill-icon ${
                 stopArmed ? "san-pill-danger" : ""
               }`}
+              style={
+                stopArmed
+                  ? { boxShadow: "inset 0 0 0 1px var(--san-error)" }
+                  : undefined
+              }
             >
               <StopIcon />
-              {stopArmed && (
-                <span
-                  aria-hidden="true"
-                  className="san-ripples san-ripples-bare san-ripples-overlay text-san-error"
-                  style={{ ["--size" as string]: "84px" }}
-                >
-                  <i style={{ borderColor: "currentColor" }} />
-                  <i style={{ borderColor: "currentColor" }} />
-                </span>
-              )}
             </button>
           </motion.div>
         )}
@@ -302,7 +286,7 @@ export function TrackingControls({
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
               transition={{ duration: reducedMotion ? 0 : 0.3, ease: "easeOut" }}
-              className={`rounded-full px-3 py-1 text-center text-[12px] ${
+              className={`rounded-full px-3 py-1 text-center text-[13px] ${
                 stopArmed ? "text-san-error" : "text-san-text"
               }`}
             >

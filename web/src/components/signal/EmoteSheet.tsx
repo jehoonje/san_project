@@ -59,16 +59,10 @@ export function EmoteSheet({ peer, relation, onEmote, onClose }: Props) {
       >
         <div className="flex items-start justify-between gap-3">
           <div className="min-w-0">
-            <p className="san-eyebrow flex items-center gap-2">
-              <span
-                className={`san-dot ${relation?.crossed ? "san-dot-star" : "san-dot-live"}`}
-                aria-hidden="true"
-              />
-              {peer.cs}
-            </p>
+            <p className="san-eyebrow">{peer.cs}</p>
             <p className="san-title mt-2">{distanceLabel(peer.distance)}</p>
             {line && (
-              <p className="mt-0.5 text-[13px] text-san-text" role="status">
+              <p className="san-t3 mt-0.5" role="status">
                 {line}
               </p>
             )}

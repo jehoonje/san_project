@@ -311,9 +311,9 @@ export function RouteViewer({ route, open }: RouteViewerProps) {
         <dl className="m-0 mt-5 flex items-end gap-6">
           <div>
             <dt className="sr-only">거리</dt>
-            <dd className="m-0 font-mono text-[34px] font-light leading-none tracking-[-0.02em] tabular-nums">
+            <dd className="m-0 text-[15px] tabular-nums">
               {km}
-              <span className="ml-1.5 text-[11px] tracking-[0.16em]">KM</span>
+              <span className="ml-1.5 text-[13px]">KM</span>
             </dd>
           </div>
           <div className="pb-0.5">

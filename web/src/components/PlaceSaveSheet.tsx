@@ -120,12 +120,11 @@ export function PlaceSaveSheet({
         initial={
           reducedMotion
             ? { opacity: 0 }
-            : { opacity: 0, y: 48, filter: "blur(12px)" }
+            : { opacity: 0, y: 48 }
         }
         animate={{
           y: 0,
           opacity: 1,
-          filter: "blur(0px)",
           transition: reducedMotion
             ? { duration: 0 }
             : { duration: DURATION.enter + 0.06, ease: EASE_AMBIENT },
@@ -136,7 +135,6 @@ export function PlaceSaveSheet({
             : {
                 opacity: 0,
                 y: 28,
-                filter: "blur(8px)",
                 transition: { duration: 0.26, ease: EASE_EXIT },
               }
         }
@@ -164,7 +162,7 @@ export function PlaceSaveSheet({
                 <span className="san-dot san-dot-star" aria-hidden="true" />
                 {dwell ? `STAY · ${dwell.minutes} MIN` : "PLACE"}
               </p>
-              <h2 id={titleId} className="san-title mt-2 text-[22px]">
+              <h2 id={titleId} className="san-t1 mt-2">
                 장소 저장
               </h2>
             </div>
@@ -255,7 +253,7 @@ export function PlaceSaveSheet({
                           <span className="block truncate text-[15px] text-san-text">
                             {place.name}
                           </span>
-                          <span className="mt-0.5 block truncate text-[12px] text-san-text opacity-80">
+                          <span className="mt-0.5 block truncate text-[13px] text-san-text opacity-80">
                             {place.categoryName.split(" > ").slice(-1)[0]}
                           </span>
                         </span>

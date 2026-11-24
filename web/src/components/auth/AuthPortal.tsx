@@ -19,77 +19,53 @@ type AuthPortalProps = {
 };
 
 const MENU: { key: MenuKey; label: string }[] = [
-  { key: "login", label: "LOGIN" },
-  { key: "guest", label: "GUEST" },
-  { key: "settings", label: "SETTING" },
+  { key: "login", label: "로그인" },
+  { key: "guest", label: "로그인 없이 시작" },
+  { key: "settings", label: "화면 설정" },
 ];
 
 const SIGNUP_STEPS = 4;
 const EASE_OUT = [0.16, 1, 0.3, 1] as const;
 
 const menuVariants: Variants = {
-  hidden: {},
-  show: { transition: { delayChildren: 0.5, staggerChildren: 0.28 } },
-  away: {
-    opacity: 0,
-    filter: "blur(6px)",
-    transition: { duration: 0.35, ease: "easeOut" },
-  },
+  hidden: { opacity: 0, y: 8 },
+  show: { opacity: 1, y: 0, transition: { duration: 0.4, ease: EASE_OUT } },
+  away: { opacity: 0, transition: { duration: 0.2, ease: "easeOut" } },
 };
 
-const rowVariants: Variants = {
-  hidden: {},
-  show: { transition: { staggerChildren: 0.07 } },
-};
-
-const charVariants: Variants = {
-  hidden: { opacity: 0, y: 6, filter: "blur(12px)" },
-  show: {
-    opacity: 1,
-    y: 0,
-    filter: "blur(0px)",
-    transition: { duration: 0.9, ease: EASE_OUT },
-  },
-};
-
-// 빛 속에서 서서히 초점이 맞는 페이드인
+// 카드: 아래에서 떠오름
 const lightInVariants: Variants = {
-  enter: { opacity: 0, y: 14, scale: 0.985, filter: "blur(14px)" },
+  enter: { opacity: 0, y: 14 },
   center: {
     opacity: 1,
     y: 0,
-    scale: 1,
-    filter: "blur(0px)",
-    transition: { duration: 0.95, ease: EASE_OUT, delay: 0.12 },
+    transition: { duration: 0.45, ease: EASE_OUT },
   },
   exit: {
     opacity: 0,
     y: 6,
-    filter: "blur(8px)",
     transition: { duration: 0.32, ease: "easeIn" },
   },
 };
 
 const viewVariants: Variants = {
-  enter: { opacity: 0, y: 10, filter: "blur(6px)" },
+  enter: { opacity: 0, y: 10 },
   center: {
     opacity: 1,
     y: 0,
-    filter: "blur(0px)",
     transition: { duration: 0.55, ease: EASE_OUT },
   },
-  exit: { opacity: 0, y: -6, filter: "blur(4px)", transition: { duration: 0.18 } },
+  exit: { opacity: 0, y: -6, transition: { duration: 0.18 } },
 };
 
 const stepVariants: Variants = {
-  enter: { opacity: 0, x: 18, filter: "blur(6px)" },
+  enter: { opacity: 0, x: 18 },
   center: {
     opacity: 1,
     x: 0,
-    filter: "blur(0px)",
     transition: { duration: 0.5, ease: EASE_OUT },
   },
-  exit: { opacity: 0, x: -14, filter: "blur(4px)", transition: { duration: 0.16 } },
+  exit: { opacity: 0, x: -14, transition: { duration: 0.16 } },
 };
 
 function BackIcon() {
@@ -100,22 +76,7 @@ function BackIcon() {
   );
 }
 
-function MoonIcon() {
-  return (
-    <svg className="san-icon" viewBox="0 0 24 24" aria-hidden="true">
-      <path d="M20.2 14.9A8.2 8.2 0 0 1 9.1 3.8a8.2 8.2 0 1 0 11.1 11.1Z" />
-    </svg>
-  );
-}
 
-function SunIcon() {
-  return (
-    <svg className="san-icon" viewBox="0 0 24 24" aria-hidden="true">
-      <circle cx="12" cy="12" r="3.8" />
-      <path d="M12 2.5v2M12 19.5v2M5.3 5.3l1.4 1.4M17.3 17.3l1.4 1.4M2.5 12h2M19.5 12h2M5.3 18.7l1.4-1.4M17.3 6.7l1.4-1.4" />
-    </svg>
-  );
-}
 
 function normalizeAuthMessage(message: string) {
   const m = message.toLowerCase();
@@ -341,39 +302,30 @@ export function AuthPortal({ onAuthenticated, onSocialLogin }: AuthPortalProps) 
 
   return (
     <main className="san-entry">
-      <div className="san-ambient" aria-hidden="true">
-        <span />
-        <span />
-        <span />
-      </div>
-
       <motion.nav
-        className="san-menu"
-        aria-label="SAN 메뉴"
+        className="san-entry-actions"
+        aria-label="시작하기"
         variants={menuVariants}
         initial="hidden"
         animate={panel ? "away" : "show"}
         style={{ pointerEvents: panel ? "none" : "auto" }}
       >
         {MENU.map((item) => (
-          <motion.button
+          <button
             key={item.key}
             type="button"
             tabIndex={panel ? -1 : 0}
-            aria-label={item.label}
-            className={`san-menu-item ${item.key === "guest" ? "is-soft" : ""}`}
-            variants={rowVariants}
-            whileTap={{ opacity: 0.6 }}
+            className={
+              item.key === "login"
+                ? "san-primary"
+                : item.key === "guest"
+                  ? "san-secondary"
+                  : "san-text-button"
+            }
             onClick={() => onMenu(item.key)}
           >
-            <span className="san-menu-text" aria-hidden="true">
-              {Array.from(item.label).map((char, i) => (
-                <motion.span key={i} variants={charVariants} className="san-menu-char">
-                  {char}
-                </motion.span>
-              ))}
-            </span>
-          </motion.button>
+            {item.label}
+          </button>
         ))}
       </motion.nav>
 
@@ -394,7 +346,7 @@ export function AuthPortal({ onAuthenticated, onSocialLogin }: AuthPortalProps) 
           <motion.div
             key="whip"
             className="san-whip"
-            style={{ willChange: "transform, opacity, filter" }}
+            style={{ willChange: "transform, opacity" }}
             variants={lightInVariants}
             initial="enter"
             animate="center"
@@ -425,22 +377,22 @@ export function AuthPortal({ onAuthenticated, onSocialLogin }: AuthPortalProps) 
                     animate="center"
                     exit="exit"
                   >
-                    <div className="san-theme-list">
+                    <h2 className="san-settings-title">화면</h2>
+                    <div className="san-seg" role="radiogroup" aria-label="화면 테마">
                       {(
                         [
-                          { id: "light", name: "Light", icon: <SunIcon /> },
-                          { id: "dark", name: "Dark", icon: <MoonIcon /> },
+                          { id: "light", name: "라이트" },
+                          { id: "dark", name: "다크" },
                         ] as const
                       ).map((o) => (
                         <button
                           key={o.id}
                           type="button"
-                          className={`san-theme-option ${theme === o.id ? "is-active" : ""}`}
+                          role="radio"
+                          aria-checked={theme === o.id}
                           onClick={() => setTheme(o.id)}
                         >
-                          <span className="san-theme-icon">{o.icon}</span>
-                          <span className="san-theme-name">{o.name}</span>
-                          <span className="san-theme-dot" />
+                          {o.name}
                         </button>
                       ))}
                     </div>
@@ -640,8 +592,8 @@ export function AuthPortal({ onAuthenticated, onSocialLogin }: AuthPortalProps) 
             key="notice"
             className="san-notice"
             role="status"
-            initial={{ opacity: 0, y: 12, filter: "blur(6px)" }}
-            animate={{ opacity: 1, y: 0, filter: "blur(0px)" }}
+            initial={{ opacity: 0, y: 12 }}
+            animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: 8 }}
             transition={{ duration: 0.3, ease: EASE_OUT }}
           >

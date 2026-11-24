@@ -1,5 +1,6 @@
 // web/src/lib/motion.ts
-// 앰비언트 퓨처리즘 모션 규칙: 빠르게 튀지 않고, 흐림에서 또렷해지며 떠오르고 가라앉는다.
+// 모션 규칙: 튀지 않고 짧게. 나타날 때는 제자리 근처에서 떠오르고, 사라질 때는 빠르게.
+// 흐림(blur)은 쓰지 않습니다. 움직임은 어디서 왔는지 알려 줄 때만 씁니다.
 import type { Transition } from "motion/react";
 
 // 감속이 긴 곡선: 처음엔 빠르게, 끝은 오래 머무르며 안착
@@ -30,7 +31,7 @@ export function scrimMotion(reduced: boolean | null) {
   };
 }
 
-// 모달/시트 본체: 흐림 속에서 살짝 떠오르며 또렷해짐
+// 모달/시트 본체: 아래(또는 제자리)에서 살짝 떠오름
 export function dialogMotion(
   reduced: boolean | null,
   from: "center" | "bottom" = "center",
@@ -44,25 +45,21 @@ export function dialogMotion(
   }
   const y = from === "bottom" ? 28 : 14;
   return {
-    initial: { opacity: 0, y, scale: 0.97, filter: "blur(10px)" },
+    initial: { opacity: 0, y },
     animate: {
       opacity: 1,
       y: 0,
-      scale: 1,
-      filter: "blur(0px)",
       transition: { duration: DURATION.enter, ease: EASE_AMBIENT },
     },
     exit: {
       opacity: 0,
       y: y / 2,
-      scale: 0.985,
-      filter: "blur(8px)",
       transition: { duration: DURATION.exit, ease: EASE_EXIT },
     },
   };
 }
 
-// 화면(뷰) 교체: 제자리에서 흐려지며 사라지고, 흐림 속에서 나타남
+// 화면(뷰) 교체: 제자리에서 바뀜
 export function screenMotion(reduced: boolean | null) {
   if (reduced) {
     return {
@@ -72,37 +69,33 @@ export function screenMotion(reduced: boolean | null) {
     };
   }
   return {
-    initial: { opacity: 0, y: 8, filter: "blur(8px)" },
+    initial: { opacity: 0, y: 8 },
     animate: {
       opacity: 1,
       y: 0,
-      filter: "blur(0px)",
       transition: { duration: DURATION.screen, ease: EASE_AMBIENT },
     },
     exit: {
       opacity: 0,
       y: -4,
-      filter: "blur(6px)",
       transition: { duration: 0.2, ease: EASE_EXIT },
     },
   };
 }
 
-// 토스트: 아래에서 조용히 떠올랐다가 흐려지며 사라짐
+// 토스트: 아래에서 떠올랐다가 사라짐
 export function toastMotion(reduced: boolean | null) {
   if (reduced) return screenMotion(reduced);
   return {
-    initial: { opacity: 0, y: 12, filter: "blur(6px)" },
+    initial: { opacity: 0, y: 12 },
     animate: {
       opacity: 1,
       y: 0,
-      filter: "blur(0px)",
       transition: { duration: 0.42, ease: EASE_AMBIENT },
     },
     exit: {
       opacity: 0,
       y: 4,
-      filter: "blur(6px)",
       transition: { duration: 0.28, ease: EASE_EXIT },
     },
   };
