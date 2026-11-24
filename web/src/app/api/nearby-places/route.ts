@@ -1,6 +1,8 @@
 // web/src/app/api/nearby-places/route.ts
 import { NextRequest, NextResponse } from "next/server";
 import type { PlaceCategory } from "@/types/place";
+import { searchPlacesOsm } from "@/lib/places/osmClient";
+import { inKoreaBounds, type NearbyPlace } from "@/lib/places/types";
 
 const KAKAO_CATEGORY_URL =
   "https://dapi.kakao.com/v2/local/search/category.json";
@@ -34,19 +36,6 @@ type KakaoSearchResponse = {
     is_end: boolean;
   };
   documents: KakaoPlaceDocument[];
-};
-
-type NearbyPlace = {
-  providerId: string;
-  name: string;
-  category: PlaceCategory;
-  categoryName: string;
-  lat: number;
-  lng: number;
-  distanceMeters: number;
-  address: string;
-  phone: string | null;
-  placeUrl: string;
 };
 
 type CategorySearch = {
@@ -316,127 +305,95 @@ async function searchPark(
     }));
 }
 
-export async function GET(request: NextRequest) {
-  const restApiKey =
-    process.env.KAKAO_REST_API_KEY;
+/** 카카오 로컬 검색 (한국 안). 키가 없거나 실패하면 던집니다. */
+async function searchKakao(
+  lat: number,
+  lng: number,
+): Promise<NearbyPlace[]> {
+  const restApiKey = process.env.KAKAO_REST_API_KEY;
 
   if (!restApiKey) {
-    console.error(
-      "[NEARBY_PLACES] KAKAO_REST_API_KEY가 없습니다.",
-    );
+    throw new Error("KAKAO_REST_API_KEY가 없습니다.");
+  }
 
+  const categoryRequests = CATEGORY_SEARCHES.map((search) =>
+    searchCategory(lat, lng, search, restApiKey),
+  );
+
+  const results = await Promise.all([
+    ...categoryRequests,
+    searchPark(lat, lng, restApiKey),
+  ]);
+
+  const uniquePlaces = new Map<string, NearbyPlace>();
+
+  for (const place of results.flat()) {
+    const existing = uniquePlaces.get(place.providerId);
+
+    if (!existing || place.distanceMeters < existing.distanceMeters) {
+      uniquePlaces.set(place.providerId, place);
+    }
+  }
+
+  return [...uniquePlaces.values()]
+    .filter((place) => place.distanceMeters <= SEARCH_RADIUS_METERS)
+    .sort((a, b) => a.distanceMeters - b.distanceMeters)
+    .slice(0, RESULT_LIMIT);
+}
+
+export async function GET(request: NextRequest) {
+  const lat = Number(request.nextUrl.searchParams.get("lat"));
+  const lng = Number(request.nextUrl.searchParams.get("lng"));
+
+  if (!isValidLatitude(lat) || !isValidLongitude(lng)) {
     return NextResponse.json(
-      {
-        message:
-          "서버의 장소 검색 설정이 완료되지 않았습니다.",
-      },
-      {
-        status: 500,
-      },
+      { message: "올바른 현재 위치가 필요합니다." },
+      { status: 400 },
     );
   }
 
-  const lat = Number(
-    request.nextUrl.searchParams.get("lat"),
-  );
-  const lng = Number(
-    request.nextUrl.searchParams.get("lng"),
-  );
+  let places: NearbyPlace[] = [];
+  let source: "kakao" | "osm" = "kakao";
+  let kakaoFailed = false;
 
-  if (
-    !isValidLatitude(lat) ||
-    !isValidLongitude(lng)
-  ) {
-    return NextResponse.json(
-      {
-        message: "올바른 현재 위치가 필요합니다.",
-      },
-      {
-        status: 400,
-      },
-    );
+  // 한국 안에서는 카카오가 가장 정확합니다. 결과가 없거나 실패하면 OpenStreetMap으로 넘어갑니다.
+  if (inKoreaBounds(lat, lng)) {
+    try {
+      places = await searchKakao(lat, lng);
+    } catch (error) {
+      kakaoFailed = true;
+      console.error("[NEARBY_PLACES] 카카오 검색 실패, 대체 검색으로 넘어갑니다:", error);
+    }
   }
 
-  try {
-    const categoryRequests = CATEGORY_SEARCHES.map(
-      (search) =>
-        searchCategory(
-          lat,
-          lng,
-          search,
-          restApiKey,
-        ),
-    );
+  if (places.length === 0) {
+    try {
+      places = await searchPlacesOsm(lat, lng, SEARCH_RADIUS_METERS, RESULT_LIMIT);
+      source = "osm";
+    } catch (error) {
+      console.error("[NEARBY_PLACES] 장소 검색 실패:", error);
 
-    const results = await Promise.all([
-      ...categoryRequests,
-      searchPark(lat, lng, restApiKey),
-    ]);
-
-    const uniquePlaces = new Map<
-      string,
-      NearbyPlace
-    >();
-
-    for (const place of results.flat()) {
-      const existing = uniquePlaces.get(
-        place.providerId,
-      );
-
-      if (
-        !existing ||
-        place.distanceMeters <
-          existing.distanceMeters
-      ) {
-        uniquePlaces.set(
-          place.providerId,
-          place,
+      // 한국 안에서 카카오는 정상이고 결과만 없었다면 빈 목록이 맞습니다.
+      if (!inKoreaBounds(lat, lng) || kakaoFailed) {
+        return NextResponse.json(
+          { message: "주변 장소를 불러오지 못했습니다." },
+          { status: 502 },
         );
       }
     }
-
-    const places = [...uniquePlaces.values()]
-      .filter(
-        (place) =>
-          place.distanceMeters <=
-          SEARCH_RADIUS_METERS,
-      )
-      .sort(
-        (a, b) =>
-          a.distanceMeters - b.distanceMeters,
-      )
-      .slice(0, RESULT_LIMIT);
-
-    console.log("[NEARBY_PLACES] 검색 완료:", {
-      lat,
-      lng,
-      radiusMeters: SEARCH_RADIUS_METERS,
-      totalMerged: uniquePlaces.size,
-      returned: places.length,
-    });
-
-    return NextResponse.json({
-      center: {
-        lat,
-        lng,
-      },
-      radiusMeters: SEARCH_RADIUS_METERS,
-      places,
-    });
-  } catch (error) {
-    console.error(
-      "[NEARBY_PLACES] 장소 검색 실패:",
-      error,
-    );
-
-    return NextResponse.json(
-      {
-        message:
-          "주변 장소를 불러오지 못했습니다.",
-      },
-      {
-        status: 502,
-      },
-    );
   }
+
+  console.log("[NEARBY_PLACES] 검색 완료:", {
+    lat,
+    lng,
+    source,
+    radiusMeters: SEARCH_RADIUS_METERS,
+    returned: places.length,
+  });
+
+  return NextResponse.json({
+    center: { lat, lng },
+    radiusMeters: SEARCH_RADIUS_METERS,
+    places,
+  });
 }
