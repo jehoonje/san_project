@@ -519,7 +519,7 @@ export function TraitFeedback({
           (saving
             ? "저장 중이에요."
             : selected
-              ? "저장했어요. 다시 누르면 취소돼요."
+              ? "저장했어요."
               : "")}
       </p>
     </div>

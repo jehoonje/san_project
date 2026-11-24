@@ -13,6 +13,8 @@ import {
 type ReceivedPlacesProps = {
   /** 건네받은 장소를 지도에서 보여줄 때 */
   onShow: (place: Handover) => void;
+  /** 보낸 사람 이름 (서클 명단에서 찾습니다. 서클을 떠난 사람은 없습니다) */
+  nameOf: (userId: string) => string | null;
 };
 
 function stamp(value: string) {
@@ -25,7 +27,7 @@ function stamp(value: string) {
  * 건네받은 장소.
  * 아직 열어 보지 않은 것이 있으면 지도 위에 조용히 한 줄로 떠오릅니다.
  */
-export function ReceivedPlaces({ onShow }: ReceivedPlacesProps) {
+export function ReceivedPlaces({ onShow, nameOf }: ReceivedPlacesProps) {
   const reduce = useReducedMotion();
   const [items, setItems] = useState<Handover[]>([]);
   const [dismissed, setDismissed] = useState<string[]>([]);
@@ -71,7 +73,7 @@ export function ReceivedPlaces({ onShow }: ReceivedPlacesProps) {
           >
             <span className="san-dot san-dot-star" aria-hidden="true" />
             <p className="m-0 min-w-0 flex-1 truncate text-[13px] text-san-text">
-              <span className="mr-2">{next.fromName ?? "서클"}</span>
+              <span className="mr-2">{nameOf(next.fromUser) ?? "서클"}</span>
               {next.name}
               {fresh.length > 1 && (
                 <span className="san-data ml-2">+{fresh.length - 1}</span>
@@ -79,7 +81,7 @@ export function ReceivedPlaces({ onShow }: ReceivedPlacesProps) {
             </p>
             <button
               type="button"
-              className="san-pill san-pill-fill min-h-11 px-4 text-[13px]"
+              className="san-pill san-pill-sm san-pill-fill"
               onClick={() => void open(next)}
             >
               보기
@@ -102,7 +104,7 @@ export function ReceivedPlaces({ onShow }: ReceivedPlacesProps) {
 }
 
 /** 받은 장소 목록 (My Routes 아래) */
-export function ReceivedList({ onShow }: ReceivedPlacesProps) {
+export function ReceivedList({ onShow, nameOf }: ReceivedPlacesProps) {
   const [items, setItems] = useState<Handover[] | null>(null);
 
   const load = useCallback(() => {
@@ -139,7 +141,7 @@ export function ReceivedList({ onShow }: ReceivedPlacesProps) {
                 </span>
               )}
               <span className="shrink-0 text-[13px] text-san-muted">
-                {item.fromName ?? ""}
+                {nameOf(item.fromUser) ?? ""}
               </span>
               {!item.openedAt && (
                 <span className="san-dot san-dot-star shrink-0" aria-label="새로 받음" />

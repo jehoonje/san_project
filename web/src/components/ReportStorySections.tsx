@@ -16,7 +16,7 @@ export function IdentitySection({ report }: { report: PersonalReport }) {
   if (!report.identity.trim()) return null;
   return (
     <section className="rs-identity" aria-labelledby={id}>
-      <span className="rs-eyebrow">이런 쪽에 마음이 가요.</span>
+      <span className="rs-eyebrow">요약</span>
       <p className="rs-large-copy">{report.identity}</p>
     </section>
   );
@@ -90,8 +90,7 @@ export function PeerSection({
             );
           })}
           <p className="rs-note">
-            나는 최근 완료된 30일, 다른 유저는 그보다 이전 90일의 기록
-            비중이에요. 앱 유저 기록의 비교예요.
+            기준: 나 최근 30일 · 다른 사람 이전 90일
           </p>
         </div>
       )}
@@ -135,8 +134,7 @@ export function TrendSection({
           </div>
           <span className="rs-change">+{row.change}%p</span>
           <p className="rs-note">
-            직전 30일 대비 최근 완료된 30일의 차이예요. 내 기록의 변화는
-            아니에요.
+            모든 사용자 기준 · 직전 30일 대비
           </p>
         </div>
       ))}
@@ -209,8 +207,7 @@ export function RegionSection({
       )}
       {regions.length > 0 && (
         <p className="rs-note">
-          전체 저장 기록 기준이에요. 지역 정보가 없는 기록도 전체 건수에
-          포함돼요.
+          전체 기록 기준
         </p>
       )}
     </section>
@@ -241,7 +238,6 @@ export function NextStepsSection({ items }: { items: string[] }) {
           </li>
         ))}
       </ol>
-      <p className="rs-note">끌리는 것 하나만 골라도 좋아요.</p>
     </section>
   );
 }
@@ -268,7 +264,7 @@ const STYLES = `
 .rs-track { height:2px; overflow:hidden; border-radius:99px; background:var(--san-surface-strong); }
 .rs-track > i { display:block; height:100%; border-radius:inherit; background:var(--san-text); }
 .rs-track-peer > i { background:var(--san-text-faint); }
-.rs-note { margin-top:15px !important; color:var(--san-text); font-size: 13px; line-height:1.85; word-break:keep-all; }
+.rs-note { margin-top:15px !important; color:var(--san-text-muted); font-size: 13px; line-height:1.85; word-break:keep-all; }
 .rs-peer-rows > .rs-note { margin-top:0 !important; }
 .rs-trend-signal { display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:12px; margin-top:23px; padding-top:18px; border-top:1px solid transparent; }
 .rs-trend-signal > div > span { color:var(--san-text); font-size: 13px; }

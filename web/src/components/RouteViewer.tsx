@@ -7,17 +7,22 @@ import { addPlaceLayer, applyPlacePalette } from "@/lib/placeMap";
 import { applyMapPalette, buildMapStyle, readMapPalette } from "@/lib/mapStyle";
 import { onThemeChange } from "@/lib/themeTokens";
 import "@/styles/map-3d.css";
+import type { SavedPlace } from "@/types/place";
 import type { SavedRoute } from "@/types/route";
 
 type RouteViewerProps = {
   route: SavedRoute;
   open: boolean;
+  /** 서클 사람의 걸음이면 그 사람 이름 */
+  byline?: string | null;
+  /** 내 걸음의 장소를 서클에 건넬 때 (없으면 이름만 보여줍니다) */
+  onHandPlace?: (place: SavedPlace) => void;
 };
 
 const SOURCE_ID = "saved-route";
 const LAYER_ID = "saved-route-line";
 const PLACE_PREFIX = "saved";
-const MAX_PAD = { top: 150, right: 44, bottom: 340, left: 44 };
+const MAX_PAD = { top: 150, right: 44, bottom: 400, left: 44 };
 const GESTURES = [
   "dragPan",
   "scrollZoom",
@@ -113,7 +118,12 @@ function formatDay(value: string | null | undefined) {
   return `${d.getFullYear()}.${String(d.getMonth() + 1).padStart(2, "0")}.${String(d.getDate()).padStart(2, "0")}`;
 }
 
-export function RouteViewer({ route, open }: RouteViewerProps) {
+export function RouteViewer({
+  route,
+  open,
+  byline = null,
+  onHandPlace,
+}: RouteViewerProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const mapRef = useRef<maplibregl.Map | null>(null);
   const boundsRef = useRef<maplibregl.LngLatBounds | null>(null);
@@ -287,69 +297,74 @@ export function RouteViewer({ route, open }: RouteViewerProps) {
         </div>
       )}
 
-      {/* 정보가 읽히도록 아래쪽에 종이 색이 번져 올라옴 */}
-      <div
-        aria-hidden="true"
-        className="pointer-events-none absolute inset-x-0 bottom-0 h-[58%]"
-        style={{
-          background:
-            "linear-gradient(to bottom, transparent 0%, color-mix(in oklab, var(--san-background) 78%, transparent) 38%, var(--san-background) 70%)",
-        }}
-      />
-
+      {/* 정보 면: 지도 위에 비치지 않는 단색 면 + 위쪽 선 */}
       <section
-        className="pointer-events-auto absolute inset-x-0 z-20 mx-auto max-w-xl px-6 text-san-text"
-        style={{ bottom: "calc(max(16px, env(safe-area-inset-bottom)) + 92px)" }}
+        className="pointer-events-auto absolute inset-x-0 bottom-0 z-20 rounded-t-[28px] bg-san-bg text-san-text"
+        style={{
+          paddingBottom: "calc(max(16px, env(safe-area-inset-bottom)) + 92px)",
+          boxShadow: "inset 0 1px 0 0 var(--san-border)",
+        }}
         onClick={(event) => event.stopPropagation()}
         onPointerDown={(event) => event.stopPropagation()}
         aria-label={`${route.title} 루트 정보`}
       >
-        <p className="san-eyebrow">{formatDay(route.started_at)}</p>
-        <h2 className="san-display mt-2 line-clamp-2">{route.title}</h2>
+        <div className="mx-auto max-w-xl px-6 pt-6">
+          <p className="san-t3">
+            {formatDay(route.started_at)} · {formatClock(route.started_at)}–
+            {formatClock(route.ended_at)}
+            {byline ? ` · ${byline}` : ""}
+          </p>
+          <h2 className="san-t1 mt-1 line-clamp-2">{route.title}</h2>
 
-        {/* 큰 수치 하나 + 정밀한 보조 수치 */}
-        <dl className="m-0 mt-5 flex items-end gap-6">
-          <div>
-            <dt className="sr-only">거리</dt>
-            <dd className="m-0 text-[15px] tabular-nums">
-              {km}
-              <span className="ml-1.5 text-[13px]">KM</span>
-            </dd>
-          </div>
-          <div className="pb-0.5">
-            <dt className="san-eyebrow">TIME</dt>
-            <dd className="san-data m-0 mt-1">
-              {formatDuration(route.duration_seconds)}
-            </dd>
-          </div>
-          {placeCount > 0 && (
-            <div className="pb-0.5">
-              <dt className="san-eyebrow flex items-center gap-1.5">
-                <span className="san-dot san-dot-star" aria-hidden="true" />
-                PLACES
-              </dt>
-              <dd className="san-data m-0 mt-1">{placeCount}</dd>
+          <dl className="m-0 mt-4 flex flex-wrap items-baseline gap-x-6 gap-y-2">
+            <div className="flex items-baseline gap-1.5">
+              <dt className="san-t3">거리</dt>
+              <dd className="san-t2 m-0 tabular-nums">{km} km</dd>
             </div>
-          )}
-        </dl>
+            <div className="flex items-baseline gap-1.5">
+              <dt className="san-t3">시간</dt>
+              <dd className="san-t2 m-0 tabular-nums">
+                {formatDuration(route.duration_seconds)}
+              </dd>
+            </div>
+            {placeCount > 0 && (
+              <div className="flex items-baseline gap-1.5">
+                <dt className="san-t3">장소</dt>
+                <dd className="san-t2 m-0 tabular-nums">{placeCount}</dd>
+              </div>
+            )}
+          </dl>
 
-        {/* 시작/종료 시각 */}
-        <dl className="m-0 mt-5 grid gap-2">
-          <div className="flex items-center gap-3">
-            <dt className="flex w-[74px] items-center gap-2">
-              <span className="san-route-dot h-2 w-2" aria-hidden="true" />
-              <span className="san-eyebrow">START</span>
-            </dt>
-            <dd className="san-data m-0">{formatClock(route.started_at)}</dd>
-          </div>
-          <div className="flex items-center gap-3">
-            <dt className="flex w-[74px] items-center gap-2">
-              <span className="san-dot h-2 w-2" aria-hidden="true" />
-              <span className="san-eyebrow">END</span>
-            </dt>
-            <dd className="san-data m-0">{formatClock(route.ended_at)}</dd>
-          </div>
-        </dl>
+          {/* 남긴 장소. 내 걸음이고 서클이 있으면 눌러서 건넵니다 */}
+          {placeCount > 0 && (
+            <ul
+              className="san-no-scrollbar -mx-6 mb-0 mt-4 flex list-none gap-2 overflow-x-auto px-6 py-0"
+              aria-label="남긴 장소"
+            >
+              {(route.route_places ?? []).map((place) => (
+                <li key={place.id} className="shrink-0">
+                  {onHandPlace ? (
+                    <button
+                      type="button"
+                      className="san-pill san-pill-sm"
+                      onClick={() => onHandPlace(place)}
+                      aria-label={`${place.name} 서클에 건네기`}
+                    >
+                      <span className="max-w-[14ch] truncate">{place.name}</span>
+                      <svg className="san-icon text-san-muted" viewBox="0 0 24 24" aria-hidden="true">
+                        <path d="M5 12h13M13 6.5l5.5 5.5-5.5 5.5" />
+                      </svg>
+                    </button>
+                  ) : (
+                    <span className="san-pill san-pill-sm pointer-events-none">
+                      <span className="max-w-[14ch] truncate">{place.name}</span>
+                    </span>
+                  )}
+                </li>
+              ))}
+            </ul>
+          )}
+        </div>
       </section>
 
       <style jsx global>{`

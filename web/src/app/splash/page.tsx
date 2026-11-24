@@ -23,12 +23,11 @@ export default function SplashPage() {
 
   return (
     <main className="fixed inset-0 flex flex-col items-center justify-center gap-8 bg-san-bg text-san-text">
-      <span className="san-ripples" style={{ ["--size" as string]: "96px" }}>
-        <i />
+      <h1 className="san-t1">SAN</h1>
+      <span className="san-ripples" aria-label="불러오는 중" style={{ ["--size" as string]: "40px" }}>
         <i />
         <i />
       </span>
-      <h1 className="san-eyebrow">SAN</h1>
     </main>
   );
 }

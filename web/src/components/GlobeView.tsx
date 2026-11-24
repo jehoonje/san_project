@@ -241,9 +241,8 @@ export function GlobeView({ owner, getLocation, onClose }: GlobeViewProps) {
       "sky-horizon-blend": 0.6,
       "horizon-fog-blend": 0.5,
       "fog-ground-blend": 0.9,
-      "atmosphere-blend": [
-        "interpolate", ["linear"], ["zoom"], 0, 1, 5, 0.8, 8, 0,
-      ] as unknown as maplibregl.ExpressionSpecification,
+      // 대기 빛번짐(외곽 글로우)은 쓰지 않음
+      "atmosphere-blend": 0,
     });
 
     const map = new maplibregl.Map({
@@ -564,13 +563,13 @@ export function GlobeView({ owner, getLocation, onClose }: GlobeViewProps) {
         <AnimatePresence mode="wait" initial={false}>
           <motion.p
             key={level}
-            className="san-eyebrow absolute left-1/2 m-0 -translate-x-1/2"
+            className="san-t2 absolute left-1/2 m-0 -translate-x-1/2"
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
             transition={{ duration: reduce ? 0 : 0.36 }}
           >
-            {meta.code}
+            {meta.label} 단위
           </motion.p>
         </AnimatePresence>
 
@@ -597,15 +596,16 @@ export function GlobeView({ owner, getLocation, onClose }: GlobeViewProps) {
         </button>
       </header>
 
-      {/* 하단: 나 / 모두 토글 */}
+      {/* 상단 아래: 나 / 모두 (둘 중 하나 → 세그먼트) */}
       <div
         className="absolute inset-x-0 z-10 flex justify-center px-4"
         style={{ top: "calc(env(safe-area-inset-top, 0px) + 80px)" }}
       >
         <div
-          className="san-veil flex gap-1 rounded-full p-1"
+          className="san-seg w-[200px]"
           role="radiogroup"
           aria-label="분포 보기"
+          style={{ boxShadow: "inset 0 0 0 1px var(--san-border)" }}
         >
           {SCOPES.map((item) => (
             <button
@@ -613,9 +613,6 @@ export function GlobeView({ owner, getLocation, onClose }: GlobeViewProps) {
               type="button"
               role="radio"
               aria-checked={scope === item.id}
-              className={`san-pill min-h-11 px-6 text-[13px] ${
-                scope === item.id ? "san-pill-fill" : "san-pill-quiet"
-              }`}
               onClick={() => handleScope(item.id)}
             >
               {item.label}
@@ -678,7 +675,7 @@ export function GlobeView({ owner, getLocation, onClose }: GlobeViewProps) {
                   className="san-data flex items-baseline gap-1.5"
                   aria-label={`총 ${heat?.total ?? 0}개, ${meta.label} 단위 ${legend.visited}곳`}
                 >
-                  <span className="text-[13px]">TOTAL</span>
+                  <span className="text-[13px] text-san-muted">합계</span>
                   <span className="text-[15px]">{heat?.total ?? 0}</span>
                 </span>
                 <span

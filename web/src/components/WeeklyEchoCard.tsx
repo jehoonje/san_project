@@ -15,15 +15,14 @@ import {
   type CircleEcho,
   type EchoState,
 } from "@/lib/weeklyEcho";
+import type { CircleMember } from "@/lib/circles";
 
 type WeeklyEchoCardProps = {
   accessToken: string;
   myId: string;
-  /** 서클에 함께 걷는 사람이 있는지 */
-  hasCircle: boolean;
+  /** 서클에서 함께 걷는 사람들 (이름과 얼굴은 여기서 찾습니다) */
+  mates: CircleMember[];
 };
-
-const DAYS = ["일", "월", "화", "수", "목", "금", "토"];
 
 /** 그 주에 걸은 날을 작은 점 일곱 개로 */
 function DayDots({ days }: { days: number[] }) {
@@ -46,8 +45,9 @@ function DayDots({ days }: { days: number[] }) {
  * 주간 잔향: 지난 한 주를 한 장으로.
  * 일요일 밤이 지나면 지난주를, 주 초반이면 직전 주를 보여줍니다.
  */
-export function WeeklyEchoCard({ accessToken, myId, hasCircle }: WeeklyEchoCardProps) {
+export function WeeklyEchoCard({ accessToken, myId, mates }: WeeklyEchoCardProps) {
   const reduce = useReducedMotion();
+  const hasCircle = mates.length > 0;
   const [week] = useState(() => {
     // 월~수에는 지난주가 더 읽을 거리가 많습니다
     const kstDay = new Date(Date.now() + 9 * 3600 * 1000).getUTCDay();
@@ -83,7 +83,7 @@ export function WeeklyEchoCard({ accessToken, myId, hasCircle }: WeeklyEchoCardP
     setBusy(true);
     const next = !shared;
     try {
-      await shareEcho(week, next);
+      await shareEcho(myId, week, next);
       setShared(next);
     } catch (error) {
       console.error("잔향 건네기 실패:", error);
@@ -99,7 +99,7 @@ export function WeeklyEchoCard({ accessToken, myId, hasCircle }: WeeklyEchoCardP
           <i />
           <i />
         </span>
-        <p className="m-0 text-[13px] text-san-text">이번 주를 묶고 있어요</p>
+        <p className="san-t3">불러오는 중</p>
       </div>
     );
   }
@@ -132,21 +132,18 @@ export function WeeklyEchoCard({ accessToken, myId, hasCircle }: WeeklyEchoCardP
         ))}
       </div>
 
-      <dl className="m-0 mt-5 flex items-baseline gap-6">
-        <div>
-          <dt className="sr-only">걸은 거리</dt>
-          <dd className="m-0 text-[15px] tabular-nums">
-            {km}
-            <span className="ml-1 text-[13px] text-san-muted">km</span>
-          </dd>
+      <dl className="m-0 mt-4 flex flex-wrap items-baseline gap-x-6 gap-y-2">
+        <div className="flex items-baseline gap-1.5">
+          <dt className="san-t3">거리</dt>
+          <dd className="san-t2 m-0 tabular-nums">{km} km</dd>
         </div>
-        <div>
-          <dt className="san-eyebrow">걸음</dt>
-          <dd className="san-data m-0 mt-1">{echo.stats.routeCount}</dd>
+        <div className="flex items-baseline gap-1.5">
+          <dt className="san-t3">걸음</dt>
+          <dd className="san-t2 m-0 tabular-nums">{echo.stats.routeCount}</dd>
         </div>
-        <div>
-          <dt className="san-eyebrow">장소</dt>
-          <dd className="san-data m-0 mt-1">{echo.stats.placeCount}</dd>
+        <div className="flex items-baseline gap-1.5">
+          <dt className="san-t3">장소</dt>
+          <dd className="san-t2 m-0 tabular-nums">{echo.stats.placeCount}</dd>
         </div>
       </dl>
 
@@ -156,7 +153,7 @@ export function WeeklyEchoCard({ accessToken, myId, hasCircle }: WeeklyEchoCardP
           onClick={() => void toggleShare()}
           disabled={busy}
           aria-pressed={shared}
-          className={`san-pill mt-5 min-h-11 px-5 text-[13px] ${
+          className={`san-pill san-pill-sm mt-5 ${
             shared ? "san-pill-fill" : ""
           }`}
         >
@@ -170,6 +167,8 @@ export function WeeklyEchoCard({ accessToken, myId, hasCircle }: WeeklyEchoCardP
           <ul className="m-0 mt-3 list-none space-y-1 p-0">
             {others.map((item) => {
               const isOpen = open === item.userId;
+              const mate = mates.find((m) => m.userId === item.userId);
+              const displayName = mate?.displayName ?? "산책자";
               return (
                 <li key={item.userId}>
                   <button
@@ -180,8 +179,8 @@ export function WeeklyEchoCard({ accessToken, myId, hasCircle }: WeeklyEchoCardP
                   >
                     <span className="shrink-0 overflow-hidden rounded-full">
                       <Avatar
-                        url={item.avatarUrl}
-                        name={item.displayName}
+                        url={mate?.avatarUrl ?? null}
+                        name={displayName}
                         size={30}
                       />
                     </span>
@@ -190,7 +189,7 @@ export function WeeklyEchoCard({ accessToken, myId, hasCircle }: WeeklyEchoCardP
                         {item.body.title}
                       </span>
                       <span className="mt-0.5 block truncate text-[13px] text-san-muted">
-                        {item.displayName}
+                        {displayName}
                       </span>
                     </span>
                     <span className="san-data shrink-0">
@@ -218,7 +217,7 @@ export function WeeklyEchoCard({ accessToken, myId, hasCircle }: WeeklyEchoCardP
                           ))}
                           {item.stats.regions[0] && (
                             <p className="san-data m-0 pt-1">
-                              {item.stats.regions[0].name} · {DAYS.length > 0 ? `${item.stats.days.length}일` : ""}
+                              {item.stats.regions[0].name} · {item.stats.days.length}일
                             </p>
                           )}
                         </div>

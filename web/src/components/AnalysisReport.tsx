@@ -31,7 +31,7 @@ type State =
 type HttpError = Error & { status?: number };
 const INITIAL: Loading = {
   status: "loading",
-  message: "기록을 살펴보고 있어요",
+  message: "기록을 분석하는 중",
   current: 0,
   total: 0,
 };
@@ -102,7 +102,7 @@ async function load(
     stopped = false;
   progress({
     status: "loading",
-    message: "장소의 이야기도 함께 읽고 있어요",
+    message: "장소 정보를 확인하는 중",
     current: 0,
     total: places.length,
   });
@@ -135,7 +135,7 @@ async function load(
       completed += 1;
       progress({
         status: "loading",
-        message: "장소의 이야기도 함께 읽고 있어요",
+        message: "장소 정보를 확인하는 중",
         current: completed,
         total: places.length,
       });
@@ -147,16 +147,16 @@ async function load(
   if (signal.aborted) throw new DOMException("Request aborted", "AbortError");
   progress({
     status: "loading",
-    message: "기록을 정리하고 있어요",
+    message: "결과를 정리하는 중",
     current: completed,
     total: places.length,
   });
   const data = await requestReport(true);
   if (data.status !== "ready") throw new Error("report_not_ready");
   const warning = stopped
-    ? "조회 한도에 도달했어요. 지금 확인된 정보로 먼저 읽어봤어요."
+    ? "일부 장소만 반영했어요."
     : failed || data.missingPlaces.length
-      ? "일부 장소 정보는 확인하지 못했어요. 확인된 정보를 기준으로 읽어봤어요."
+      ? "일부 장소 정보는 확인하지 못했어요."
       : null;
   return { data, warning };
 }
@@ -321,14 +321,12 @@ function Report({
     return (
       <div className={s.empty}>
         <h2>아직 남긴 장소가 없어요</h2>
-        <p>장소를 남기면 기록 사이의 공통점을 보여드려요.</p>
       </div>
     );
   if (!report)
     return (
       <div className={s.empty}>
-        <h2>기록이 쌓이고 있어요</h2>
-        <p>새로 읽기를 누르면 지금까지의 기록을 다시 살펴봐요.</p>
+        <h2>아직 읽은 기록이 없어요</h2>
       </div>
     );
   const category = [...stats.categories]
@@ -430,7 +428,7 @@ export function AnalysisReport({ accessToken }: Props) {
           status: "error",
           message:
             ERRORS[error instanceof Error ? error.message : ""] ??
-            "지금은 불러오지 못했어요. 잠시 뒤 다시 시도해주세요.",
+            "잠시 뒤 다시 시도해 주세요.",
         });
       }
     },
@@ -458,7 +456,7 @@ export function AnalysisReport({ accessToken }: Props) {
             <i />
             <i />
           </span>
-          <p>기록을 살펴보고 있어요</p>
+          <p>기록을 분석하는 중</p>
           {state.total > 0 && (
             <div className="ar-progress">
               <div

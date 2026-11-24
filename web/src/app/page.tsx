@@ -45,7 +45,13 @@ import { useSession } from "@/hooks/useSession";
 import { useSignal } from "@/hooks/useSignal";
 import { isDevPanelEnabled } from "@/lib/devLocation";
 import { useWhisper } from "@/hooks/useWhisper";
-import { circleMates, listCircles, onCirclesChange, type Circle } from "@/lib/circles";
+import {
+  circleMates,
+  listCircles,
+  onCirclesChange,
+  type Circle,
+  type CircleMember,
+} from "@/lib/circles";
 import {
   deleteDayNote,
   listDayNotes,
@@ -178,6 +184,11 @@ export default function Home() {
   const [circlesOpen, setCirclesOpen] = useState(false);
   const [circles, setCircles] = useState<Circle[]>([]);
   const [handover, setHandover] = useState<HandoverTarget | null>(null);
+  // 장소를 저장한 직후 잠깐 떠 있는 건네기 제안 (걷는 흐름을 막지 않습니다)
+  const [handoverOffer, setHandoverOffer] = useState<HandoverTarget | null>(null);
+  const offerTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  // 서클 사람의 걸음을 보고 있으면 그 사람 이름
+  const [routeBy, setRouteBy] = useState<string | null>(null);
   const [dayNotes, setDayNotes] = useState<DayNote[]>([]);
   const [noteDay, setNoteDay] = useState<string | null>(null);
   const [selectedRoute, setSelectedRoute] = useState<SavedRoute | null>(null);
@@ -239,6 +250,17 @@ export default function Home() {
   const mates = useMemo(
     () => (userId ? circleMates(circles, userId) : []),
     [circles, userId],
+  );
+  const nameOf = useCallback(
+    (id: string) => mates.find((mate) => mate.userId === id)?.displayName ?? null,
+    [mates],
+  );
+
+  useEffect(
+    () => () => {
+      if (offerTimerRef.current) clearTimeout(offerTimerRef.current);
+    },
+    [],
   );
 
   // ── 근처 신호 ─────────────────────────────
@@ -917,18 +939,52 @@ export default function Home() {
     setPlaces(placesRef.current);
     setPlaceSheet(null);
 
-    showToast("장소를 저장했어요.");
-
-    // 서클이 있으면 곧바로 건넬 수 있게
+    // 서클이 있으면 건넬지 조용히 물어보고, 없으면 저장했다고만 알립니다
     if (mates.length > 0) {
-      setHandover({
+      if (offerTimerRef.current) clearTimeout(offerTimerRef.current);
+      setHandoverOffer({
         name: draft.name,
         category: draft.category,
         lat: draft.lat,
         lng: draft.lng,
         regionDong: null,
       });
+      offerTimerRef.current = setTimeout(() => {
+        setHandoverOffer(null);
+        offerTimerRef.current = null;
+      }, 7000);
+    } else {
+      showToast("장소를 저장했어요.");
     }
+  }
+
+  function handleAcceptOffer() {
+    if (offerTimerRef.current) {
+      clearTimeout(offerTimerRef.current);
+      offerTimerRef.current = null;
+    }
+    setHandover(handoverOffer);
+    setHandoverOffer(null);
+  }
+
+  /** 서클 사람의 걸음을 루트 화면에서 엽니다 */
+  function handleOpenCircleWalk(route: SavedRoute, member: CircleMember) {
+    clearCloseTimer();
+    cameraRequestRef.current += 1;
+    tabRef.current = "routes";
+    handleClosePeer();
+    setTab("routes");
+    setAnalysisOpen(false);
+    setRouteBy(member.displayName);
+    setSelectedRoute(route);
+    setViewerOpen(false);
+    requestAnimationFrame(() => {
+      requestAnimationFrame(() => {
+        if (mountedRef.current && tabRef.current === "routes") {
+          setViewerOpen(true);
+        }
+      });
+    });
   }
 
   async function handleLogout() {
@@ -991,6 +1047,7 @@ export default function Home() {
     tabRef.current = next;
 
     setSelectedRoute(null);
+    setRouteBy(null);
     setViewerOpen(false);
     setAnalysisOpen(false);
     if (next === "routes") handleClosePeer();
@@ -1030,6 +1087,7 @@ export default function Home() {
     clearCloseTimer();
 
     setAnalysisOpen(false);
+    setRouteBy(null);
     setSelectedRoute(route);
     setViewerOpen(false);
 
@@ -1061,6 +1119,7 @@ export default function Home() {
 
     closeTimerRef.current = setTimeout(() => {
       setSelectedRoute(null);
+      setRouteBy(null);
       closeTimerRef.current = null;
     }, VIEWER_ANIM_MS);
   }
@@ -1070,10 +1129,10 @@ export default function Home() {
     (analysisOpen || (selectedRoute !== null && viewerOpen));
 
   const topTitle = analysisOpen
-    ? "Trace"
+    ? "기록의 잔향"
     : selectedRoute
       ? selectedRoute.title
-      : "My Routes";
+      : "내 기록";
 
   const rightAction =
     tab === "routes" && !analysisOpen && !selectedRoute
@@ -1137,7 +1196,7 @@ export default function Home() {
             }
             topBar={
               <TopBar
-                title={tab === "record" ? "Record" : "Map"}
+                title={tab === "record" ? "기록" : "지도"}
                 isBack={false}
                 onMenu={() => setDrawerOpen(true)}
                 onBack={handleBack}
@@ -1234,7 +1293,7 @@ export default function Home() {
                                   <WeeklyEchoCard
                                     accessToken={session.access_token}
                                     myId={userId}
-                                    hasCircle={mates.length > 0}
+                                    mates={mates}
                                   />
                                 )}
                               </>
@@ -1243,7 +1302,10 @@ export default function Home() {
                             onOpenToday={() => setNoteDay(today())}
                             footer={
                               isGuest ? null : (
-                                <ReceivedList onShow={handleShowHandover} />
+                                <ReceivedList
+                                  onShow={handleShowHandover}
+                                  nameOf={nameOf}
+                                />
                               )
                             }
                           />
@@ -1256,6 +1318,19 @@ export default function Home() {
                         key={selectedRoute.id}
                         route={selectedRoute}
                         open={viewerOpen}
+                        byline={routeBy}
+                        onHandPlace={
+                          !routeBy && mates.length > 0
+                            ? (place) =>
+                                setHandover({
+                                  name: place.name,
+                                  category: place.category,
+                                  lat: place.lat,
+                                  lng: place.lng,
+                                  regionDong: place.region_dong ?? null,
+                                })
+                            : undefined
+                        }
                       />
                     )}
                   </div>
@@ -1292,7 +1367,11 @@ export default function Home() {
           />
 
           {circlesOpen && userId && (
-            <CircleSheet myId={userId} onClose={() => setCirclesOpen(false)} />
+            <CircleSheet
+              myId={userId}
+              onClose={() => setCirclesOpen(false)}
+              onOpenWalk={handleOpenCircleWalk}
+            />
           )}
 
           <AnimatePresence>
@@ -1379,8 +1458,37 @@ export default function Home() {
 
           {/* 건네받은 장소 */}
           {!isGuest && tab !== "routes" && (
-            <ReceivedPlaces onShow={handleShowHandover} />
+            <ReceivedPlaces onShow={handleShowHandover} nameOf={nameOf} />
           )}
+
+          {/* 방금 저장한 장소를 서클에 건넬지 */}
+          <AnimatePresence>
+            {handoverOffer && !toast && (
+              <motion.div
+                key="handover-offer"
+                {...toastMotion(reduceMotion)}
+                role="status"
+                className="pointer-events-none fixed inset-x-0 z-[60] flex justify-center px-5"
+                style={{
+                  bottom: "calc(env(safe-area-inset-bottom, 0px) + 184px)",
+                }}
+              >
+                <span
+                  className="san-toast pointer-events-auto flex items-center gap-3"
+                  style={{ padding: "6px 6px 6px 20px" }}
+                >
+                  장소를 저장했어요.
+                  <button
+                    type="button"
+                    className="san-pill san-pill-sm san-pill-fill"
+                    onClick={handleAcceptOffer}
+                  >
+                    건네기
+                  </button>
+                </span>
+              </motion.div>
+            )}
+          </AnimatePresence>
 
           <AnimatePresence>
             {toast && (

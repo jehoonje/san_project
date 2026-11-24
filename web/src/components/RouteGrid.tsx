@@ -451,13 +451,8 @@ export function RouteGrid({
         style={{ paddingBottom: "calc(env(safe-area-inset-bottom, 0px) + 108px)" }}
       >
         {head}
-        <div className="flex flex-col items-center px-8 py-16 text-center">
-          <span className="san-ripples" style={{ ["--size" as string]: "96px" }}>
-            <i />
-            <i />
-            <i />
-          </span>
-          <p className="mt-8 text-[15px] text-san-text">저장된 루트가 없어요</p>
+        <div className="px-8 py-16 text-center">
+          <p className="san-t2">저장된 루트가 없어요</p>
         </div>
         {footer}
       </div>
@@ -501,7 +496,7 @@ export function RouteGrid({
           <button
             type="button"
             onClick={() => setEditing(false)}
-            className="san-pill min-h-11 px-5 text-[13px]"
+            className="san-pill san-pill-sm"
           >
             완료
           </button>
@@ -550,7 +545,7 @@ export function RouteGrid({
                 </span>
                 <span className="san-data mt-2 flex items-center gap-2">
                   <span>{formatDistance(route.distance_meters)}</span>
-                  <span className="san-dot h-[3px] w-[3px]" aria-hidden="true" />
+                  <span aria-hidden="true">·</span>
                   <span>{formatDate(route.started_at ?? route.created_at)}</span>
                   {(route.route_places?.length ?? 0) > 0 && (
                     <span

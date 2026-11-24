@@ -99,6 +99,8 @@ export async function listRoutes(owner: RouteOwner): Promise<SavedRoute[]> {
       )
     `,
     )
+    // 열람 정책이 어떻게 되어 있든 내 목록에는 내 기록만
+    .eq("user_id", owner.userId)
     .order("created_at", { ascending: false });
 
   if (error) throw error;
@@ -153,6 +155,7 @@ export async function renameRoute(owner: RouteOwner, id: string, title: string) 
     .from("routes")
     .update({ title })
     .eq("id", id)
+    .eq("user_id", owner.userId)
     .select("id");
 
   if (error) throw error;
@@ -172,6 +175,7 @@ export async function deleteRoute(owner: RouteOwner, id: string) {
     .from("routes")
     .delete()
     .eq("id", id)
+    .eq("user_id", owner.userId)
     .select("id");
 
   if (error) throw error;

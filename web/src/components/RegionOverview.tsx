@@ -44,15 +44,12 @@ export function RegionOverview({ summary }: RegionOverviewProps) {
 
   return (
     <div className="w-full pb-2 text-san-text">
-      <p className="san-eyebrow mb-3 flex items-center gap-2">
-        <span className="san-dot" aria-hidden="true" />
-        지금 여기
-      </p>
+      <p className="san-eyebrow mb-1">지금 여기</p>
 
       <AnimatePresence mode="wait" initial={false}>
         <motion.h1
           key={title}
-          className="san-display"
+          className="san-t1"
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           exit={{ opacity: 0 }}
@@ -66,18 +63,18 @@ export function RegionOverview({ summary }: RegionOverviewProps) {
       </AnimatePresence>
 
       {summary.localName && summary.localName !== summary.displayName && (
-        <p className="mt-1.5 text-[13px] text-san-text">
+        <p className="san-t3 mt-0.5">
           {summary.localName}
         </p>
       )}
 
-      <dl className="mt-7 grid grid-cols-3 gap-4">
+      <dl className="mt-5 grid grid-cols-3 gap-4">
         {metrics.map((metric) => (
           <div key={metric.label} className="min-w-0">
             <dd className="m-0 text-[15px] tabular-nums text-san-text">
               {metric.value}
             </dd>
-            <dt className="mt-2.5 text-[13px] leading-snug text-san-text">
+            <dt className="san-t3 mt-0.5">
               {metric.label}
             </dt>
           </div>
@@ -85,7 +82,7 @@ export function RegionOverview({ summary }: RegionOverviewProps) {
       </dl>
 
       {(summary.countsError || summary.regionError) && (
-        <p role="status" className="mt-4 text-[13px] text-san-text">
+        <p role="status" className="san-t3 mt-4">
           {summary.countsError ?? summary.regionError}
         </p>
       )}

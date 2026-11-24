@@ -56,6 +56,7 @@ export async function listDayNotes(owner: RouteOwner): Promise<DayNote[]> {
   const { data, error } = await supabase
     .from("day_notes")
     .select("day, body, updated_at")
+    .eq("user_id", owner.userId)
     .order("day", { ascending: false })
     .limit(MAX_LOCAL);
 
@@ -107,7 +108,11 @@ export async function deleteDayNote(owner: RouteOwner, day: string) {
     notify();
     return;
   }
-  const { error } = await supabase.from("day_notes").delete().eq("day", day);
+  const { error } = await supabase
+    .from("day_notes")
+    .delete()
+    .eq("user_id", owner.userId)
+    .eq("day", day);
   if (error && !isMissingTable(error)) throw error;
   notify();
 }

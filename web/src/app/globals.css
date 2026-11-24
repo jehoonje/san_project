@@ -54,7 +54,7 @@
   --san-accent-text: #f2f2ef;
 
   /* 포인트 1색 + 오류 */
-  --san-star: #c98a2b;
+  --san-star: #a86f1c;
   --san-live: var(--san-text);
   --san-error: #b5523b;
 

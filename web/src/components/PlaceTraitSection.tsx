@@ -112,22 +112,9 @@ export function PlaceTraitSection({
         <style>{STYLES}</style>
 
         <header className="place-traits-heading">
-          <span>
-            공간에 남은 공통점
-          </span>
-
-          <h2 id="place-traits-title">
-            다른 곳인데,
-            <br />
-            닮았네요.
-          </h2>
+          <h2 id="place-traits-title">장소들의 공통점</h2>
         </header>
 
-        <p className="place-traits-intro">
-          {result.truncated
-            ? "이번에 살펴본 장소에서 겹치는 특징을 골랐어요."
-            : "이름은 달라도, 기록에 반복해서 남는 요소가 있어요."}
-        </p>
 
         <div className="place-traits-list">
           {patterns.map(
@@ -264,7 +251,7 @@ export function PlaceTraitSection({
             {
               result.includedPlaces
             }
-            곳을 살펴봤어요.
+            곳 반영
           </p>
         )}
       </section>

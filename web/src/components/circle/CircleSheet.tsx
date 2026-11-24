@@ -11,14 +11,28 @@ import {
   joinCircle,
   leaveCircle,
   listCircles,
+  listCircleWalks,
   onCirclesChange,
+  renewInviteCode,
   type Circle,
+  type CircleMember,
 } from "@/lib/circles";
+import type { SavedRoute } from "@/types/route";
 
 type CircleSheetProps = {
   myId: string;
   onClose: () => void;
+  /** 서클 사람의 걸음 하나를 열어 볼 때 */
+  onOpenWalk: (route: SavedRoute, member: CircleMember) => void;
 };
+
+type Focus = { circle: Circle; member: CircleMember };
+
+function walkStamp(value: string) {
+  const d = new Date(value);
+  if (Number.isNaN(d.getTime())) return "--.--";
+  return `${String(d.getMonth() + 1).padStart(2, "0")}.${String(d.getDate()).padStart(2, "0")}`;
+}
 
 const ERRORS: Record<string, string> = {
   circle_not_found: "그런 코드는 없어요",
@@ -39,7 +53,7 @@ function CopyIcon() {
  * 동행 서클: 3~8명의 작은 묶음.
  * 서클 안에서만 서로의 걸음과 장소가 보입니다.
  */
-export function CircleSheet({ myId, onClose }: CircleSheetProps) {
+export function CircleSheet({ myId, onClose, onOpenWalk }: CircleSheetProps) {
   const reduce = useReducedMotion();
   const titleId = useId();
   const [circles, setCircles] = useState<Circle[] | null>(null);
@@ -47,6 +61,20 @@ export function CircleSheet({ myId, onClose }: CircleSheetProps) {
   const [code, setCode] = useState("");
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
+  // 한 사람을 고르면 그 사람의 걸음을 보여줍니다
+  const [focus, setFocus] = useState<Focus | null>(null);
+  const [walks, setWalks] = useState<SavedRoute[] | null>(null);
+
+  function openMember(circle: Circle, member: CircleMember) {
+    setFocus({ circle, member });
+    setWalks(null);
+    listCircleWalks(member.userId)
+      .then(setWalks)
+      .catch((error) => {
+        console.error("서클 걸음 조회 실패:", error);
+        setWalks([]);
+      });
+  }
 
   const load = useCallback(() => {
     listCircles()
@@ -121,9 +149,8 @@ export function CircleSheet({ myId, onClose }: CircleSheetProps) {
 
         <header className="mb-6 flex items-start justify-between gap-4">
           <div>
-            <p className="san-eyebrow">CIRCLE</p>
-            <h2 id={titleId} className="san-title mt-2">
-              동행
+            <h2 id={titleId} className="san-t1">
+              서클
             </h2>
           </div>
           <button
@@ -138,9 +165,96 @@ export function CircleSheet({ myId, onClose }: CircleSheetProps) {
           </button>
         </header>
 
-        <p className="mb-7 text-[13px] leading-relaxed text-san-text">
-          서클 안에서만 서로의 걸음과 장소가 보여요. 최대 {CIRCLE_MAX}명까지
-          함께할 수 있고, 나가면 그때부터 보이지 않아요.
+        {focus ? (
+          <section aria-label={`${focus.member.displayName}의 걸음`}>
+            <button
+              type="button"
+              className="san-pill san-pill-quiet -ml-2 min-h-11 gap-1.5 px-3 text-[13px]"
+              onClick={() => setFocus(null)}
+            >
+              <svg className="san-icon" viewBox="0 0 24 24" aria-hidden="true">
+                <path d="m14.5 18-6-6 6-6" />
+              </svg>
+              {focus.circle.name}
+            </button>
+
+            <div className="mt-4 flex items-center gap-3">
+              <span className="shrink-0 overflow-hidden rounded-full">
+                <Avatar
+                  url={focus.member.avatarUrl}
+                  name={focus.member.displayName}
+                  size={40}
+                />
+              </span>
+              <p className="san-t1 min-w-0 flex-1 truncate">
+                {focus.member.displayName}
+              </p>
+            </div>
+
+            <h3 className="san-eyebrow" style={{ marginTop: 28 }}>
+              걸음
+            </h3>
+            {walks === null ? (
+              <div className="flex justify-center py-8">
+                <span className="san-ripples" style={{ ["--size" as string]: "36px" }}>
+                  <i />
+                  <i />
+                </span>
+              </div>
+            ) : walks.length === 0 ? (
+              <p className="san-t2 mt-3">아직 걸음이 없어요.</p>
+            ) : (
+              <ul className="m-0 mt-2 list-none p-0">
+                {walks.map((walk) => (
+                  <li key={walk.id}>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        onOpenWalk(walk, focus.member);
+                        onClose();
+                      }}
+                      className="flex min-h-12 w-full items-center gap-3 whitespace-nowrap rounded-[14px] border-0 bg-transparent px-2 text-left transition-colors duration-500 ease-ambient active:bg-san-surface"
+                    >
+                      <span className="san-data w-[5ch] shrink-0">
+                        {walkStamp(walk.started_at)}
+                      </span>
+                      <span className="min-w-0 flex-1 truncate text-[15px] text-san-text">
+                        {walk.title}
+                      </span>
+                      {walk.route_places.length > 0 && (
+                        <span className="san-t3 shrink-0">
+                          장소 {walk.route_places.length}
+                        </span>
+                      )}
+                      <span className="san-data shrink-0">
+                        {((Number(walk.distance_meters) || 0) / 1000).toFixed(1)}km
+                      </span>
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            )}
+
+            {focus.circle.createdBy === myId && (
+              <button
+                type="button"
+                className="san-pill san-pill-sm san-pill-danger mt-8"
+                disabled={busy}
+                onClick={() =>
+                  void run(async () => {
+                    await leaveCircle(focus.circle.id, focus.member.userId);
+                    setFocus(null);
+                  }, "서클에서 내보냈어요")
+                }
+              >
+                서클에서 내보내기
+              </button>
+            )}
+          </section>
+        ) : (
+          <>
+        <p className="san-t3 mb-7">
+          함께한 뒤의 걸음만 서로 보여요. 최대 {CIRCLE_MAX}명.
         </p>
 
         {circles === null ? (
@@ -162,41 +276,72 @@ export function CircleSheet({ myId, onClose }: CircleSheetProps) {
                 </div>
 
                 <ul className="m-0 mt-3 flex list-none flex-wrap gap-x-4 gap-y-3 p-0">
-                  {circle.members.map((member) => (
-                    <li
-                      key={member.userId}
-                      className="flex items-center gap-2"
-                      title={member.displayName}
-                    >
-                      <span className="overflow-hidden rounded-full">
-                        <Avatar
-                          url={member.avatarUrl}
-                          name={member.displayName}
-                          size={28}
-                        />
-                      </span>
-                      <span className="text-[13px] text-san-text">
-                        {member.userId === myId ? "나" : member.displayName}
-                      </span>
-                    </li>
-                  ))}
+                  {circle.members.map((member) => {
+                    const face = (
+                      <>
+                        <span className="overflow-hidden rounded-full">
+                          <Avatar
+                            url={member.avatarUrl}
+                            name={member.displayName}
+                            size={28}
+                          />
+                        </span>
+                        <span className="text-[13px] text-san-text">
+                          {member.userId === myId ? "나" : member.displayName}
+                        </span>
+                      </>
+                    );
+                    return (
+                      <li key={member.userId}>
+                        {member.userId === myId ? (
+                          <span className="flex min-h-11 items-center gap-2">
+                            {face}
+                          </span>
+                        ) : (
+                          <button
+                            type="button"
+                            className="flex min-h-11 items-center gap-2 rounded-full border-0 bg-transparent p-0 pr-2 transition-opacity duration-500 ease-ambient active:opacity-60"
+                            onClick={() => openMember(circle, member)}
+                            aria-label={`${member.displayName}의 걸음 보기`}
+                          >
+                            {face}
+                          </button>
+                        )}
+                      </li>
+                    );
+                  })}
                 </ul>
 
-                <div className="mt-4 flex items-center gap-2">
+                <div className="mt-4 flex flex-wrap items-center gap-2">
                   <button
                     type="button"
-                    className="san-pill min-h-11 gap-2 px-4 text-[13px]"
+                    className="san-pill san-pill-sm gap-2"
                     onClick={() => void copyCode(circle.inviteCode)}
                     aria-label={`${circle.name} 초대 코드 복사`}
                   >
                     <CopyIcon />
-                    <span className="font-mono">
+                    <span className="tabular-nums">
                       {circle.inviteCode}
                     </span>
                   </button>
+                  {circle.createdBy === myId && (
+                    <button
+                      type="button"
+                      className="san-pill san-pill-sm"
+                      disabled={busy}
+                      onClick={() =>
+                        void run(
+                          () => renewInviteCode(circle.id),
+                          "코드를 바꿨어요. 예전 코드는 쓸 수 없어요",
+                        )
+                      }
+                    >
+                      코드 바꾸기
+                    </button>
+                  )}
                   <button
                     type="button"
-                    className="san-pill san-pill-quiet min-h-11 px-4 text-[13px]"
+                    className="san-pill san-pill-sm"
                     disabled={busy}
                     onClick={() =>
                       void run(
@@ -214,7 +359,7 @@ export function CircleSheet({ myId, onClose }: CircleSheetProps) {
         )}
 
         <section className="mt-9" aria-label="서클 만들기">
-          <h3 className="san-eyebrow">NEW</h3>
+          <h3 className="san-eyebrow">새 서클</h3>
           <div className="mt-3 flex gap-2">
             <input
               value={name}
@@ -241,7 +386,7 @@ export function CircleSheet({ myId, onClose }: CircleSheetProps) {
         </section>
 
         <section className="mt-7" aria-label="서클 참여">
-          <h3 className="san-eyebrow">JOIN</h3>
+          <h3 className="san-eyebrow">초대 코드로 참여</h3>
           <div className="mt-3 flex gap-2">
             <input
               value={code}
@@ -268,6 +413,8 @@ export function CircleSheet({ myId, onClose }: CircleSheetProps) {
             </button>
           </div>
         </section>
+          </>
+        )}
 
         <p
           role="status"

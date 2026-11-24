@@ -49,7 +49,7 @@ export function SignalNoticeBanner({ notice, onReply, onDismiss }: Props) {
             {notice.kind === "emote" ? (
               <button
                 type="button"
-                className="san-pill san-pill-fill min-h-11 px-4 text-[13px]"
+                className="san-pill san-pill-sm san-pill-fill"
                 onClick={() => {
                   onReply(notice.sid);
                   onDismiss(notice.id);

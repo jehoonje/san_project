@@ -8,6 +8,12 @@ import { CrossingLog } from "@/components/signal/CrossingLog";
 import { useProfile } from "@/hooks/useProfile";
 import { useTheme, type SanTheme } from "@/hooks/useTheme";
 import type { SignalStatus } from "@/hooks/useSignal";
+import { clearPeerKeys } from "@/lib/encounters";
+import {
+  loadSignalMemory,
+  setSignalMemory,
+  type SignalMemory,
+} from "@/lib/signalKey";
 
 type SideDrawerProps = {
   open: boolean;
@@ -37,8 +43,8 @@ const DURATION_MS = 460;
 const EASE = "cubic-bezier(0.22, 1, 0.36, 1)";
 
 const THEMES: { id: SanTheme; label: string }[] = [
-  { id: "light", label: "Light" },
-  { id: "dark", label: "Dark" },
+  { id: "light", label: "라이트" },
+  { id: "dark", label: "다크" },
 ];
 
 export function SideDrawer({
@@ -60,13 +66,44 @@ export function SideDrawer({
   const [visible, setVisible] = useState(false);
   const titleId = useId();
 
+  // 다시 스친 사람 알아보기 (로그인 사용자만, 테이블이 준비된 경우에만 보입니다)
+  const [memory, setMemory] = useState<SignalMemory | null>(null);
+  const [memoryBusy, setMemoryBusy] = useState(false);
+  const memoryOwner = guest ? null : ownerId;
+
+  useEffect(() => {
+    if (!open || !memoryOwner) return;
+    let cancelled = false;
+    void loadSignalMemory(memoryOwner).then((value) => {
+      if (!cancelled) setMemory(value);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [open, memoryOwner]);
+
+  async function toggleMemory() {
+    if (!memoryOwner || !memory || memoryBusy) return;
+    const next = !memory.enabled;
+    setMemoryBusy(true);
+    try {
+      // 끌 때는 그동안 받아 둔 상대 토큰도 함께 지웁니다
+      if (!next) await clearPeerKeys(memoryOwner, true);
+      setMemory(await setSignalMemory(memoryOwner, next));
+    } catch (error) {
+      console.error("재식별 설정 변경 실패:", error);
+    } finally {
+      setMemoryBusy(false);
+    }
+  }
+
   const displayName = guest ? "게스트" : (profile?.displayName ?? "산책자");
   const emailText = guest
     ? "기록은 이 기기에만 남아요"
     : (profile?.email ?? email ?? "이메일 정보 없음");
 
   const signalLine = !signal.on
-    ? "꺼져 있어요"
+    ? "내 위치는 대략적으로만 보여요"
     : signal.status === "live"
       ? signal.nearby > 0
         ? `근처에 ${signal.nearby}명`
@@ -160,9 +197,9 @@ export function SideDrawer({
       >
         <span aria-hidden="true" className="san-grabber mb-4" />
 
-        <header className="mb-5 flex items-center justify-between gap-4">
-          <h2 id={titleId} className="san-eyebrow">
-            {guest ? "GUEST" : "ACCOUNT"}
+        <header className="mb-2 flex items-center justify-end">
+          <h2 id={titleId} className="sr-only">
+            {guest ? "게스트 메뉴" : "계정 메뉴"}
           </h2>
 
           <button
@@ -187,23 +224,23 @@ export function SideDrawer({
           </div>
 
           <div className="min-w-0">
-            <p className="san-title m-0 truncate">{displayName}</p>
-            <p className="m-0 mt-0.5 truncate text-[13px] text-san-text">
-              {emailText}
-            </p>
+            <p className="san-t1 truncate">{displayName}</p>
+            <p className="san-t3 mt-0.5 truncate">{emailText}</p>
           </div>
         </div>
 
-        {/* 테마: 종이 / 먹 */}
-        <section className="mt-9" aria-label="화면 테마">
-          <h3 className="san-eyebrow">THEME</h3>
-          <div className="mt-3 flex gap-2" role="group">
+        {/* 테마: 둘 중 하나 → 세그먼트 */}
+        <section className="mt-9" aria-labelledby={`${titleId}-theme`}>
+          <h3 id={`${titleId}-theme`} className="san-eyebrow">
+            화면
+          </h3>
+          <div className="san-seg mt-3" role="radiogroup" aria-labelledby={`${titleId}-theme`}>
             {THEMES.map((item) => (
               <button
                 key={item.id}
                 type="button"
-                className="san-pill flex-1"
-                aria-pressed={theme === item.id}
+                role="radio"
+                aria-checked={theme === item.id}
                 onClick={() => setTheme(item.id)}
               >
                 {item.label}
@@ -214,20 +251,20 @@ export function SideDrawer({
 
         {/* 동행 서클 */}
         {!guest && onOpenCircles && (
-          <section className="mt-9" aria-label="동행 서클">
-            <h3 className="san-eyebrow">CIRCLE</h3>
+          <section className="mt-9" aria-label="서클">
+            <h3 className="san-eyebrow">서클</h3>
             <div className="mt-3 flex items-center justify-between gap-4">
-              <p className="m-0 min-w-0 flex-1 truncate text-[15px] text-san-text">
+              <p className="san-t2 min-w-0 flex-1 truncate">
                 {circleMates > 0
                   ? `${circleMates}명과 함께 걷고 있어요`
                   : "아직 함께 걷는 사람이 없어요"}
               </p>
               <button
                 type="button"
-                className="san-pill min-h-11 shrink-0 px-5 text-[13px]"
+                className="san-pill san-pill-sm shrink-0"
                 onClick={onOpenCircles}
               >
-                {circleMates > 0 ? "서클" : "만들기"}
+                {circleMates > 0 ? "열기" : "만들기"}
               </button>
             </div>
           </section>
@@ -235,35 +272,43 @@ export function SideDrawer({
 
         {/* 근처 신호 */}
         <section className="mt-9" aria-label="근처 신호">
-          <h3 className="san-eyebrow">SIGNAL</h3>
+          <h3 className="san-eyebrow">근처 산책자</h3>
           <div className="mt-3 flex items-center justify-between gap-4">
-            <p className="m-0 flex min-w-0 items-center gap-2.5 text-[15px] text-san-text">
-              <span
-                className={`san-dot ${
-                  signal.on && signal.status === "live"
-                    ? "san-dot-live"
-                    : "san-dot-faint"
-                }`}
-                aria-hidden="true"
-              />
-              <span className="truncate">{signalLine}</span>
-            </p>
+            <div className="min-w-0 flex-1">
+              <p className="san-t2">내 아바타 보이기</p>
+              <p className="san-t3 mt-0.5 truncate">
+                {signalLine}
+              </p>
+            </div>
             <button
               type="button"
               role="switch"
               aria-checked={signal.on}
-              aria-label="근처 산책자와 서로 보이기"
-              className="san-pill min-h-11 shrink-0 px-5 text-[13px]"
-              aria-pressed={signal.on}
+              aria-label="근처 산책자에게 내 아바타 보이기"
+              className="san-switch"
               onClick={signal.onToggle}
-            >
-              {signal.on ? "켜짐" : "꺼짐"}
-            </button>
+            />
           </div>
-          <p className="mt-3 text-[13px] leading-relaxed text-san-text">
-            정확한 위치 대신 대략적인 위치만 공유돼요. 근처 산책자의
-            아바타를 누르면 내 아바타가 그쪽을 보고 인사해요.
-          </p>
+
+          {memoryOwner && memory?.available && (
+            <div className="mt-5">
+              <div className="flex items-center justify-between gap-4">
+                <div className="min-w-0 flex-1">
+                  <p className="san-t2">다시 스친 사람 알아보기</p>
+                  <p className="san-t3 mt-0.5">끄면 지금까지의 연결이 지워져요</p>
+                </div>
+                <button
+                  type="button"
+                  role="switch"
+                  aria-checked={memory.enabled}
+                  aria-label="다시 스친 사람 알아보기"
+                  disabled={memoryBusy}
+                  className="san-switch"
+                  onClick={() => void toggleMemory()}
+                />
+              </div>
+            </div>
+          )}
 
           {ownerId && (
             <div className="mt-6">
@@ -273,9 +318,9 @@ export function SideDrawer({
         </section>
 
         <section className="mt-9">
-          <h3 className="san-eyebrow">MAP</h3>
+          <h3 className="san-eyebrow">지도 출처</h3>
 
-          <p className="mt-3 text-[13px] leading-relaxed text-san-text">
+          <p className="san-t3 mt-3">
             지도 데이터 ©{" "}
             <a
               href="https://www.openstreetmap.org/copyright"
@@ -311,9 +356,6 @@ export function SideDrawer({
             onClick={onLogout}
             className="san-pill mt-9 h-14 w-full"
           >
-            <svg className="san-icon" viewBox="0 0 24 24" aria-hidden="true">
-              <path d="M9.5 5.5h-4v13h4M14 8.5l3.5 3.5-3.5 3.5M9.5 12h8" />
-            </svg>
             로그아웃
           </button>
         )}

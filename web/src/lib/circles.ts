@@ -1,7 +1,9 @@
 // web/src/lib/circles.ts
-// 동행 서클: 3~8명의 작은 묶음. 서클 안에서만 서로의 걸음과 장소가 보입니다.
-// 서클 밖으로는 아무것도 열리지 않고, 나가면 그 순간부터 보이지 않습니다.
+// 동행 서클: 3~8명의 작은 묶음.
+// 서클에서는 둘이 같은 서클에 있게 된 뒤의 걸음만 서로에게 보입니다.
+// 그 전의 기록은 열리지 않고, 나가면 그 순간부터 아무것도 보이지 않습니다.
 import { supabase } from "@/lib/supabaseClient";
+import type { SavedRoute } from "@/types/route";
 
 export const CIRCLE_MAX = 8;
 
@@ -31,21 +33,25 @@ function notify() {
   window.dispatchEvent(new CustomEvent(EVENT));
 }
 
-/** 테이블이 아직 없는 환경(마이그레이션 전)에서도 앱이 멈추지 않게 */
+/** 테이블·함수가 아직 없는 환경(마이그레이션 전)에서도 앱이 멈추지 않게 */
 export function isMissingTable(error: { code?: string; message?: string } | null) {
   if (!error) return false;
   return (
     error.code === "42P01" ||
+    error.code === "42883" ||
+    error.code === "PGRST202" ||
     error.code === "PGRST205" ||
     error.code === "PGRST204" ||
     /does not exist|not find/i.test(error.message ?? "")
   );
 }
 
-type MemberRow = {
+type RosterRow = {
+  circle_id: string;
   user_id: string;
+  display_name: string | null;
+  avatar_url: string | null;
   joined_at: string;
-  profiles: { display_name: string | null; avatar_url: string | null } | null;
 };
 
 type CircleRow = {
@@ -53,41 +59,51 @@ type CircleRow = {
   name: string;
   invite_code: string;
   created_by: string;
-  circle_members: MemberRow[] | null;
 };
 
-function fromRow(row: CircleRow): Circle {
-  const members = (row.circle_members ?? []).map((member) => ({
-    userId: member.user_id,
-    displayName: member.profiles?.display_name?.trim() || "산책자",
-    avatarUrl: member.profiles?.avatar_url ?? null,
-    joinedAt: member.joined_at,
-  }));
-  members.sort((a, b) => a.joinedAt.localeCompare(b.joinedAt));
-  return {
-    id: row.id,
-    name: row.name,
-    inviteCode: row.invite_code,
-    createdBy: row.created_by,
-    members,
-  };
-}
-
-/** 내가 속한 서클. 테이블이 없으면 빈 목록 */
+/**
+ * 내가 속한 서클. 테이블이나 함수가 없으면 빈 목록.
+ * 사람들의 이름과 얼굴은 전용 함수가 그 두 칸만 내어 줍니다.
+ */
 export async function listCircles(): Promise<Circle[]> {
-  const { data, error } = await supabase
-    .from("circles")
-    .select(
-      `id, name, invite_code, created_by,
-       circle_members ( user_id, joined_at, profiles ( display_name, avatar_url ) )`,
-    )
-    .order("created_at", { ascending: true });
+  const [circleResult, rosterResult] = await Promise.all([
+    supabase
+      .from("circles")
+      .select("id, name, invite_code, created_by")
+      .order("created_at", { ascending: true }),
+    supabase.rpc("circle_roster"),
+  ]);
 
-  if (error) {
-    if (isMissingTable(error)) return [];
-    throw error;
+  const failure = circleResult.error ?? rosterResult.error;
+  if (failure) {
+    if (isMissingTable(failure)) return [];
+    throw failure;
   }
-  return ((data ?? []) as unknown as CircleRow[]).map(fromRow);
+
+  const byCircle = new Map<string, CircleMember[]>();
+  for (const row of (rosterResult.data ?? []) as RosterRow[]) {
+    const list = byCircle.get(row.circle_id) ?? [];
+    list.push({
+      userId: row.user_id,
+      displayName: row.display_name?.trim() || "산책자",
+      avatarUrl: row.avatar_url?.trim() || null,
+      joinedAt: row.joined_at,
+    });
+    byCircle.set(row.circle_id, list);
+  }
+
+  return ((circleResult.data ?? []) as CircleRow[])
+    // 만들기만 하고 들어가 있지 않은 서클은 목록에 두지 않습니다
+    .filter((row) => byCircle.has(row.id))
+    .map((row) => ({
+      id: row.id,
+      name: row.name,
+      inviteCode: row.invite_code,
+      createdBy: row.created_by,
+      members: (byCircle.get(row.id) ?? []).sort((a, b) =>
+        a.joinedAt.localeCompare(b.joinedAt),
+      ),
+    }));
 }
 
 function makeInviteCode() {
@@ -98,7 +114,7 @@ function makeInviteCode() {
   return [...bytes].map((b) => alphabet[b % alphabet.length]).join("");
 }
 
-export async function createCircle(name: string): Promise<Circle> {
+export async function createCircle(name: string): Promise<string> {
   const trimmed = name.trim().slice(0, 24);
   if (!trimmed) throw new Error("name_required");
 
@@ -107,7 +123,7 @@ export async function createCircle(name: string): Promise<Circle> {
     const { data, error } = await supabase
       .from("circles")
       .insert({ name: trimmed, invite_code: makeInviteCode() })
-      .select("id, name, invite_code, created_by")
+      .select("id")
       .single();
 
     if (error) {
@@ -115,14 +131,19 @@ export async function createCircle(name: string): Promise<Circle> {
       throw error;
     }
 
-    const row = data as Omit<CircleRow, "circle_members">;
+    const circleId = (data as { id: string }).id;
     const { error: joinError } = await supabase
       .from("circle_members")
-      .insert({ circle_id: row.id });
-    if (joinError) throw joinError;
+      .insert({ circle_id: circleId });
+
+    if (joinError) {
+      // 들어가지 못한 서클은 남기지 않습니다
+      await supabase.from("circles").delete().eq("id", circleId);
+      throw joinError;
+    }
 
     notify();
-    return fromRow({ ...row, circle_members: [] });
+    return circleId;
   }
   throw new Error("invite_code_conflict");
 }
@@ -145,6 +166,7 @@ export async function joinCircle(code: string): Promise<string> {
   return data as string;
 }
 
+/** 내가 나가거나(본인), 만든 사람이 내보냅니다 */
 export async function leaveCircle(circleId: string, userId: string) {
   const { error } = await supabase
     .from("circle_members")
@@ -153,6 +175,27 @@ export async function leaveCircle(circleId: string, userId: string) {
     .eq("user_id", userId);
   if (error) throw error;
   notify();
+}
+
+/** 초대 코드를 새로 뽑습니다 (만든 사람만). 예전 코드로는 더 들어올 수 없습니다. */
+export async function renewInviteCode(circleId: string): Promise<string> {
+  for (let attempt = 0; attempt < 5; attempt += 1) {
+    const next = makeInviteCode();
+    const { data, error } = await supabase
+      .from("circles")
+      .update({ invite_code: next })
+      .eq("id", circleId)
+      .select("invite_code");
+
+    if (error) {
+      if (error.code === "23505") continue;
+      throw error;
+    }
+    if (!data?.length) throw new Error("not_owner");
+    notify();
+    return next;
+  }
+  throw new Error("invite_code_conflict");
 }
 
 /** 서클에서 함께 걷는 사람들 (나 제외). 장소를 건넬 상대 목록 */
@@ -164,4 +207,28 @@ export function circleMates(circles: Circle[], myId: string): CircleMember[] {
     }
   }
   return [...seen.values()];
+}
+
+/**
+ * 서클 사람의 걸음.
+ * 둘이 같은 서클에 있게 된 뒤에 시작한 걸음만 내려옵니다 (서버에서 거릅니다).
+ */
+export async function listCircleWalks(userId: string): Promise<SavedRoute[]> {
+  const { data, error } = await supabase.rpc("circle_walks", {
+    p_user: userId,
+    p_limit: 20,
+  });
+
+  if (error) {
+    if (isMissingTable(error)) return [];
+    throw error;
+  }
+
+  const rows = Array.isArray(data) ? (data as SavedRoute[]) : [];
+  return rows.map((row) => ({
+    ...row,
+    distance_meters: row.distance_meters == null ? null : Number(row.distance_meters),
+    coordinates: Array.isArray(row.coordinates) ? row.coordinates : [],
+    route_places: Array.isArray(row.route_places) ? row.route_places : [],
+  }));
 }

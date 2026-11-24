@@ -158,11 +158,10 @@ export function PlaceSaveSheet({
 
           <header className="flex items-start justify-between px-6 pb-5 pt-3">
             <div>
-              <p className="san-eyebrow flex items-center gap-2">
-                <span className="san-dot san-dot-star" aria-hidden="true" />
-                {dwell ? `STAY · ${dwell.minutes} MIN` : "PLACE"}
-              </p>
-              <h2 id={titleId} className="san-t1 mt-2">
+              {dwell && (
+                <p className="san-eyebrow mb-1">{dwell.minutes}분째 머무는 중</p>
+              )}
+              <h2 id={titleId} className="san-t1">
                 장소 저장
               </h2>
             </div>
@@ -186,23 +185,19 @@ export function PlaceSaveSheet({
           >
             {state.status === "locating" && (
               <>
-                <span className="san-dot san-dot-live" aria-hidden="true" />
-                <p className="m-0 text-[13px] text-san-text">
-                  위치 확인 중
-                </p>
+                <p className="san-t3">위치 확인 중</p>
               </>
             )}
 
             {state.status === "error" && (
               <>
-                <span className="san-dot bg-san-error" aria-hidden="true" />
                 <p className="m-0 min-w-0 flex-1 truncate text-[13px] text-san-error">
                   {state.message}
                 </p>
                 <button
                   type="button"
                   onClick={onRetry}
-                  className="san-pill min-h-11 px-4 text-[13px]"
+                  className="san-pill san-pill-sm"
                 >
                   다시 찾기
                 </button>
@@ -221,7 +216,7 @@ export function PlaceSaveSheet({
                 <i />
                 <i />
               </span>
-              <p className="m-0 text-[13px] text-san-text">주변 장소 검색 중</p>
+              <p className="san-t3">주변 장소 찾는 중</p>
             </div>
           )}
 
@@ -229,12 +224,10 @@ export function PlaceSaveSheet({
             <section className="mt-6" aria-labelledby={`${titleId}-nearby`}>
               <div className="mb-2 flex items-center justify-between">
                 <h3 id={`${titleId}-nearby`} className="san-eyebrow">
-                  NEARBY
+                  200m 안의 장소
                 </h3>
-                <span className="san-data">200 m</span>
               </div>
 
-              {/* 구분선 없이 넉넉한 행 간격으로만 */}
               <ul className="m-0 list-none space-y-1 p-0">
                 {nearby.places.slice(0, 4).map((place) => {
                   const selected = selectedId === place.providerId;
@@ -253,8 +246,10 @@ export function PlaceSaveSheet({
                           <span className="block truncate text-[15px] text-san-text">
                             {place.name}
                           </span>
-                          <span className="mt-0.5 block truncate text-[13px] text-san-text opacity-80">
-                            {place.categoryName.split(" > ").slice(-1)[0]}
+                          <span className="san-t3 mt-0.5 block truncate">
+                            {place.providerId.startsWith("osm:")
+                              ? (PLACE_CATEGORIES.find((c) => c.key === place.category)?.label ?? "기타")
+                              : place.categoryName.split(" > ").slice(-1)[0]}
                           </span>
                         </span>
 
@@ -280,13 +275,13 @@ export function PlaceSaveSheet({
 
           {nearby.status === "done" && nearby.places.length === 0 && (
             <p className="mt-6 text-[13px] leading-relaxed text-san-text">
-              주변 장소가 없어요. 이름을 직접 입력해 주세요.
+              주변 장소가 없어요
             </p>
           )}
 
           {nearby.status === "error" && (
             <p className="mt-6 text-[13px] leading-relaxed text-san-text">
-              주변 장소를 불러오지 못했어요. 이름을 직접 입력해 주세요.
+              주변 장소를 불러오지 못했어요
             </p>
           )}
 
@@ -306,7 +301,7 @@ export function PlaceSaveSheet({
           </div>
 
           <fieldset className="m-0 mt-7 min-w-0 border-0 p-0">
-            <legend className="san-eyebrow mb-3 p-0">CATEGORY</legend>
+            <legend className="san-eyebrow mb-3 p-0">종류</legend>
             <WheelPicker
               label="장소 카테고리"
               options={CATEGORY_OPTIONS}

@@ -262,7 +262,7 @@ export function useRegionSummary(
             myRoutes: null,
             countsLoading: false,
             countsError:
-              "루트 통계를 불러오지 못했어요. RPC 적용 여부와 로그인 상태를 확인해주세요.",
+              "루트 통계를 불러오지 못했어요.",
           });
         }
       })();

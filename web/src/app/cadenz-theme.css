@@ -15,7 +15,6 @@
 .san-t1,
 .san-display,
 .san-title {
-  margin: 0;
   color: var(--san-text);
   font-size: var(--san-text-title);
   font-weight: 500;
@@ -28,7 +27,6 @@
 /* 본문 */
 .san-t2,
 .san-body {
-  margin: 0;
   color: var(--san-text);
   font-size: var(--san-text-body);
   font-weight: 400;
@@ -39,7 +37,6 @@
 /* 보조: 섹션 이름, 날짜, 부가 정보 */
 .san-t3,
 .san-eyebrow {
-  margin: 0;
   color: var(--san-text-muted);
   font-size: var(--san-text-small);
   font-weight: 400;
@@ -183,10 +180,9 @@
   background: var(--san-surface);
 }
 
+/* 켜진 상태(예: 내 위치 따라가기): 채우지 않고 잉크 테두리로만 */
 .san-icon-btn[aria-pressed="true"] {
-  color: var(--san-accent-text);
-  background: var(--san-accent);
-  box-shadow: none;
+  box-shadow: inset 0 0 0 1.5px var(--san-text);
 }
 
 /* 시트·목록 안의 아이콘 버튼: 면 없이 */
@@ -235,9 +231,13 @@
   padding: 0;
   border: 0;
   border-radius: var(--san-radius-pill);
-  background: var(--san-surface-strong);
+  /* 꺼짐: 테두리만 (바탕과 3:1 이상), 켜짐: 잉크로 채움 */
+  background: transparent;
+  box-shadow: inset 0 0 0 1.5px var(--san-text-muted);
   cursor: pointer;
-  transition: background-color 200ms var(--san-ease);
+  transition:
+    background-color 200ms var(--san-ease),
+    box-shadow 200ms var(--san-ease);
 }
 
 /* 손가락이 닿는 영역은 44pt 이상 */
@@ -254,13 +254,20 @@
   width: 22px;
   height: 22px;
   border-radius: 50%;
-  background: var(--san-background);
+  background: var(--san-text-muted);
   content: "";
-  transition: transform 200ms var(--san-ease);
+  transition:
+    transform 200ms var(--san-ease),
+    background-color 200ms var(--san-ease);
 }
 
 .san-switch[aria-checked="true"] {
   background: var(--san-accent);
+  box-shadow: none;
+}
+
+.san-switch[aria-checked="true"]::after {
+  background: var(--san-background);
 }
 
 .san-switch[aria-checked="true"]::after {

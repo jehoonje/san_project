@@ -109,6 +109,7 @@ export async function loadEncounters(
   const { data, error } = await supabase
     .from("encounters")
     .select("id, peer_call_sign, my_emote, peer_emote, region, met_at, peer_key")
+    .eq("user_id", ownerId)
     .order("met_at", { ascending: false })
     .limit(MAX_LOCAL);
 
@@ -182,6 +183,23 @@ export async function setPeerKey(
   if (error && !isMissingTable(error)) {
     console.error("재식별 토큰 저장 실패:", error);
   }
+}
+
+/** 받아 둔 상대 토큰을 모두 지웁니다 (다시 스쳐도 처음 보는 사람이 됩니다) */
+export async function clearPeerKeys(ownerId: string, remote: boolean) {
+  writeLocal(
+    ownerId,
+    readLocal(ownerId).map((item) => ({ ...item, peerKey: null })),
+  );
+  window.dispatchEvent(new CustomEvent(EVENT));
+
+  if (!remote || remoteAvailable === false) return;
+  const { error } = await supabase
+    .from("encounters")
+    .update({ peer_key: null })
+    .eq("user_id", ownerId)
+    .not("peer_key", "is", null);
+  if (error && !isMissingTable(error)) throw error;
 }
 
 /** 이 토큰의 상대를 지금까지 몇 번 스쳤는지 (이번 것 포함) */
