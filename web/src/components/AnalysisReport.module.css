@@ -141,7 +141,7 @@
 .empty button { margin-top: 20px; }
 
 /* 분석 중: 한 줄, 가운데 정렬 */
-.loading { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 20px; min-height: 62dvh; padding: 0 28px; text-align: center; }
+.loading { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 20px; min-height: calc(100dvh - 2 * var(--bar)); padding: 0 28px; text-align: center; }
 .loading > p { color: var(--ink); font-size: 15px; line-height: 1.6; }
 .loading :global(.ar-progress) { margin-top: 0; }
 .ripples { margin: 0; }

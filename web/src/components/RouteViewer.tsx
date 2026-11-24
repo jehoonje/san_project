@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef } from "react";
+import { useLayoutEffect, useEffect, useRef, useState } from "react";
 import * as maplibregl from "maplibre-gl";
 import "maplibre-gl/dist/maplibre-gl.css";
 import { addPlaceLayer, applyPlacePalette } from "@/lib/placeMap";
@@ -116,6 +116,137 @@ function formatDay(value: string | null | undefined) {
   const d = new Date(value);
   if (Number.isNaN(d.getTime())) return "----.--.--";
   return `${d.getFullYear()}.${String(d.getMonth() + 1).padStart(2, "0")}.${String(d.getDate()).padStart(2, "0")}`;
+}
+
+const MORE_CHIP_PX = 64; // "+N" 칩 자리
+const CHIP_GAP_PX = 8;
+
+function PlaceChip({
+  place,
+  onHandPlace,
+}: {
+  place: SavedPlace;
+  onHandPlace?: (place: SavedPlace) => void;
+}) {
+  if (!onHandPlace) {
+    return (
+      <span className="san-pill san-pill-sm pointer-events-none">
+        <span className="max-w-[14ch] truncate">{place.name}</span>
+      </span>
+    );
+  }
+  return (
+    <button
+      type="button"
+      className="san-pill san-pill-sm"
+      onClick={() => onHandPlace(place)}
+      aria-label={`${place.name} 서클에 건네기`}
+    >
+      <span className="max-w-[14ch] truncate">{place.name}</span>
+      <svg className="san-icon text-san-muted" viewBox="0 0 24 24" aria-hidden="true">
+        <path d="M5 12h13M13 6.5l5.5 5.5-5.5 5.5" />
+      </svg>
+    </button>
+  );
+}
+
+/**
+ * 남긴 장소 칩. 한 줄에 들어가는 만큼만 두고 나머지는 "+N".
+ * "+N"을 누르면 모든 칩이 가로로 스크롤되는 줄로 펼쳐집니다.
+ */
+function PlaceChips({
+  places,
+  onHandPlace,
+}: {
+  places: SavedPlace[];
+  onHandPlace?: (place: SavedPlace) => void;
+}) {
+  const rowRef = useRef<HTMLDivElement>(null);
+  const measureRef = useRef<HTMLDivElement>(null);
+  const [fit, setFit] = useState(places.length);
+  const [expanded, setExpanded] = useState(false);
+
+  useLayoutEffect(() => {
+    const row = rowRef.current;
+    const measure = measureRef.current;
+    if (!row || !measure) return;
+
+    const compute = () => {
+      const width = row.clientWidth;
+      const widths = Array.from(measure.children).map(
+        (el) => (el as HTMLElement).offsetWidth,
+      );
+      const total =
+        widths.reduce((sum, w) => sum + w, 0) +
+        CHIP_GAP_PX * Math.max(0, widths.length - 1);
+      if (total <= width) {
+        setFit(widths.length);
+        return;
+      }
+      let used = 0;
+      let count = 0;
+      for (const w of widths) {
+        const next = used + (count > 0 ? CHIP_GAP_PX : 0) + w;
+        if (next + CHIP_GAP_PX + MORE_CHIP_PX > width) break;
+        used = next;
+        count += 1;
+      }
+      setFit(Math.max(1, count));
+    };
+
+    compute();
+    const observer = new ResizeObserver(compute);
+    observer.observe(row);
+    return () => observer.disconnect();
+  }, [places, onHandPlace]);
+
+  const hidden = places.length - fit;
+
+  return (
+    <div className="relative mt-4">
+      {/* 너비 재기용 (보이지 않음) */}
+      <div
+        ref={measureRef}
+        aria-hidden="true"
+        className="pointer-events-none invisible absolute left-0 top-0 flex gap-2 whitespace-nowrap"
+      >
+        {places.map((place) => (
+          <PlaceChip key={place.id} place={place} onHandPlace={onHandPlace} />
+        ))}
+      </div>
+
+      {expanded ? (
+        <ul
+          className="san-no-scrollbar -mx-6 m-0 flex list-none gap-2 overflow-x-auto px-6 py-0"
+          aria-label="남긴 장소"
+        >
+          {places.map((place) => (
+            <li key={place.id} className="shrink-0">
+              <PlaceChip place={place} onHandPlace={onHandPlace} />
+            </li>
+          ))}
+        </ul>
+      ) : (
+        <div ref={rowRef} className="flex gap-2 overflow-hidden" role="list" aria-label="남긴 장소">
+          {places.slice(0, fit).map((place) => (
+            <div key={place.id} role="listitem" className="min-w-0 shrink-0">
+              <PlaceChip place={place} onHandPlace={onHandPlace} />
+            </div>
+          ))}
+          {hidden > 0 && (
+            <button
+              type="button"
+              className="san-pill san-pill-sm shrink-0 tabular-nums"
+              onClick={() => setExpanded(true)}
+              aria-label={`장소 ${hidden}곳 더 보기`}
+            >
+              +{hidden}
+            </button>
+          )}
+        </div>
+      )}
+    </div>
+  );
 }
 
 export function RouteViewer({
@@ -342,32 +473,7 @@ export function RouteViewer({
 
         {/* 남긴 장소. 내 걸음이고 서클이 있으면 눌러서 건넵니다 */}
         {placeCount > 0 && (
-          <ul
-            className="san-no-scrollbar -mx-6 mb-0 mt-4 flex list-none gap-2 overflow-x-auto px-6 py-0"
-            aria-label="남긴 장소"
-          >
-            {(route.route_places ?? []).map((place) => (
-              <li key={place.id} className="shrink-0">
-                {onHandPlace ? (
-                  <button
-                    type="button"
-                    className="san-pill san-pill-sm"
-                    onClick={() => onHandPlace(place)}
-                    aria-label={`${place.name} 서클에 건네기`}
-                  >
-                    <span className="max-w-[14ch] truncate">{place.name}</span>
-                    <svg className="san-icon text-san-muted" viewBox="0 0 24 24" aria-hidden="true">
-                      <path d="M5 12h13M13 6.5l5.5 5.5-5.5 5.5" />
-                    </svg>
-                  </button>
-                ) : (
-                  <span className="san-pill san-pill-sm pointer-events-none">
-                    <span className="max-w-[14ch] truncate">{place.name}</span>
-                  </span>
-                )}
-              </li>
-            ))}
-          </ul>
+          <PlaceChips places={route.route_places ?? []} onHandPlace={onHandPlace} />
         )}
       </section>
 

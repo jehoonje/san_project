@@ -117,6 +117,11 @@ export type MapViewHandle = {
   }) => Promise<void>;
   /** [부트 연동] 지도 위 아바타의 현재 화면 좌표 (캔버스 CSS px) */
   getAvatarScreenRect: () => AvatarScreenRect | null;
+  /**
+   * [부트 연동] 인트로 동안 아바타 몸의 가운데가 화면 정중앙에 오도록 카메라를 내림.
+   * false 면 원래 자리로 천천히 돌아감. 적용했으면 true (아직 아바타가 안 그려졌으면 false)
+   */
+  setBootLift: (on: boolean) => boolean;
   /** 나침반 시작 (iOS 권한 요청은 사용자 제스처 안에서 호출해야 함. 예: 기록 시작 버튼) */
   startCompass: () => void;
   /** 내 아바타가 이 좌표(상대)를 향해 돌아섬. null이면 원래 방향으로 */
@@ -1091,6 +1096,22 @@ export const MapView = forwardRef<MapViewHandle, MapViewProps>(function MapView(
     },
     // [부트 연동]
     getAvatarScreenRect: () => avatarLayerRef.current?.getScreenRect() ?? null,
+    setBootLift: (on) => {
+      const map = mapRef.current;
+      if (!map) return false;
+      const none = { top: 0, bottom: 0, left: 0, right: 0 };
+      if (!on) {
+        map.easeTo({ padding: none, duration: reducedMotion() ? 0 : 900 });
+        return true;
+      }
+      const rect = avatarLayerRef.current?.getScreenRect();
+      if (!rect) return false;
+      const height = map.getContainer().clientHeight;
+      // 위쪽 여백 P 를 주면 지도 중심이 P/2 만큼 아래로 내려옵니다
+      const shift = height / 2 - rect.y;
+      if (shift > 1) map.setPadding({ ...none, top: Math.round(shift * 2) });
+      return true;
+    },
     startCompass: () => {
       void startCompass();
     },

@@ -466,7 +466,7 @@ export function AnalysisReport({ accessToken }: Props) {
         <div className={s.loading} role="status" aria-live="polite" aria-label="기록 분석 중">
           <span
             className={`san-ripples ${s.ripples}`}
-            style={{ ["--size" as string]: "28px" }}
+            style={{ ["--size" as string]: "40px" }}
             aria-hidden="true"
           >
             <i />

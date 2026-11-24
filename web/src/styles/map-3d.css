@@ -13,12 +13,17 @@
   --marker: var(--san-text);
 }
 
-/* 기록 중에는 맥동 점이 초록으로 켜진다 */
-.san-ground-marker.is-live {
-  --marker: var(--san-live);
+/* 바닥 표시는 최소한으로: 위치 점 하나 + 바라보는 방향 호.
+   기록 중에만 한 겹의 파문이 퍼진다 (색은 그대로 잉크) */
+.san-ground-ring {
+  display: none;
 }
 
-.san-ground-ring {
+.san-ground-marker.is-live .san-ground-ring:not(.is-delayed) {
+  display: block;
+}
+
+.san-ground-marker .san-ground-ring {
   position: absolute;
   inset: 24px;
   border: 1px solid var(--marker);
@@ -34,10 +39,10 @@
 
 .san-ground-core {
   position: absolute;
-  inset: 43px;
+  inset: 44px;
   border-radius: 50%;
   background: var(--marker);
-  box-shadow: 0 0 0 3px var(--san-background);
+  box-shadow: 0 0 0 2px var(--san-background);
   transition: background-color 600ms cubic-bezier(0.22, 1, 0.36, 1);
 }
 
@@ -52,7 +57,7 @@
   border: 1px solid transparent;
   border-top-color: var(--marker);
   border-radius: 50%;
-  opacity: 0.55;
+  opacity: 0.35;
 }
 
 @keyframes san-ground-pulse {

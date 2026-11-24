@@ -422,7 +422,22 @@ export default function Home() {
   }, []);
 
   // [부트 연동] 부트 종료 시 기록
+  // [부트 연동] 인트로 동안 아바타가 화면 정중앙에 보이게
+  useEffect(() => {
+    if (!bootMode || !mapReady) return;
+    let raf = 0;
+    let tries = 0;
+    const apply = () => {
+      if (mapViewRef.current?.setBootLift(true) || tries++ > 90) return;
+      raf = requestAnimationFrame(apply);
+    };
+    apply();
+    return () => cancelAnimationFrame(raf);
+  }, [bootMode, mapReady]);
+
   function handleBootComplete() {
+    // 인트로가 끝나면 화면 UI와 함께 원래 자리로
+    mapViewRef.current?.setBootLift(false);
     try {
       sessionStorage.setItem(BOOT_PLAYED_KEY, "1");
       localStorage.setItem(BOOT_FULL_SEEN_KEY, "1");

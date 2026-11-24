@@ -3,7 +3,6 @@
 import { useEffect, useRef, useState } from "react";
 import * as THREE from "three";
 import gsap from "gsap";
-import WaterRippleSpinner from "./WaterRippleSpinner";
 import { sampleAvatarPoints, type AvatarScreenRect } from "@/lib/avatar3d";
 import { currentTheme, hexToRgb01, readToken } from "@/lib/themeTokens";
 
@@ -710,7 +709,10 @@ export default function BootIntroScreen({
         ref={spinnerWrapRef}
         className="absolute inset-0 flex items-center justify-center will-change-transform"
       >
-        <WaterRippleSpinner size={120} />
+        <span className="san-ripples" style={{ ["--size" as string]: "40px" }} aria-hidden="true">
+          <i />
+          <i />
+        </span>
       </div>
     </div>
   );
