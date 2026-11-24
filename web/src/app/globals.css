@@ -164,12 +164,10 @@
     ui-monospace, "SF Mono", "JetBrains Mono", Menlo, Consolas,
     "Pretendard Variable", monospace;
 
-  --san-text-display: clamp(26px, 7.4vw, 34px);
+  /* 글자는 세 단계: 제목 / 본문 / 보조 */
   --san-text-title: 20px;
   --san-text-body: 15px;
   --san-text-small: 13px;
-  --san-text-data: 11.5px;
-  --san-text-eyebrow: 10.5px;
 
   --san-space-1: 4px;
   --san-space-2: 8px;

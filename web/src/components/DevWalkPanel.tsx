@@ -72,7 +72,7 @@ export function DevWalkPanel({ auto, onAutoChange, onPress }: Props) {
   return (
     <div
       data-dev-walk
-      className={`san-veil pointer-events-auto fixed left-3 z-[90] rounded-[22px] text-[11px] ${
+      className={`san-veil pointer-events-auto fixed left-3 z-[90] rounded-[22px] text-[13px] ${
         open ? "p-2.5" : "p-1"
       }`}
       style={{ top: "calc(env(safe-area-inset-top, 0px) + 80px)" }}
@@ -83,7 +83,7 @@ export function DevWalkPanel({ auto, onAutoChange, onPress }: Props) {
           onClick={toggle}
           aria-expanded={open}
           aria-label={open ? "가상 이동 패널 접기" : "가상 이동 패널 펼치기"}
-          className="relative flex h-9 min-w-9 touch-none select-none items-center justify-center rounded-full border-0 bg-san-surface px-2 font-mono text-[10px] tracking-[0.14em] text-san-text active:bg-san-surface-strong"
+          className="relative flex h-9 min-w-9 touch-none select-none items-center justify-center rounded-full border-0 bg-san-surface px-2 text-[13px] text-san-text active:bg-san-surface-strong"
         >
           {open ? "−" : "DEV"}
 

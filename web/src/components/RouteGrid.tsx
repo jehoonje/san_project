@@ -205,7 +205,7 @@ function DeleteRouteModal({
         aria-labelledby={headingId}
         className="w-full max-w-sm rounded-[28px] bg-san-bg p-6 text-san-text"
       >
-        <p className="san-eyebrow">DELETE</p>
+        <p className="san-eyebrow">삭제</p>
         <h2 id={headingId} className="san-title mt-2">
           루트를 삭제할까요?
         </h2>
@@ -458,7 +458,7 @@ export function RouteGrid({
             <i />
             <i />
           </span>
-          <p className="mt-8 text-[14px] text-san-text">저장된 루트가 없어요</p>
+          <p className="mt-8 text-[15px] text-san-text">저장된 루트가 없어요</p>
         </div>
         {footer}
       </div>
@@ -496,7 +496,7 @@ export function RouteGrid({
     >
       {editing && (
         <div className="sticky top-0 z-20 flex items-center justify-between bg-san-veil px-5 py-2 backdrop-blur-md">
-          <span className="text-[12.5px] text-san-text">
+          <span className="text-[13px] text-san-text">
             수정하거나 삭제할 루트를 고르세요
           </span>
           <button
@@ -547,7 +547,7 @@ export function RouteGrid({
                 <RouteTrace coordinates={route.coordinates} />
               </span>
               <span className="block min-w-0">
-                <span className="line-clamp-2 block break-words text-[14px] font-normal leading-5">
+                <span className="line-clamp-2 block break-words text-[15px] leading-5">
                   {route.title}
                 </span>
                 <span className="san-data mt-2 flex items-center gap-2">

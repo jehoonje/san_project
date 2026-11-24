@@ -67,8 +67,8 @@ export function RouteTitleModal({
         className="w-full max-w-md rounded-[28px] bg-san-bg p-6 text-san-text"
         style={{ marginBottom: "env(safe-area-inset-bottom, 0px)" }}
       >
-        <p className="san-eyebrow">ROUTE</p>
-        <h2 id={titleId} className="san-title mt-2 text-[22px]">
+        <p className="san-eyebrow">루트</p>
+        <h2 id={titleId} className="san-title mt-2 text-[20px]">
           {heading}
         </h2>
         <p id={descriptionId} className="mt-1.5 text-[13px] leading-relaxed text-san-text">

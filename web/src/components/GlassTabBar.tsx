@@ -372,7 +372,7 @@ export function GlassTabBar<T extends string>({
               ].join(" ")}
             >
               {item.icon}
-              <span className="text-[10.5px] font-medium tracking-[0.04em]">
+              <span className="text-[13px] font-medium">
                 {item.label}
               </span>
             </button>
@@ -443,7 +443,7 @@ export function GlassTabBar<T extends string>({
                   ].join(" ")}
                 >
                   {item.icon}
-                  <span className="text-[10.5px] font-medium tracking-[0.04em]">
+                  <span className="text-[13px] font-medium">
                     {item.label}
                   </span>
                 </div>

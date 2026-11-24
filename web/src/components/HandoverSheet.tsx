@@ -99,13 +99,13 @@ export function HandoverSheet({ place, mates, onDone, onClose }: HandoverSheetPr
           <div className="min-w-0">
             <p className="san-eyebrow flex items-center gap-2">
               <span className="san-dot san-dot-star" aria-hidden="true" />
-              HAND OVER
+              장소 건네기
             </p>
             <h2 id={titleId} className="san-title mt-2 truncate">
               {place.name}
             </h2>
             {place.regionDong && (
-              <p className="m-0 mt-0.5 text-[12.5px] text-san-muted">
+              <p className="m-0 mt-0.5 text-[13px] text-san-muted">
                 {place.regionDong}
               </p>
             )}
@@ -129,7 +129,7 @@ export function HandoverSheet({ place, mates, onDone, onClose }: HandoverSheetPr
           </p>
         ) : (
           <>
-            <h3 className="san-eyebrow">TO</h3>
+            <h3 className="san-eyebrow">받을 사람</h3>
             <ul className="m-0 mt-3 list-none space-y-1 p-0">
               {mates.map((mate) => {
                 const on = picked.includes(mate.userId);
@@ -150,7 +150,7 @@ export function HandoverSheet({ place, mates, onDone, onClose }: HandoverSheetPr
                           size={32}
                         />
                       </span>
-                      <span className="min-w-0 flex-1 truncate text-[14px] text-san-text">
+                      <span className="min-w-0 flex-1 truncate text-[15px] text-san-text">
                         {mate.displayName}
                       </span>
                       <span
@@ -171,7 +171,7 @@ export function HandoverSheet({ place, mates, onDone, onClose }: HandoverSheetPr
 
             <div className="mt-6">
               <label htmlFor={noteId} className="san-eyebrow">
-                NOTE
+                한 줄 메모
               </label>
               <input
                 id={noteId}

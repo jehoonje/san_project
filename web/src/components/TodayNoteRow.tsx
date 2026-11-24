@@ -23,9 +23,9 @@ export function TodayNoteRow({ note, onOpen }: TodayNoteRowProps) {
         onClick={onOpen}
         className="flex min-h-[52px] w-full items-center gap-3 rounded-[22px] border-0 bg-transparent px-2 text-left transition-colors duration-500 ease-ambient active:bg-san-surface"
       >
-        <span className="san-eyebrow shrink-0">TODAY</span>
+        <span className="san-eyebrow shrink-0">오늘</span>
         <span
-          className={`min-w-0 flex-1 truncate text-[13.5px] ${
+          className={`min-w-0 flex-1 truncate text-[13px] ${
             note ? "text-san-text" : "text-san-muted"
           }`}
         >

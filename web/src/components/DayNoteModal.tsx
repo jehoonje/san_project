@@ -77,7 +77,7 @@ export function DayNoteModal({
         style={{ marginBottom: "env(safe-area-inset-bottom, 0px)" }}
         {...dialogMotion(reduce, "bottom")}
       >
-        <p className="san-eyebrow">REST DAY</p>
+        <p className="san-eyebrow">쉬는 날</p>
         <h2 id={titleId} className="san-title mt-2">
           {dayLabel(day)}
         </h2>

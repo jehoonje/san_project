@@ -44,7 +44,7 @@ export default function AuthBridgePage() {
       <section className="text-center">
         {error ? (
           <>
-            <p className="san-eyebrow">SIGN IN</p>
+            <p className="san-eyebrow">로그인</p>
             <h1 className="san-title mt-2">연결이 닿지 않았어요</h1>
             <p
               role="alert"

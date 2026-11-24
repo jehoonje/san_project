@@ -8,58 +8,47 @@
  *  - 장식은 헤어라인 곡선·타원(파문, 궤도)만.
  */
 
-/* ── 타이포 ─────────────────────────────── */
+/* ── 타이포: 세 단계 (제목 20/500 · 본문 15/400 · 보조 13/400) ── */
 
-/* 숫자·좌표·거리·날짜: 작고 또렷한 모노스페이스 라벨 */
-.san-eyebrow {
-  margin: 0;
-  color: var(--san-text);
-  font-family: var(--san-font-mono);
-  font-size: var(--san-text-eyebrow);
-  font-weight: 500;
-  line-height: 1.5;
-  letter-spacing: 0.2em;
-  text-transform: uppercase;
-  font-variant-numeric: tabular-nums;
-}
-
-.san-data {
-  color: var(--san-text);
-  font-family: var(--san-font-mono);
-  font-size: var(--san-text-data);
-  letter-spacing: 0.04em;
-  font-variant-numeric: tabular-nums;
-}
-
-/* 화면 상단의 큰 문구: 얇게, 넉넉하게, 2줄 이내 */
-.san-display {
-  margin: 0;
-  color: var(--san-text);
-  font-size: var(--san-text-display);
-  font-weight: 300;
-  line-height: 1.42;
-  letter-spacing: 0.01em;
-  word-break: keep-all;
-  text-wrap: balance;
-}
-
+/* 제목 */
+.san-t1,
+.san-display,
 .san-title {
-  margin: 0;
   color: var(--san-text);
   font-size: var(--san-text-title);
-  font-weight: 300;
-  line-height: 1.5;
-  letter-spacing: 0.005em;
+  font-weight: 500;
+  line-height: 1.45;
+  letter-spacing: -0.01em;
   word-break: keep-all;
+  text-wrap: pretty;
 }
 
+/* 본문 */
+.san-t2,
 .san-body {
-  margin: 0;
   color: var(--san-text);
   font-size: var(--san-text-body);
   font-weight: 400;
-  line-height: 1.8;
+  line-height: 1.6;
   word-break: keep-all;
+}
+
+/* 보조: 섹션 이름, 날짜, 부가 정보 */
+.san-t3,
+.san-eyebrow {
+  color: var(--san-text-muted);
+  font-size: var(--san-text-small);
+  font-weight: 400;
+  line-height: 1.5;
+  word-break: keep-all;
+}
+
+/* 수치: 보조와 같은 크기, 자릿수만 맞춤 */
+.san-data {
+  color: var(--san-text);
+  font-size: var(--san-text-small);
+  font-weight: 400;
+  font-variant-numeric: tabular-nums;
 }
 
 /* 본문 마지막 줄이 흐려지며 사라지는 여운 */
@@ -101,12 +90,8 @@
 }
 
 .cz-label {
-  color: var(--san-text);
-  font-family: var(--san-font-mono);
-  font-size: var(--san-text-eyebrow);
-  font-weight: 500;
-  letter-spacing: 0.2em;
-  text-transform: uppercase;
+  color: var(--san-text-muted);
+  font-size: var(--san-text-small);
 }
 
 /* 지도 위에 얹는 읽기용 면: 유리가 아니라 종이 한 겹 */
@@ -153,9 +138,8 @@
   border-radius: var(--san-radius-pill);
   color: var(--san-text);
   background: var(--san-surface);
-  font-size: 14px;
+  font-size: var(--san-text-body);
   font-weight: 400;
-  letter-spacing: 0.01em;
   white-space: nowrap;
   cursor: pointer;
   box-shadow: none;
@@ -197,6 +181,13 @@
 
 .san-pill-danger {
   color: var(--san-error);
+}
+
+/* 작은 알약 (목록 안, 보조 동작) */
+.san-pill-sm {
+  min-height: 44px;
+  padding: 0 16px;
+  font-size: var(--san-text-small);
 }
 
 /* 원형 아이콘 버튼 (터치 44pt 이상) */
@@ -264,7 +255,6 @@
 
 .san-field-input::placeholder {
   color: var(--san-text-muted);
-  font-weight: 300;
 }
 
 .san-field-input:focus {

@@ -27,7 +27,7 @@ export function DwellPrompt({ minutes, onAccept, onDismiss }: DwellPromptProps) 
       >
         <p className="san-eyebrow flex items-center gap-2">
           <span className="san-dot san-dot-star" aria-hidden="true" />
-          STAY · {minutes} MIN
+          {minutes}분째 머무는 중
         </p>
         <p className="san-title mt-2">이 장소를 저장할까요?</p>
 

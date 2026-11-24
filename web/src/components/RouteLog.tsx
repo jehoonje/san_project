@@ -241,8 +241,8 @@ export function RouteLog({
 
       <div className={styles.log}>
         <p className={styles.summary}>
-          {stats.routes} routes <span className={styles.dot}>·</span>{" "}
-          {stats.unique} places <span className={styles.dot}>·</span>{" "}
+          루트 {stats.routes} <span className={styles.dot}>·</span>{" "}
+          장소 {stats.unique} <span className={styles.dot}>·</span>{" "}
           {formatKm(stats.meters)}
         </p>
 
@@ -352,7 +352,7 @@ export function RouteLog({
                   </span>
                   <span className={styles.main}>
                     <span className={styles.name}>{place.name}</span>
-                    {mark?.isNew && <span className={styles.new}>new</span>}
+                    {mark?.isNew && <span className={styles.new}>처음</span>}
                     <span className={styles.faint}>
                       {categoryLabel(place.category)}
                     </span>

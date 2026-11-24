@@ -122,7 +122,7 @@ export function ReceivedList({ onShow, nameOf }: ReceivedPlacesProps) {
 
   return (
     <section className="px-6 pb-2 pt-6" aria-label="건네받은 장소">
-      <h3 className="san-eyebrow">HANDED TO ME</h3>
+      <h3 className="san-eyebrow">받은 장소</h3>
       <ul className="m-0 mt-2 list-none p-0">
         {items.slice(0, 8).map((item) => (
           <li key={item.id}>
@@ -132,15 +132,15 @@ export function ReceivedList({ onShow, nameOf }: ReceivedPlacesProps) {
               className="flex min-h-11 w-full items-center gap-3 whitespace-nowrap rounded-[14px] border-0 bg-transparent px-2 text-left transition-colors duration-500 ease-ambient active:bg-san-surface"
             >
               <span className="san-data w-[5ch] shrink-0">{stamp(item.sentAt)}</span>
-              <span className="min-w-0 flex-1 truncate text-[13.5px] text-san-text">
+              <span className="min-w-0 flex-1 truncate text-[13px] text-san-text">
                 {item.name}
               </span>
               {item.note && (
-                <span className="hidden min-w-0 max-w-[38%] truncate text-[12px] text-san-muted sm:inline">
+                <span className="hidden min-w-0 max-w-[38%] truncate text-[13px] text-san-muted sm:inline">
                   {item.note}
                 </span>
               )}
-              <span className="shrink-0 text-[12px] text-san-muted">
+              <span className="shrink-0 text-[13px] text-san-muted">
                 {nameOf(item.fromUser) ?? ""}
               </span>
               {!item.openedAt && (

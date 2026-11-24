@@ -33,10 +33,7 @@
   margin: 0 0 22px;
   padding: 0 10px;
   color: var(--log-text);
-  font-family: var(--log-mono);
-  font-size: 10.5px;
-  letter-spacing: 0.2em;
-  text-transform: uppercase;
+  font-size: 13px;
 }
 
 .dot {
@@ -95,9 +92,7 @@
 
 .lead {
   color: var(--log-muted);
-  font-family: var(--log-mono);
-  font-size: 11.5px;
-  letter-spacing: 0.02em;
+  font-size: 13px;
 }
 
 .leadTime {
@@ -115,8 +110,7 @@
 
 .clock {
   flex: none;
-  font-family: var(--log-mono);
-  font-size: 11.5px;
+  font-size: 13px;
 }
 
 .name {
@@ -124,9 +118,8 @@
   min-width: 3em;
   overflow: hidden;
   font-family: var(--log-sans);
-  font-size: 13.5px;
+  font-size: 13px;
   font-weight: 400;
-  letter-spacing: 0;
   text-overflow: ellipsis;
 }
 
@@ -137,7 +130,7 @@
   overflow: hidden;
   color: var(--log-faint);
   font-family: var(--log-sans);
-  font-size: 12px;
+  font-size: 13px;
   text-overflow: ellipsis;
 }
 
@@ -145,29 +138,24 @@
   flex: none;
   color: var(--log-faint);
   font-family: var(--log-sans);
-  font-size: 12px;
+  font-size: 13px;
 }
 
 .meta {
   display: flex;
   gap: 8px;
   color: var(--log-muted);
-  font-family: var(--log-mono);
-  font-size: 11.5px;
+  font-size: 13px;
 }
 
 .meta .faint {
-  font-family: var(--log-mono);
-  font-size: 11.5px;
+  font-size: 13px;
 }
 
 .new {
   flex: none;
   color: var(--log-accent);
-  font-family: var(--log-mono);
-  font-size: 9.5px;
-  letter-spacing: 0.14em;
-  text-transform: uppercase;
+  font-size: 13px;
 }
 
 /* 처음 남긴 장소: 별빛 점 하나 */
@@ -219,7 +207,7 @@
 
 /* 가장 최근 루트: 시각만 한 단계 또렷하게 */
 .latest .clock {
-  font-weight: 600;
+  font-weight: 500;
 }
 
 .pending {

@@ -221,7 +221,7 @@ export function TrackingControls({
             key="active"
             role="group"
             aria-label="활성 경로 기록 제어"
-            className="san-veil flex items-center gap-2 rounded-full p-2"
+            className="san-record-group flex items-center gap-2 rounded-full p-2"
             {...swap}
           >
             {canSavePlace ? (
@@ -270,18 +270,13 @@ export function TrackingControls({
               className={`san-pill relative h-[56px] w-[56px] san-pill-icon ${
                 stopArmed ? "san-pill-danger" : ""
               }`}
+              style={
+                stopArmed
+                  ? { boxShadow: "inset 0 0 0 1px var(--san-error)" }
+                  : undefined
+              }
             >
               <StopIcon />
-              {stopArmed && (
-                <span
-                  aria-hidden="true"
-                  className="san-ripples san-ripples-bare san-ripples-overlay text-san-error"
-                  style={{ ["--size" as string]: "84px" }}
-                >
-                  <i style={{ borderColor: "currentColor" }} />
-                  <i style={{ borderColor: "currentColor" }} />
-                </span>
-              )}
             </button>
           </motion.div>
         )}
@@ -302,7 +297,7 @@ export function TrackingControls({
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
               transition={{ duration: reducedMotion ? 0 : 0.3, ease: "easeOut" }}
-              className={`rounded-full px-3 py-1 text-center text-[12px] ${
+              className={`rounded-full px-3 py-1 text-center text-[13px] ${
                 stopArmed ? "text-san-error" : "text-san-text"
               }`}
             >

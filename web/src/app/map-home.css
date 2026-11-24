@@ -75,73 +75,36 @@
   backdrop-filter: blur(14px);
 }
 
-/* 기록 HUD: 큰 블러 원 + 정밀한 수치 */
+/* 기록 중 수치: 지도 위의 작은 단색 면 + 얇은 선 */
 .san-hud {
-  position: relative;
-  display: grid;
+  display: flex;
   width: 100%;
-  place-items: center;
-  padding: 18px 0 22px;
+  justify-content: center;
+  padding: 0 16px;
   pointer-events: none;
 }
 
-.san-hud-orb {
-  top: 50%;
-  left: 50%;
-  width: 208px;
-  height: 208px;
-  margin: -104px 0 0 -104px;
-}
-
-.san-hud-ring {
-  top: 50%;
-  left: 50%;
-  width: 250px;
-  height: 132px;
-  margin: -66px 0 0 -125px;
-  transform: rotate(-14deg);
-}
-
 .san-hud-body {
-  position: relative;
   display: grid;
+  min-width: 200px;
   justify-items: center;
-  gap: 6px;
+  gap: 2px;
+  padding: 14px 24px 16px;
+  border-radius: var(--san-radius-lg);
+  background: var(--san-background);
+  box-shadow: inset 0 0 0 1px var(--san-border);
   text-align: center;
-}
-
-.san-hud-value {
-  color: var(--san-text);
-  font-family: var(--san-font-mono);
-  font-size: 40px;
-  font-weight: 300;
-  line-height: 1.1;
-  letter-spacing: -0.02em;
-  font-variant-numeric: tabular-nums;
-}
-
-.san-hud-value small {
-  margin-left: 6px;
-  font-size: 12px;
-  font-weight: 400;
-  letter-spacing: 0.16em;
-  text-transform: uppercase;
 }
 
 .san-hud-meta {
   display: flex;
   align-items: center;
-  gap: 12px;
+  gap: 8px;
+  font-variant-numeric: tabular-nums;
 }
 
-@media (max-height: 700px) {
-  .san-hud-orb {
-    width: 164px;
-    height: 164px;
-    margin: -82px 0 0 -82px;
-  }
-
-  .san-hud-value {
-    font-size: 32px;
-  }
+/* 기록 중 버튼 묶음: 같은 단색 면 + 얇은 선 */
+.san-record-group {
+  background: var(--san-background);
+  box-shadow: inset 0 0 0 1px var(--san-border);
 }

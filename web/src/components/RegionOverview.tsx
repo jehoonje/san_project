@@ -66,7 +66,7 @@ export function RegionOverview({ summary }: RegionOverviewProps) {
       </AnimatePresence>
 
       {summary.localName && summary.localName !== summary.displayName && (
-        <p className="mt-1.5 text-[13px] font-light text-san-text">
+        <p className="mt-1.5 text-[13px] text-san-text">
           {summary.localName}
         </p>
       )}
@@ -74,10 +74,10 @@ export function RegionOverview({ summary }: RegionOverviewProps) {
       <dl className="mt-7 grid grid-cols-3 gap-4">
         {metrics.map((metric) => (
           <div key={metric.label} className="min-w-0">
-            <dd className="m-0 font-mono text-[19px] font-light leading-none tracking-[-0.01em] tabular-nums text-san-text">
+            <dd className="m-0 text-[20px] leading-none tabular-nums text-san-text">
               {metric.value}
             </dd>
-            <dt className="mt-2.5 text-[11.5px] leading-snug text-san-text">
+            <dt className="mt-2.5 text-[13px] leading-snug text-san-text">
               {metric.label}
             </dt>
           </div>
@@ -85,7 +85,7 @@ export function RegionOverview({ summary }: RegionOverviewProps) {
       </dl>
 
       {(summary.countsError || summary.regionError) && (
-        <p role="status" className="mt-4 text-[12px] text-san-text">
+        <p role="status" className="mt-4 text-[13px] text-san-text">
           {summary.countsError ?? summary.regionError}
         </p>
       )}

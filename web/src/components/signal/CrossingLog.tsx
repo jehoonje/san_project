@@ -47,7 +47,7 @@ export function CrossingLog({ ownerId, remote }: Props) {
   return (
     <section aria-label="교차 로그">
       <p className="san-eyebrow flex items-center gap-2">
-        CROSSINGS
+        스친 사람
         {items && items.length > 0 && (
           <span className="san-dot san-dot-star" aria-label={`${items.length}번`} />
         )}
@@ -68,7 +68,7 @@ export function CrossingLog({ ownerId, remote }: Props) {
             >
               <span className="san-data w-[11ch] shrink-0">{stamp(item.metAt)}</span>
               <span className="san-data shrink-0 font-medium">{item.peerCallSign}</span>
-              <span className="min-w-0 flex-1 truncate text-[12.5px] text-san-text">
+              <span className="min-w-0 flex-1 truncate text-[13px] text-san-text">
                 {emoteInfo(item.myEmote).label} ↔ {emoteInfo(item.peerEmote).label}
               </span>
               {times > 1 && (
@@ -80,7 +80,7 @@ export function CrossingLog({ ownerId, remote }: Props) {
                 </span>
               )}
               {item.region && (
-                <span className="shrink-0 text-[12px] text-san-muted">
+                <span className="shrink-0 text-[13px] text-san-muted">
                   {item.region}
                 </span>
               )}

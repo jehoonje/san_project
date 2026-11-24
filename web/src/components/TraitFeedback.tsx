@@ -519,7 +519,7 @@ export function TraitFeedback({
           (saving
             ? "저장 중이에요."
             : selected
-              ? "저장했어요. 다시 누르면 취소돼요."
+              ? "저장했어요."
               : "")}
       </p>
     </div>
@@ -535,7 +535,7 @@ const STYLES = `
 
 .trait-feedback > span {
   color: var(--san-text);
-  font-size:11px;
+  font-size:13px;
 }
 
 .trait-feedback-buttons {
@@ -552,7 +552,7 @@ const STYLES = `
   border-radius: 99px;
   background: var(--san-background);
   color: var(--san-text);
-  font-size: 12.5px;
+  font-size: 13px;
   transition: background-color 460ms cubic-bezier(0.22, 1, 0.36, 1), color 460ms cubic-bezier(0.22, 1, 0.36, 1);
 }
 
@@ -576,7 +576,7 @@ button[aria-pressed="true"] {
 .trait-feedback > p {
   margin-top: 7px !important;
   color: var(--san-text);
-  font-size:11px;
+  font-size:13px;
   line-height: 1.8;
 }
 
@@ -594,7 +594,7 @@ button[aria-pressed="true"] {
 
 .trait-feedback-load-error p {
   color: var(--san-text);
-  font-size:11px;
+  font-size:13px;
   line-height: 1.8;
 }
 
@@ -605,6 +605,6 @@ button[aria-pressed="true"] {
   border-radius: 99px;
   background: var(--san-background);
   color: var(--san-text);
-  font-size:11px;
+  font-size:13px;
 }
 `;

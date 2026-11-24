@@ -31,7 +31,7 @@ function AvatarInner({ url, name, size = 40 }: AvatarProps) {
 
   return (
     <div
-      className="flex items-center justify-center rounded-full bg-san-surface font-light text-san-text"
+      className="flex items-center justify-center rounded-full bg-san-surface text-san-text"
       style={{ width: size, height: size, fontSize: size * 0.42 }}
       aria-label={name}
     >

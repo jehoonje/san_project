@@ -21,10 +21,7 @@ function formatElapsed(ms: number) {
   return `${pad(h)}:${pad(m)}:${pad(s)}`;
 }
 
-/**
- * 오늘의 걸음: 큰 블러 원(감성) 위에 정밀한 모노스페이스 수치(데이터).
- * 기록 전에는 낮은 목소리의 한 줄만 둡니다.
- */
+/** 걷는 동안의 수치. 거리 하나만 크게 두고 나머지는 보조로. */
 export function RecordHud({
   status,
   distanceMeters,
@@ -43,52 +40,26 @@ export function RecordHud({
   const active = status !== "idle" && startedAt !== null;
   const km = (distanceMeters / 1000).toFixed(2);
   const elapsed = startedAt ? formatElapsed(now - new Date(startedAt).getTime()) : "00:00:00";
-  const dots = Math.min(placeCount, 6);
 
   return (
     <div className="san-hud">
       <AnimatePresence mode="wait" initial={false}>
         {active ? (
-          <motion.div
-            key="active"
-            className="relative grid w-full place-items-center"
-            {...screenMotion(reduce)}
-          >
-            <span className="san-orb san-hud-orb" aria-hidden="true" />
-            <span className="san-orbit-line san-hud-ring" aria-hidden="true" />
-
-            <div className="san-hud-body">
-              <p className="san-eyebrow flex items-center gap-2">
-                <span
-                  className={`san-dot ${status === "recording" ? "san-dot-live" : "san-dot-faint"}`}
-                  aria-hidden="true"
-                />
-                {status === "recording" ? "REC" : "PAUSED"}
-                <span aria-hidden="true">·</span>
-                <span>{elapsed}</span>
-              </p>
-
-              <p className="san-hud-value m-0" aria-label={`걸은 거리 ${km}킬로미터`}>
-                {km}
-                <small>km</small>
-              </p>
-
-              <p className="san-hud-meta m-0">
-                <span className="san-data">
-                  {Math.round(distanceMeters).toLocaleString("ko-KR")} m
-                </span>
-                {dots > 0 && (
-                  <span
-                    className="flex items-center gap-1.5"
-                    aria-label={`저장한 장소 ${placeCount}곳`}
-                  >
-                    {Array.from({ length: dots }, (_, i) => (
-                      <span key={i} className="san-dot san-dot-star" />
-                    ))}
-                  </span>
-                )}
-              </p>
-            </div>
+          <motion.div key="active" className="san-hud-body" {...screenMotion(reduce)}>
+            <p className="san-t1 tabular-nums" aria-label={`걸은 거리 ${km}킬로미터`}>
+              {km} km
+            </p>
+            <p className="san-t3 san-hud-meta">
+              <span>{status === "recording" ? "기록 중" : "멈춤"}</span>
+              <span aria-hidden="true">·</span>
+              <span>{elapsed}</span>
+              {placeCount > 0 && (
+                <>
+                  <span aria-hidden="true">·</span>
+                  <span>장소 {placeCount}</span>
+                </>
+              )}
+            </p>
           </motion.div>
         ) : null}
       </AnimatePresence>

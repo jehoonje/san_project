@@ -92,10 +92,9 @@
 
 .san-entry-head h1 {
   margin: 14px 0 0;
-  font-size: clamp(24px, 6.6vw, 30px);
-  font-weight: 300;
+  font-size: 20px;
+  font-weight: 500;
   line-height: 1.5;
-  letter-spacing: 0.01em;
   word-break: keep-all;
 }
 
@@ -130,10 +129,9 @@
 .san-menu-text {
   display: inline-flex;
   align-items: center;
-  font-size: clamp(32px, 9vw, 46px);
-  font-weight: 300;
+  font-size: 20px;
+  font-weight: 500;
   line-height: 1.5;
-  letter-spacing: 0.18em;
 }
 
 .san-menu-char {
@@ -235,7 +233,7 @@
 
 .san-input::placeholder {
   color: var(--san-text-muted);
-  font-weight: 300;
+  font-weight: 400;
 }
 
 .san-input:focus {
@@ -267,7 +265,6 @@
   border-radius: var(--san-radius-pill);
   font-size: 15px;
   font-weight: 400;
-  letter-spacing: 0.01em;
   cursor: pointer;
   box-shadow: none;
   transition:
@@ -393,8 +390,8 @@
 
 .san-done-text {
   margin: 0 0 14px;
-  font-size: 18px;
-  font-weight: 300;
+  font-size: 20px;
+  font-weight: 500;
 }
 
 /* 화면 설정 */
@@ -437,7 +434,6 @@
 .san-theme-name {
   font-size: 15px;
   font-weight: 400;
-  letter-spacing: 0.02em;
 }
 
 .san-theme-dot {

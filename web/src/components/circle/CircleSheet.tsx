@@ -149,7 +149,7 @@ export function CircleSheet({ myId, onClose, onOpenWalk }: CircleSheetProps) {
 
         <header className="mb-6 flex items-start justify-between gap-4">
           <div>
-            <p className="san-eyebrow">CIRCLE</p>
+            <p className="san-eyebrow">서클</p>
             <h2 id={titleId} className="san-title mt-2">
               동행
             </h2>
@@ -193,7 +193,7 @@ export function CircleSheet({ myId, onClose, onOpenWalk }: CircleSheetProps) {
             </div>
 
             <h3 className="san-eyebrow" style={{ marginTop: 28 }}>
-              WALKS
+              걸음
             </h3>
             {walks === null ? (
               <div className="flex justify-center py-8">
@@ -221,7 +221,7 @@ export function CircleSheet({ myId, onClose, onOpenWalk }: CircleSheetProps) {
                       <span className="san-data w-[5ch] shrink-0">
                         {walkStamp(walk.started_at)}
                       </span>
-                      <span className="min-w-0 flex-1 truncate text-[14px] text-san-text">
+                      <span className="min-w-0 flex-1 truncate text-[15px] text-san-text">
                         {walk.title}
                       </span>
                       {walk.route_places.length > 0 && (
@@ -257,7 +257,7 @@ export function CircleSheet({ myId, onClose, onOpenWalk }: CircleSheetProps) {
           </section>
         ) : (
           <>
-        <p className="mb-7 text-[12.5px] leading-relaxed text-san-text">
+        <p className="mb-7 text-[13px] leading-relaxed text-san-text">
           같은 서클에 있게 된 뒤의 걸음과 장소만 서로에게 보여요. 그 전의
           기록은 보이지 않고, 나가면 그때부터 아무것도 보이지 않아요. 최대{" "}
           {CIRCLE_MAX}명까지 함께할 수 있어요.
@@ -292,7 +292,7 @@ export function CircleSheet({ myId, onClose, onOpenWalk }: CircleSheetProps) {
                             size={28}
                           />
                         </span>
-                        <span className="text-[12.5px] text-san-text">
+                        <span className="text-[13px] text-san-text">
                           {member.userId === myId ? "나" : member.displayName}
                         </span>
                       </>
@@ -326,7 +326,7 @@ export function CircleSheet({ myId, onClose, onOpenWalk }: CircleSheetProps) {
                     aria-label={`${circle.name} 초대 코드 복사`}
                   >
                     <CopyIcon />
-                    <span className="font-mono tracking-[0.14em]">
+                    <span className="font-mono">
                       {circle.inviteCode}
                     </span>
                   </button>
@@ -365,7 +365,7 @@ export function CircleSheet({ myId, onClose, onOpenWalk }: CircleSheetProps) {
         )}
 
         <section className="mt-9" aria-label="서클 만들기">
-          <h3 className="san-eyebrow">NEW</h3>
+          <h3 className="san-eyebrow">새 서클</h3>
           <div className="mt-3 flex gap-2">
             <input
               value={name}
@@ -392,7 +392,7 @@ export function CircleSheet({ myId, onClose, onOpenWalk }: CircleSheetProps) {
         </section>
 
         <section className="mt-7" aria-label="서클 참여">
-          <h3 className="san-eyebrow">JOIN</h3>
+          <h3 className="san-eyebrow">초대 코드로 참여</h3>
           <div className="mt-3 flex gap-2">
             <input
               value={code}
@@ -401,7 +401,7 @@ export function CircleSheet({ myId, onClose, onOpenWalk }: CircleSheetProps) {
               placeholder="초대 코드"
               autoCapitalize="characters"
               autoComplete="off"
-              className="san-field-input flex-1 font-mono tracking-[0.2em]"
+              className="san-field-input flex-1"
               aria-label="초대 코드"
             />
             <button
@@ -424,7 +424,7 @@ export function CircleSheet({ myId, onClose, onOpenWalk }: CircleSheetProps) {
 
         <p
           role="status"
-          className="mt-5 min-h-5 text-center text-[12.5px] text-san-text"
+          className="mt-5 min-h-5 text-center text-[13px] text-san-text"
         >
           {message}
         </p>

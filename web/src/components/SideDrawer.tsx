@@ -43,8 +43,8 @@ const DURATION_MS = 460;
 const EASE = "cubic-bezier(0.22, 1, 0.36, 1)";
 
 const THEMES: { id: SanTheme; label: string }[] = [
-  { id: "light", label: "Light" },
-  { id: "dark", label: "Dark" },
+  { id: "light", label: "라이트" },
+  { id: "dark", label: "다크" },
 ];
 
 export function SideDrawer({
@@ -200,7 +200,7 @@ export function SideDrawer({
 
         <header className="mb-5 flex items-center justify-between gap-4">
           <h2 id={titleId} className="san-eyebrow">
-            {guest ? "GUEST" : "ACCOUNT"}
+            {guest ? "게스트" : "계정"}
           </h2>
 
           <button
@@ -234,7 +234,7 @@ export function SideDrawer({
 
         {/* 테마: 종이 / 먹 */}
         <section className="mt-9" aria-label="화면 테마">
-          <h3 className="san-eyebrow">THEME</h3>
+          <h3 className="san-eyebrow">화면</h3>
           <div className="mt-3 flex gap-2" role="group">
             {THEMES.map((item) => (
               <button
@@ -253,9 +253,9 @@ export function SideDrawer({
         {/* 동행 서클 */}
         {!guest && onOpenCircles && (
           <section className="mt-9" aria-label="동행 서클">
-            <h3 className="san-eyebrow">CIRCLE</h3>
+            <h3 className="san-eyebrow">서클</h3>
             <div className="mt-3 flex items-center justify-between gap-4">
-              <p className="m-0 min-w-0 flex-1 truncate text-[14px] text-san-text">
+              <p className="m-0 min-w-0 flex-1 truncate text-[15px] text-san-text">
                 {circleMates > 0
                   ? `${circleMates}명과 함께 걷고 있어요`
                   : "아직 함께 걷는 사람이 없어요"}
@@ -273,9 +273,9 @@ export function SideDrawer({
 
         {/* 근처 신호 */}
         <section className="mt-9" aria-label="근처 신호">
-          <h3 className="san-eyebrow">SIGNAL</h3>
+          <h3 className="san-eyebrow">근처 산책자</h3>
           <div className="mt-3 flex items-center justify-between gap-4">
-            <p className="m-0 flex min-w-0 items-center gap-2.5 text-[14px] text-san-text">
+            <p className="m-0 flex min-w-0 items-center gap-2.5 text-[15px] text-san-text">
               <span
                 className={`san-dot ${
                   signal.on && signal.status === "live"
@@ -298,7 +298,7 @@ export function SideDrawer({
               {signal.on ? "켜짐" : "꺼짐"}
             </button>
           </div>
-          <p className="mt-3 text-[12.5px] leading-relaxed text-san-text">
+          <p className="mt-3 text-[13px] leading-relaxed text-san-text">
             정확한 위치 대신 대략적인 위치만 공유돼요. 근처 산책자의
             아바타를 누르면 내 아바타가 그쪽을 보고 인사해요.
           </p>
@@ -306,7 +306,7 @@ export function SideDrawer({
           {memoryOwner && memory?.available && (
             <div className="mt-5">
               <div className="flex items-center justify-between gap-4">
-                <p className="m-0 min-w-0 flex-1 text-[14px] text-san-text">
+                <p className="m-0 min-w-0 flex-1 text-[15px] text-san-text">
                   다시 스친 사람 알아보기
                 </p>
                 <button
@@ -322,7 +322,7 @@ export function SideDrawer({
                   {memory.enabled ? "켜짐" : "꺼짐"}
                 </button>
               </div>
-              <p className="mt-3 text-[12.5px] leading-relaxed text-san-text">
+              <p className="mt-3 text-[13px] leading-relaxed text-san-text">
                 서로 인사를 주고받은 사람끼리만 다음에 다시 알아봐요. 끄면
                 지금까지의 연결이 지워지고, 아무도 나를 다시 알아보지 못해요.
               </p>
@@ -337,9 +337,9 @@ export function SideDrawer({
         </section>
 
         <section className="mt-9">
-          <h3 className="san-eyebrow">MAP</h3>
+          <h3 className="san-eyebrow">지도 출처</h3>
 
-          <p className="mt-3 text-[12px] leading-relaxed text-san-text">
+          <p className="mt-3 text-[13px] leading-relaxed text-san-text">
             지도 데이터 ©{" "}
             <a
               href="https://www.openstreetmap.org/copyright"

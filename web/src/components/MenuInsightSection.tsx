@@ -326,21 +326,17 @@ const STYLES = `
 }
 
 .menu-insight-heading > span {
-  color: var(--san-text);
-  font-family: var(--san-font-mono);
-  font-size: 10.5px;
-  font-weight: 500;
-  letter-spacing: .2em;
-  text-transform: uppercase;
+  color: var(--san-text-muted);
+  font-size: 13px;
+  font-weight: 400;
 }
 
 .menu-insight-heading h2 {
   margin-top: 14px;
   color: var(--san-text);
-  font-size: clamp(29px, 8vw, 40px);
-  font-weight:300;
+  font-size: 20px;
+  font-weight: 500;
   line-height: 1.25;
-  letter-spacing:0;
   word-break: keep-all;
 }
 
@@ -364,8 +360,7 @@ const STYLES = `
 .menu-insight-index {
   flex-shrink: 0;
   color: var(--san-text);
-  font-family: var(--san-font-mono);
-  font-size:11px;
+  font-size:13px;
   font-variant-numeric: tabular-nums;
 }
 
@@ -374,17 +369,15 @@ const STYLES = `
   min-width: 100px;
   margin: 0;
   color: var(--san-text);
-  font-size: 23px;
-  font-weight:300;
+  font-size: 20px;
+  font-weight: 500;
   line-height: 1.45;
-  letter-spacing:0;
   overflow-wrap: anywhere;
 }
 
 .menu-insight-count {
   color: var(--san-text);
-  font-family: var(--san-font-mono);
-  font-size:11px;
+  font-size:13px;
   font-variant-numeric: tabular-nums;
 }
 
@@ -405,21 +398,21 @@ const STYLES = `
 
 .menu-insight-place-heading > span {
   color: var(--san-text);
-  font-size: 12px;
+  font-size: 13px;
   line-height: 1.8;
   overflow-wrap: anywhere;
 }
 
 .menu-insight-place-heading > small {
   color: var(--san-text);
-  font-size:11px;
+  font-size:13px;
   line-height: 1.8;
 }
 
 .menu-insight-original {
   margin-top: 3px !important;
   color: var(--san-text);
-  font-size:11px;
+  font-size:13px;
   line-height: 1.8;
   overflow-wrap: anywhere;
 }
@@ -427,7 +420,7 @@ const STYLES = `
 .menu-insight-more {
   margin: 12px 0 0 25px !important;
   color: var(--san-text);
-  font-size:11px;
+  font-size:13px;
   line-height: 1.8;
 }
 
@@ -437,14 +430,14 @@ const STYLES = `
 
 .menu-insight-footer > span {
   color: var(--san-text);
-  font-size:11px;
+  font-size:13px;
   line-height: 1.8;
 }
 
 .menu-insight-footer > p {
   margin-top: 7px !important;
   color: var(--san-text);
-  font-size:11px;
+  font-size:13px;
   line-height: 1.8;
 }
 
@@ -454,8 +447,7 @@ const STYLES = `
   }
 
   .menu-insight-item h3 {
-    font-size: 27px;
-  }
+    font-size: 20px; font-weight: 500}
 
   .menu-insight-place-heading > span {
     font-size: 13px;

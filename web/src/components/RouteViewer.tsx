@@ -314,57 +314,33 @@ export function RouteViewer({
         onPointerDown={(event) => event.stopPropagation()}
         aria-label={`${route.title} 루트 정보`}
       >
-        <p className="san-eyebrow">
-          {formatDay(route.started_at)}
+        <p className="san-t3">
+          {formatDay(route.started_at)} · {formatClock(route.started_at)}–
+          {formatClock(route.ended_at)}
           {byline ? ` · ${byline}` : ""}
         </p>
-        <h2 className="san-display mt-2 line-clamp-2">{route.title}</h2>
+        <h2 className="san-t1 mt-1 line-clamp-2">{route.title}</h2>
 
-        {/* 큰 수치 하나 + 정밀한 보조 수치 */}
-        <dl className="m-0 mt-5 flex items-end gap-6">
-          <div>
-            <dt className="sr-only">거리</dt>
-            <dd className="m-0 font-mono text-[34px] font-light leading-none tracking-[-0.02em] tabular-nums">
-              {km}
-              <span className="ml-1.5 text-[11px] tracking-[0.16em]">KM</span>
-            </dd>
+        <dl className="m-0 mt-4 flex flex-wrap items-baseline gap-x-6 gap-y-2">
+          <div className="flex items-baseline gap-1.5">
+            <dt className="san-t3">거리</dt>
+            <dd className="san-t2 m-0 tabular-nums">{km} km</dd>
           </div>
-          <div className="pb-0.5">
-            <dt className="san-eyebrow">TIME</dt>
-            <dd className="san-data m-0 mt-1">
+          <div className="flex items-baseline gap-1.5">
+            <dt className="san-t3">시간</dt>
+            <dd className="san-t2 m-0 tabular-nums">
               {formatDuration(route.duration_seconds)}
             </dd>
           </div>
           {placeCount > 0 && (
-            <div className="pb-0.5">
-              <dt className="san-eyebrow flex items-center gap-1.5">
-                <span className="san-dot san-dot-star" aria-hidden="true" />
-                PLACES
-              </dt>
-              <dd className="san-data m-0 mt-1">{placeCount}</dd>
+            <div className="flex items-baseline gap-1.5">
+              <dt className="san-t3">장소</dt>
+              <dd className="san-t2 m-0 tabular-nums">{placeCount}</dd>
             </div>
           )}
         </dl>
 
-        {/* 시작/종료 시각 */}
-        <dl className="m-0 mt-5 grid gap-2">
-          <div className="flex items-center gap-3">
-            <dt className="flex w-[74px] items-center gap-2">
-              <span className="san-route-dot h-2 w-2" aria-hidden="true" />
-              <span className="san-eyebrow">START</span>
-            </dt>
-            <dd className="san-data m-0">{formatClock(route.started_at)}</dd>
-          </div>
-          <div className="flex items-center gap-3">
-            <dt className="flex w-[74px] items-center gap-2">
-              <span className="san-dot h-2 w-2" aria-hidden="true" />
-              <span className="san-eyebrow">END</span>
-            </dt>
-            <dd className="san-data m-0">{formatClock(route.ended_at)}</dd>
-          </div>
-        </dl>
-
-        {/* 이 걸음에 남긴 장소. 내 걸음이고 서클이 있으면 눌러서 건넵니다 */}
+        {/* 남긴 장소. 내 걸음이고 서클이 있으면 눌러서 건넵니다 */}
         {placeCount > 0 && (
           <ul
             className="san-no-scrollbar -mx-6 mb-0 mt-4 flex list-none gap-2 overflow-x-auto px-6 py-0"
@@ -375,16 +351,17 @@ export function RouteViewer({
                 {onHandPlace ? (
                   <button
                     type="button"
-                    className="san-pill min-h-11 gap-2 px-4 text-[13px]"
+                    className="san-pill san-pill-sm"
                     onClick={() => onHandPlace(place)}
                     aria-label={`${place.name} 서클에 건네기`}
                   >
-                    <span className="san-dot san-dot-star" aria-hidden="true" />
                     <span className="max-w-[14ch] truncate">{place.name}</span>
+                    <svg className="san-icon text-san-muted" viewBox="0 0 24 24" aria-hidden="true">
+                      <path d="M5 12h13M13 6.5l5.5 5.5-5.5 5.5" />
+                    </svg>
                   </button>
                 ) : (
-                  <span className="flex min-h-11 items-center gap-2 text-[13px] text-san-text">
-                    <span className="san-dot san-dot-star" aria-hidden="true" />
+                  <span className="san-pill san-pill-sm pointer-events-none">
                     <span className="max-w-[14ch] truncate">{place.name}</span>
                   </span>
                 )}
