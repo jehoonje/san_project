@@ -23,8 +23,7 @@ export default function SplashPage() {
 
   return (
     <main className="fixed inset-0 flex flex-col items-center justify-center gap-8 bg-san-bg text-san-text">
-      <span className="san-ripples" style={{ ["--size" as string]: "96px" }}>
-        <i />
+      <span className="san-ripples" style={{ ["--size" as string]: "40px" }} aria-hidden="true">
         <i />
         <i />
       </span>

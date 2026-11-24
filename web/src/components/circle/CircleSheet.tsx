@@ -197,7 +197,7 @@ export function CircleSheet({ myId, onClose, onOpenWalk }: CircleSheetProps) {
             </h3>
             {walks === null ? (
               <div className="flex justify-center py-8">
-                <span className="san-ripples" style={{ ["--size" as string]: "36px" }}>
+                <span className="san-ripples" style={{ ["--size" as string]: "28px" }}>
                   <i />
                   <i />
                 </span>
@@ -265,7 +265,7 @@ export function CircleSheet({ myId, onClose, onOpenWalk }: CircleSheetProps) {
 
         {circles === null ? (
           <div className="flex justify-center py-10">
-            <span className="san-ripples" style={{ ["--size" as string]: "40px" }}>
+            <span className="san-ripples" style={{ ["--size" as string]: "28px" }}>
               <i />
               <i />
             </span>

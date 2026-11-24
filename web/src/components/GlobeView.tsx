@@ -654,12 +654,14 @@ export function GlobeView({ owner, getLocation, onClose }: GlobeViewProps) {
 
         <div className="san-veil pointer-events-auto flex items-center gap-4 rounded-full px-5 py-3">
           {status === "loading" && (
-            <span className="flex items-center gap-3">
-              <span className="san-ripples" style={{ ["--size" as string]: "22px" }}>
-                <i />
-                <i />
-              </span>
-              <span className="text-[13px]">불러오는 중</span>
+            <span
+              className="san-ripples"
+              role="status"
+              aria-label="불러오는 중"
+              style={{ ["--size" as string]: "20px" }}
+            >
+              <i />
+              <i />
             </span>
           )}
 

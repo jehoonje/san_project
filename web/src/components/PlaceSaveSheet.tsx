@@ -211,12 +211,10 @@ export function PlaceSaveSheet({
               role="status"
               aria-label="주변 장소 검색 중"
             >
-              <span className="san-ripples" style={{ ["--size" as string]: "40px" }}>
-                <i />
+              <span className="san-ripples" style={{ ["--size" as string]: "24px" }} aria-hidden="true">
                 <i />
                 <i />
               </span>
-              <p className="san-t3">주변 장소 찾는 중</p>
             </div>
           )}
 

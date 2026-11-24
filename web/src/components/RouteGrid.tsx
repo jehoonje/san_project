@@ -12,8 +12,6 @@ import {
 } from "@/lib/routeStore";
 import { RouteTitleModal } from "@/components/RouteTitleModal";
 import { RouteLog } from "@/components/RouteLog";
-import { TodayNoteRow } from "@/components/TodayNoteRow";
-import { today } from "@/lib/dayNotes";
 import type { ReactNode } from "react";
 import type { DayNote } from "@/lib/dayNotes";
 import type { SavedRoute } from "@/types/route";
@@ -250,8 +248,6 @@ export function RouteGrid({
   onSelectDay,
   header,
   footer,
-  todayNote = "",
-  onOpenToday,
 }: RouteGridProps) {
   const ownerKey = owner.kind === "user" ? owner.userId : "guest";
   const reducedMotion = useReducedMotion();
@@ -409,8 +405,7 @@ export function RouteGrid({
         role="status"
         aria-label="루트 불러오는 중"
       >
-        <span className="san-ripples">
-          <i />
+        <span className="san-ripples" style={{ ["--size" as string]: "28px" }} aria-hidden="true">
           <i />
           <i />
         </span>
@@ -426,24 +421,7 @@ export function RouteGrid({
     );
   }
 
-  // 오늘 걸은 기록이 있으면 한 줄 자리는 두지 않습니다
-  const walkedToday = routes.some(
-    (route) =>
-      new Date(
-        new Date(route.started_at ?? route.created_at).getTime() + 9 * 3600 * 1000,
-      )
-        .toISOString()
-        .slice(0, 10) === today(),
-  );
-
-  const head = (
-    <>
-      {header}
-      {!walkedToday && onOpenToday && (
-        <TodayNoteRow note={todayNote} onOpen={onOpenToday} />
-      )}
-    </>
-  );
+  const head = <>{header}</>;
 
   if (!routes.length && dayNotes.length === 0) {
     return (

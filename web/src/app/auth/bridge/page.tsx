@@ -55,12 +55,15 @@ export default function AuthBridgePage() {
           </>
         ) : (
           <>
-            <span className="san-ripples mx-auto" aria-hidden="true">
-              <i />
+            <span
+              className="san-ripples mx-auto"
+              role="status"
+              aria-label="앱으로 돌아가는 중"
+              style={{ ["--size" as string]: "28px" }}
+            >
               <i />
               <i />
             </span>
-            <p className="mt-5 text-[13px] text-san-text">앱으로 돌아가는 중</p>
           </>
         )}
       </section>

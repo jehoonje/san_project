@@ -463,13 +463,15 @@ export function AnalysisReport({ accessToken }: Props) {
       <StorySectionStyles />
       <style>{STYLES}</style>
       {state.status === "loading" && (
-        <div className={s.loading} role="status" aria-live="polite">
-          <span className={`san-ripples ${s.ripples}`} aria-hidden="true">
-            <i />
+        <div className={s.loading} role="status" aria-live="polite" aria-label="기록 분석 중">
+          <span
+            className={`san-ripples ${s.ripples}`}
+            style={{ ["--size" as string]: "28px" }}
+            aria-hidden="true"
+          >
             <i />
             <i />
           </span>
-          <p>기록을 분석하는 중</p>
           {state.total > 0 && (
             <div className="ar-progress">
               <div

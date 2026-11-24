@@ -9,12 +9,16 @@
   --ink: var(--san-text);
   --muted: var(--san-text-muted);
   box-sizing: border-box;
-  height: 100%;
   min-height: 0;
   overflow-x: hidden;
   overflow-y: auto;
   overscroll-behavior-y: contain;
   padding-bottom: calc(128px + env(safe-area-inset-bottom, 0px));
+  /* 상단 바 아래까지 이어지게: 머리 카드의 그라데이션이 상단 바 뒤로 번짐 */
+  --bar: calc(76px + env(safe-area-inset-top, 0px));
+  height: calc(100% + var(--bar));
+  margin-top: calc(-1 * var(--bar));
+  padding-top: var(--bar);
   background: var(--san-background);
   color: var(--ink);
   font-family: inherit;
@@ -68,7 +72,7 @@
 .orb {
   position: absolute;
   z-index: -1;
-  inset: -64px -24px -48px;
+  inset: calc(-64px - var(--bar)) -24px -48px;
   background:
     radial-gradient(52% 46% at 78% 26%, var(--san-orb-warm), transparent 72%),
     radial-gradient(48% 42% at 92% 62%, var(--san-orb-cool), transparent 74%),

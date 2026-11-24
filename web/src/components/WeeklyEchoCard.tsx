@@ -94,12 +94,14 @@ export function WeeklyEchoCard({ accessToken, myId, mates }: WeeklyEchoCardProps
 
   if (state.status === "loading") {
     return (
-      <div className="flex items-center gap-4 px-6 py-7">
-        <span className="san-ripples" style={{ ["--size" as string]: "32px" }}>
-          <i />
-          <i />
+      // 높이 0: 목록이 밀리거나 튀지 않게, 오른쪽 위에 작게만
+      <div className="relative h-0" role="status" aria-label="이번 주 기록 불러오는 중">
+        <span className="absolute right-6 top-4" aria-hidden="true">
+          <span className="san-ripples" style={{ ["--size" as string]: "18px" }}>
+            <i />
+            <i />
+          </span>
         </span>
-        <p className="m-0 text-[13px] text-san-text">이번 주를 묶고 있어요</p>
       </div>
     );
   }

@@ -299,42 +299,30 @@
   animation: san-ripple var(--san-breath) var(--san-ease) infinite;
 }
 
-/* 로딩·빈 상태: 곡선 파문 */
+/* 로딩: 퍼지는 가는 선 두 겹 (가운데 점 없이, 작게) */
 .san-ripples {
   position: relative;
   display: block;
-  width: var(--size, 72px);
-  height: var(--size, 72px);
+  width: var(--size, 28px);
+  height: var(--size, 28px);
   flex: none;
 }
 
 .san-ripples > i {
   position: absolute;
   inset: 0;
-  border: 0.75px solid var(--san-text);
+  border: 1px solid var(--san-text-muted);
   border-radius: 50%;
   opacity: 0;
-  animation: san-ripple-wide var(--san-breath) var(--san-ease) infinite;
+  animation: san-ripple-wide 2.4s var(--san-ease) infinite;
 }
 
 .san-ripples > i:nth-child(2) {
-  animation-delay: calc(var(--san-breath) / 3);
+  animation-delay: 1.2s;
 }
 
-.san-ripples > i:nth-child(3) {
-  animation-delay: calc(var(--san-breath) / 3 * 2);
-}
-
-.san-ripples::after {
-  position: absolute;
-  top: 50%;
-  left: 50%;
-  width: 4px;
-  height: 4px;
-  margin: -2px 0 0 -2px;
-  border-radius: 50%;
-  background: var(--san-text);
-  content: "";
+.san-ripples > i:nth-child(n + 3) {
+  display: none;
 }
 
 /* 버튼 둘레의 파문: 가운데 점 없이 선만, 버튼 중심에 정확히 겹침 */
